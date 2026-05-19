@@ -3852,7 +3852,7 @@ function parseENJETPRTextLocally(pdfText) {
   if(sumMatch) expectedCount = Math.max(expectedCount, parseInt(sumMatch[1], 10));
   
   // 패턴 2: 마지막 No (33번까지 있으면 33개)
-  const lastNo = result.items.length > 0 ? Math.max(...result.items.map(it => it.no || 0)) : 0;
+  const maxItemNo = result.items.length > 0 ? Math.max(...result.items.map(it => it.no || 0)) : 0;
   
   // 패턴 3: PDF 전체에서 No(번호)의 최댓값 찾기 (놓친 행 있는지 확인)
   // "No\n1\n품명..." 형태이거나 "1 품명 ... \n2 품명 ..." 같은 줄에서 첫 숫자
@@ -3871,8 +3871,9 @@ function parseENJETPRTextLocally(pdfText) {
     else break;
   }
   if(consecutiveMax > expectedCount) expectedCount = consecutiveMax;
+  if(maxItemNo > expectedCount) expectedCount = maxItemNo;
   
-  console.log(`📊 검증: 목표 ${expectedCount}개 (합계라인 ${sumMatch?.[1]||"-"} / 마지막No ${lastNo} / 연속최대 ${consecutiveMax}) vs 추출 ${result.items.length}개`);
+  console.log(`📊 검증: 목표 ${expectedCount}개 (합계라인 ${sumMatch?.[1]||"-"} / 마지막No ${maxItemNo} / 연속최대 ${consecutiveMax}) vs 추출 ${result.items.length}개`);
   
   result._expectedCount = expectedCount;
   result._isComplete = expectedCount > 0 ? (result.items.length >= expectedCount) : true;
