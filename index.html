@@ -1551,7 +1551,7 @@
               </div>
 
               <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;align-items:center">
-                <a href="https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.planner/_djb2_msteams_prefix_2457438311?context=%7B%22channelId%22%3A%2219%3A15cae7e9dec84ce1ae4909e6f7c25634%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e" target="_blank"
+                <a href="https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.planner/_djb2_msteams_prefix_271436294?context=%7B%22channelId%22%3A%2219%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e" target="_blank"
                   style="font-size:12px;color:var(--p);text-decoration:none">🔗 Planner 열기</a>
                 <button onclick="copySLMtgResult()"
                   style="padding:8px 18px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:14px;cursor:pointer;font-family:var(--s)">
@@ -4678,7 +4678,7 @@ async function syncFromSharedOutlookContacts() {
   if(btn) { btn.disabled=true; btn.textContent="⏳ 읽는 중..."; }
   try {
     const t = await getToken();
-    // futresales 그룹 멤버 조회
+    // 구매 그룹(pr@enjet.co.kr) 멤버 조회
     const gid = await findTeamsGroup();
     if(!gid) throw new Error("그룹을 찾을 수 없습니다.");
     const members = await gGet("/groups/"+gid+"/members?$select=id,displayName,userPrincipalName");
@@ -6601,7 +6601,7 @@ function renderExhSummaryCards(exhs) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 전시회 일정 시스템 (Teams 채널 캘린더 연동)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const TEAMS_CHANNEL_ID = "19:15cae7e9dec84ce1ae4909e6f7c25634@thread.tacv2";
+const TEAMS_CHANNEL_ID = "19:b1e966aa118749a885eb61d3325aa05c@thread.tacv2";
 const EXH_SP_FILE = "🏭 구매/99.Dashboard(real-time)/exhibitions.json";
 const EXH_FOLDER_BASE = "📦영업/6. 마케팅/전시회"; // 전시회 파일 폴더
 let exhSchedule = [];   // 전체 전시회 일정
@@ -6610,9 +6610,9 @@ let teamsGroupId = null; // Teams 그룹 ID (자동 탐색)
 
 // Teams 그룹 ID 자동 탐색 (채널 ID로)
 let _findingGroup = false;
-// 영업 그룹 이메일 (1순위 - 직접 조회)
-// 실제 그룹: 미래성장전략팀, mail=futresales@enjet.co.kr, mailNickname=futresales
-const SALES_GROUP_EMAIL = "futresales@enjet.co.kr";
+// 구매 그룹 이메일 (1순위 - 직접 조회)
+// 실제 그룹: 구매팀, mail=pr@enjet.co.kr, mailNickname=pr
+const PURCHASE_GROUP_EMAIL = "pr@enjet.co.kr";
 
 // sessionStorage에 팀 ID 캐싱 → 재로그인 전까지 재탐색 불필요
 async function findTeamsGroup() {
@@ -6621,11 +6621,11 @@ async function findTeamsGroup() {
   const cached = sessionStorage.getItem("enjet_teams_group_id");
   const cachedEmail = sessionStorage.getItem("enjet_teams_group_email") || "";
   // 새 그룹 이메일과 일치하면 캐시 사용
-  if(cached && cachedEmail.toLowerCase() === SALES_GROUP_EMAIL.toLowerCase()) {
+  if(cached && cachedEmail.toLowerCase() === PURCHASE_GROUP_EMAIL.toLowerCase()) {
     teamsGroupId=cached; return cached;
   }
   if(cached) {
-    console.log("⚠️ 캐시된 그룹이 새 영업 그룹 아님 - 재탐색:", cachedEmail);
+    console.log("⚠️ 캐시된 그룹이 새 구매 그룹 아님 - 재탐색:", cachedEmail);
     sessionStorage.removeItem("enjet_teams_group_id");
     sessionStorage.removeItem("enjet_teams_group_name");
     sessionStorage.removeItem("enjet_teams_group_email");
@@ -6635,29 +6635,29 @@ async function findTeamsGroup() {
   try {
     // ⭐ 1순위: 이메일로 직접 그룹 조회 (Teams 팀 없어도 작동)
     try {
-      const directR = await gGet("/groups?$filter=mail eq '" + SALES_GROUP_EMAIL + "'&$top=1");
+      const directR = await gGet("/groups?$filter=mail eq '" + PURCHASE_GROUP_EMAIL + "'&$top=1");
       const direct = directR.value?.[0];
       if(direct?.id) {
         teamsGroupId = direct.id;
         sessionStorage.setItem("enjet_teams_group_id", direct.id);
         sessionStorage.setItem("enjet_teams_group_name", direct.displayName);
         sessionStorage.setItem("enjet_teams_group_email", direct.mail||"");
-        console.log("✅ 영업 그룹 직접 조회:", direct.displayName, "(" + direct.mail + ")");
+        console.log("✅ 구매 그룹 직접 조회:", direct.displayName, "(" + direct.mail + ")");
         _findingGroup=false; return direct.id;
       }
     } catch(e){ console.warn("이메일 직접 조회 실패:", e.message); }
 
-    // ⭐ 1.5순위: mailNickname startsWith 검색 (철자 변형 대비: futresales/futuresales 모두)
+    // ⭐ 1.5순위: mailNickname startsWith 검색 (철자 변형 대비: pr/purchase 모두)
     try {
-      const nickR = await gGet("/groups?$filter=startswith(mailNickname,'futresales') or startswith(mailNickname,'futuresales')&$select=id,displayName,mail,mailNickname&$top=5");
-      const candidates = (nickR.value||[]).filter(g=>g.displayName && (g.displayName.includes("미래성장") || g.displayName.includes("영업")));
+      const nickR = await gGet("/groups?$filter=startswith(mailNickname,'pr') or startswith(mailNickname,'purchase')&$select=id,displayName,mail,mailNickname&$top=10");
+      const candidates = (nickR.value||[]).filter(g=>g.displayName && (g.displayName.includes("구매") || g.displayName.toLowerCase().includes("purchase")));
       if(candidates.length) {
         const pick = candidates[0];
         teamsGroupId = pick.id;
         sessionStorage.setItem("enjet_teams_group_id", pick.id);
         sessionStorage.setItem("enjet_teams_group_name", pick.displayName);
         sessionStorage.setItem("enjet_teams_group_email", pick.mail||"");
-        console.log("✅ 영업 그룹 nickname 조회:", pick.displayName, "(" + pick.mail + ")");
+        console.log("✅ 구매 그룹 nickname 조회:", pick.displayName, "(" + pick.mail + ")");
         _findingGroup=false; return pick.id;
       }
     } catch(e){ console.warn("nickname 조회 실패:", e.message); }
@@ -6665,8 +6665,8 @@ async function findTeamsGroup() {
     // 2순위: Teams 팀 목록에서 탐색 (이메일 조회 실패 시 폴백)
     const teams = await gGet("/me/joinedTeams");
     const teamList = teams.value||[];
-    // 영업 그룹 키워드로 우선순위 정렬
-    const priority = ["futuresales","미래성장전략","FutureST","Future ST","미래성장","영업"];
+    // 구매 그룹 키워드로 우선순위 정렬
+    const priority = ["purchase","구매","pr"];
     const sorted = [...teamList].sort((a,b)=>{
       const aP = priority.some(p=>a.displayName.toLowerCase().includes(p.toLowerCase()))?0:1;
       const bP = priority.some(p=>b.displayName.toLowerCase().includes(p.toLowerCase()))?0:1;
@@ -7357,7 +7357,7 @@ async function saveExhEvent() {
 // Teams 그룹 캘린더에 이벤트 생성 (구매활동과 동일한 dateTime 방식)
 async function createTeamsCalEvent(evt) {
   const gid = await findTeamsGroup();
-  if(!gid) throw new Error("Teams 그룹을 찾을 수 없음 (futresales@enjet.co.kr)");
+  if(!gid) throw new Error("Teams 그룹을 찾을 수 없음 (pr@enjet.co.kr)");
   const t = await getToken();
 
   const url = evt.teamsEventId
@@ -7875,7 +7875,7 @@ ${evt.manager?'<tr><td style="padding:2px 8px 2px 0;color:#605e5c">담당자</td
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 구매활동 Log 시스템
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-let SL_TEAMS_CHANNEL_ID = "19:15cae7e9dec84ce1ae4909e6f7c25634@thread.tacv2";
+let SL_TEAMS_CHANNEL_ID = "19:b1e966aa118749a885eb61d3325aa05c@thread.tacv2";
 
 // 채널 ID 자동 검증/재탐색 - 현재 그룹에 해당 채널이 없으면 일반 채널로 자동 전환
 // Teams 팀이 없는 그룹(Outlook 전용 그룹)의 경우 null 반환 → 호출자가 채널 메시지 스킵
@@ -7989,7 +7989,7 @@ function slFileName(act, docType, originalName) {
 const SL_SP_JSON   = "🏭 구매/99.Dashboard(real-time)/sales-activities.json";
 const MTG_LOG_SP_PATH = "🏭 구매/99.Dashboard(real-time)/mtg-logs.json";
 const SL_ADMIN_EMAIL = "baekhoon@enjet.co.kr";
-const PLANNER_URL    = "https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.planner/_djb2_msteams_prefix_2457438311?context=%7B%22channelId%22%3A%2219%3A15cae7e9dec84ce1ae4909e6f7c25634%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
+const PLANNER_URL    = "https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.planner/_djb2_msteams_prefix_271436294?context=%7B%22channelId%22%3A%2219%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
 let _plannerPlanId   = null; // 캐시
 const SL_ADMIN_NAME  = "성백훈";
 // ━━ 현재 로그인 사용자명 가져오기 (이력 user 필드용) ━━
@@ -8293,7 +8293,7 @@ function openTeamsChannelCalendar() {
 
 // 참고용: Teams 채널로 직접 이동하려면 이 함수 사용 (메시지 알림 확인 등)
 function openTeamsChannel() {
-  const channelLink = "https://teams.microsoft.com/l/channel/19%3A15cae7e9dec84ce1ae4909e6f7c25634%40thread.tacv2/?tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
+  const channelLink = "https://teams.microsoft.com/l/channel/19%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2/?tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
   window.open(channelLink, "_blank");
 }
 
@@ -9260,7 +9260,7 @@ async function getPlannerPlanId() {
   const t = await getToken();
 
   // TEAMS_CHANNEL_ID로 그룹 탐색 (경영회의/영업 채널이 속한 그룹)
-  // 채널 ID: 19:15cae7e9dec84ce1ae4909e6f7c25634@thread.tacv2
+  // 채널 ID: 19:b1e966aa118749a885eb61d3325aa05c@thread.tacv2
   let gid = null;
 
   // 1순위: 내가 속한 Teams 팀에서 채널 ID로 탐색
@@ -9279,7 +9279,7 @@ async function getPlannerPlanId() {
     }
   } catch(e){ console.warn("팀 탐색 실패:", e.message); }
 
-  // 2순위: futresales 그룹 (영업 그룹)
+  // 2순위: 구매 그룹 (pr@enjet.co.kr)
   if(!gid) {
     if(!teamsGroupId) await findTeamsGroup();
     gid = teamsGroupId || sessionStorage.getItem("enjet_teams_group_id");
@@ -10204,7 +10204,7 @@ async function saveSLMtgResult() {
         const t2 = await getToken();
         const chId = await ensureSLChannelId();
         if(chId) {
-          const notesUrl = "https://teams.microsoft.com/l/entity/0d820ecd-def2-4297-adad-78056cde7c78/_djb2_msteams_prefix_3255923245?context=%7B%22channelId%22%3A%2219%3A15cae7e9dec84ce1ae4909e6f7c25634%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
+          const notesUrl = "https://teams.microsoft.com/l/entity/0d820ecd-def2-4297-adad-78056cde7c78/_djb2_msteams_prefix_3255923245?context=%7B%22channelId%22%3A%2219%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
           const msgContent = `<p>📝 <b>회의록 저장됨</b></p>
             <table>
               <tr><td><b>고객사</b></td><td>${act.company}</td></tr>
@@ -15478,7 +15478,7 @@ function buildChannelMeetingDeepLink(act) {
 // ─── Channel Calendar 탭 직접 열기 딥링크 ───
 function buildChannelCalendarTabLink() {
   // 캡처에서 확인된 채널 캘린더 탭 ID
-  return "https://teams.microsoft.com/l/channel/19%3A15cae7e9dec84ce1ae4909e6f7c25634%40thread.tacv2/tab%3A%3Af4a239f0-f994-45ae-8f68-7497d449b23d?context=%7B%22channelId%22%3A%2219%3A15cae7e9dec84ce1ae4909e6f7c25634%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
+  return "https://teams.microsoft.com/l/channel/19%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2/tab%3A%3Af4a239f0-f994-45ae-8f68-7497d449b23d?context=%7B%22channelId%22%3A%2219%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
 }
 
 // ─── 채널에 간단한 일정 추가 알림 (그룹 캘린더 자동 등록 후 알림용) ───
