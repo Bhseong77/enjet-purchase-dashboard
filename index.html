@@ -2057,189 +2057,466 @@
       </div>
 
       <!-- 견적서 DB 탭 -->
+      <!-- 📄 견적서 DB (구매: 거래처로부터 수신) -->
       <div class="page" id="tab-quote-db">
         <!-- KPI -->
         <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px" id="qdb-kpi">
-          <div class="kpi"><div class="kl">📄 총 견적 건수</div><div class="kv" id="qdb-tot">0</div><div class="ks">건</div></div>
-          <div class="kpi"><div class="kl">💰 총 견적 금액</div><div class="kv" id="qdb-amt">0</div><div class="ks">억원</div></div>
-          <div class="kpi"><div class="kl">✅ 수주 전환</div><div class="kv" id="qdb-won">0</div><div class="ks">건</div></div>
-          <div class="kpi"><div class="kl">📊 평균 견적 금액</div><div class="kv" id="qdb-avg">0</div><div class="ks">억원</div></div>
+          <div class="kpi"><div class="kl">📄 총 견적 수신</div><div class="kv" id="qdb-tot">0</div><div class="ks">건</div></div>
+          <div class="kpi"><div class="kl">💰 총 매입 견적</div><div class="kv" id="qdb-amt">0</div><div class="ks">원</div></div>
+          <div class="kpi"><div class="kl">📦 발주 전환</div><div class="kv" id="qdb-converted">0</div><div class="ks">건</div></div>
+          <div class="kpi"><div class="kl">⏳ 검토중</div><div class="kv" id="qdb-pending" style="color:var(--a)">0</div><div class="ks">건</div></div>
         </div>
 
         <div class="card">
           <div class="ch">
-            <div class="ct"><div class="ci c1">📄</div>견적서 목록</div>
+            <div class="ct"><div class="ci c1">📄</div>매입 견적서 (거래처 수신)
+              <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+            </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               <span style="font-size:14px;color:var(--t3)" id="qdb-upd">-</span>
-              <button onclick="showDBHistoryModal('quote','📜 견적서 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 견적서DB 신규작성 클릭');try{openQuoteModal(null)}catch(e){console.error('❌ 견적서DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 작성</button>
+              <button onclick="if(typeof openPurchaseQuoteModal==='function')openPurchaseQuoteModal(null);else alert('견적서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 견적서 수신</button>
             </div>
           </div>
           <div class="cb" style="padding:8px 12px">
             <!-- 검색/필터 -->
             <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-              <input class="si" type="text" id="qdbSrch" placeholder="🔍 견적NO / 고객사 / 품목명..." oninput="filterQDB()" style="flex:1;min-width:200px">
-              <select class="ss" id="qdbStatusFilter" onchange="filterQDB()" style="min-width:120px">
+              <input class="si" type="text" id="qdbSrch" placeholder="🔍 견적NO / PR코드 / 거래처 / 품목..." oninput="if(typeof filterQDB==='function')filterQDB()" style="flex:1;min-width:200px">
+              <select class="ss" id="qdbStatusFilter" onchange="if(typeof filterQDB==='function')filterQDB()" style="min-width:130px">
                 <option value="">전체 상태</option>
-                <option value="견적중">견적중</option>
-                <option value="수주">✅ 수주</option>
-                <option value="실패">❌ 실패</option>
+                <option value="검토중">검토중</option>
+                <option value="발주확정">✅ 발주확정</option>
                 <option value="보류">⏸ 보류</option>
+                <option value="반려">❌ 반려</option>
               </select>
-              <select class="ss" id="qdbCoFilter" onchange="filterQDB()" style="min-width:120px">
-                <option value="">전체 고객사</option>
+              <select class="ss" id="qdbTypeFilter" onchange="if(typeof filterQDB==='function')filterQDB()" style="min-width:130px">
+                <option value="">전체 유형</option>
+                <option value="일반견적">일반견적</option>
+                <option value="납기단가확인">납기·단가확인용</option>
               </select>
             </div>
-            <!-- 견적서 목록 테이블 -->
+            <!-- 매입 견적서 목록 테이블 -->
             <div style="overflow-x:auto">
-              <table class="tbl" style="min-width:900px">
+              <table class="tbl" style="min-width:1100px">
                 <thead><tr>
-                  <th style="min-width:90px">프로젝트코드</th>
-                  <th style="min-width:110px">고객사</th>
-                  <th style="min-width:100px">고객담당자</th>
-                  <th style="min-width:90px">견적 일자</th>
-                  <th style="min-width:160px">견적 NO / 문서번호</th>
-                  <th style="min-width:200px">품목명</th>
-                  <th style="min-width:100px;text-align:right">견적 금액</th>
-                  <th style="min-width:90px">구매담당</th>
-                  <th style="min-width:80px">상태</th>
-                  <th style="min-width:100px;text-align:center">파일</th>
-                  <th style="min-width:50px"></th>
+                  <th style="min-width:110px">PR코드</th>
+                  <th style="min-width:90px">영업코드</th>
+                  <th style="min-width:130px">거래처</th>
+                  <th style="min-width:90px">견적일</th>
+                  <th style="min-width:90px">유효기간</th>
+                  <th style="min-width:90px">납기일</th>
+                  <th style="min-width:130px">견적번호</th>
+                  <th style="min-width:200px">품목</th>
+                  <th style="min-width:110px;text-align:right">공급가</th>
+                  <th style="min-width:110px;text-align:right">합계(VAT포함)</th>
+                  <th style="min-width:90px">상태</th>
+                  <th style="min-width:80px;text-align:center">파일</th>
                 </tr></thead>
                 <tbody id="qdbBody">
-                  <tr><td colspan="11"><div class="empty"><div class="ei">📄</div><div class="et">견적서 없음</div></div></td></tr>
+                  <tr><td colspan="12"><div class="empty"><div class="ei">📄</div><div class="et">매입 견적서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처로부터 받은 견적서를 업로드하면 AI가 자동 파싱합니다</div></div></td></tr>
                 </tbody>
               </table>
             </div>
+            <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="qdb-cnt"></div>
           </div>
+          <div class="cn">※ 영업 견적서(매출, 발행)와 별개 · 매입 견적서는 거래처에서 수신한 견적</div>
         </div>
       </div>
 
-    <!-- 📦 발주서 DB 탭 -->
+    <!-- 📦 발주서 DB (구매: ENJET → 거래처 발행) -->
     <div class="page" id="tab-order-db">
       <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">📦 총 건수</div><div class="kv" id="ord-tot">0</div><div class="ks">건</div></div>
+        <div class="kpi"><div class="kl">📦 총 발주</div><div class="kv" id="ord-tot">0</div><div class="ks">건</div></div>
         <div class="kpi"><div class="kl">💰 이번달 발주액</div><div class="kv" id="ord-month-amt" style="color:var(--p);font-size:18px">0</div><div class="ks">원</div></div>
-        <div class="kpi"><div class="kl">🏭 거래처 수</div><div class="kv" id="ord-co-cnt">0</div><div class="ks">곳</div></div>
-        <div class="kpi"><div class="kl">📅 최근 등록</div><div class="kv" id="ord-last-date" style="font-size:14px">-</div><div class="ks"></div></div>
+        <div class="kpi"><div class="kl">🏪 거래처 수</div><div class="kv" id="ord-vendor-cnt">0</div><div class="ks">곳</div></div>
+        <div class="kpi"><div class="kl">📅 평균 납기</div><div class="kv" id="ord-avg-lead">0</div><div class="ks">일</div></div>
       </div>
+
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:16px;font-weight:800">📦 발주서 DB</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input class="si" type="text" id="ord-search" placeholder="🔍 거래처/품목/PO번호..." style="width:180px;font-size:13px" oninput="renderOrderDB()">
-            <button onclick="showDBHistoryModal('order','📜 발주서 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 발주서DB 신규작성 클릭');try{openOrderModal()}catch(e){console.error('❌ 발주서DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:8px 16px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 등록</button>
+        <div class="ch">
+          <div class="ct"><div class="ci c1">📦</div>발주서 (거래처 발행)
+            <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button onclick="if(typeof openPurchaseOrderModal==='function')openPurchaseOrderModal(null);else alert('발주서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 발주서 작성</button>
           </div>
         </div>
-        <div style="overflow-x:auto"><table class="tbl" style="min-width:820px">
-          <thead><tr>
-            <th style="min-width:90px">프로젝트코드</th>
-            <th style="min-width:120px">발주처(고객사)</th>
-            <th style="min-width:100px">고객담당자</th>
-            <th style="min-width:80px">발주일</th>
-            <th style="min-width:140px">품목</th>
-            <th style="min-width:60px">수량</th>
-            <th style="min-width:90px">발주금액</th>
-            <th style="min-width:100px">PO번호</th>
-            <th style="min-width:80px">납기요청일</th>
-            <th style="min-width:60px">상태</th>
-            <th style="min-width:60px">파일</th>
-            <th style="min-width:50px"></th>
-          </tr></thead>
-          <tbody id="ordBody"><tr><td colspan="12"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PDF 업로드하면 AI가 자동으로 항목을 추출합니다</div></div></td></tr></tbody>
-        </table></div>
-        <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="ord-cnt"></div>
+        <div class="cb" style="padding:8px 12px">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input class="si" type="text" id="ordSrch" placeholder="🔍 PO코드 / PR코드 / 거래처 / 품목..." oninput="if(typeof filterORD==='function')filterORD()" style="flex:1;min-width:200px">
+            <select class="ss" id="ordStatusFilter" onchange="if(typeof filterORD==='function')filterORD()" style="min-width:130px">
+              <option value="">전체 상태</option>
+              <option value="발주완료">발주완료</option>
+              <option value="입고대기">입고대기</option>
+              <option value="입고완료">입고완료</option>
+              <option value="취소">취소</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:1100px">
+              <thead><tr>
+                <th style="min-width:110px">PO코드</th>
+                <th style="min-width:110px">PR코드</th>
+                <th style="min-width:130px">거래처</th>
+                <th style="min-width:90px">발주일</th>
+                <th style="min-width:90px">납기일</th>
+                <th style="min-width:200px">품목</th>
+                <th style="min-width:110px;text-align:right">공급가</th>
+                <th style="min-width:110px;text-align:right">합계(VAT포함)</th>
+                <th style="min-width:90px">결제조건</th>
+                <th style="min-width:90px">상태</th>
+                <th style="min-width:80px;text-align:center">파일</th>
+              </tr></thead>
+              <tbody id="ordBody">
+                <tr><td colspan="11"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PO코드 자동채번: PO-YYMMDD-NN</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="ord-cnt"></div>
+        </div>
+        <div class="cn">※ 영업 발주서(고객 수신)와 별개 · 매입 발주는 ENJET가 거래처에 발행</div>
       </div>
     </div>
 
-    <!-- 📦 발주서 입력 모달 -->
-    
-
-    <!-- 🚚 거래명세서 DB 탭 -->
+    <!-- 🚚 거래명세서 DB (구매: 입고 확인) -->
     <div class="page" id="tab-delivery-db">
       <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">🚚 총 건수</div><div class="kv" id="dlv-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">💰 이번달 합계</div><div class="kv" id="dlv-month-amt" style="color:var(--p);font-size:18px">0</div><div class="ks">원</div></div>
-        <div class="kpi"><div class="kl">🏭 거래처 수</div><div class="kv" id="dlv-co-cnt">0</div><div class="ks">곳</div></div>
-        <div class="kpi"><div class="kl">📅 최근 등록</div><div class="kv" id="dlv-last-date" style="font-size:14px">-</div><div class="ks"></div></div>
+        <div class="kpi"><div class="kl">🚚 총 입고</div><div class="kv" id="dlv-tot">0</div><div class="ks">건</div></div>
+        <div class="kpi"><div class="kl">💰 이번달 입고액</div><div class="kv" id="dlv-month-amt" style="color:var(--p);font-size:18px">0</div><div class="ks">원</div></div>
+        <div class="kpi"><div class="kl">✅ 검수완료</div><div class="kv" id="dlv-verified">0</div><div class="ks">건</div></div>
+        <div class="kpi"><div class="kl">⚠️ 검수대기</div><div class="kv" id="dlv-pending" style="color:var(--a)">0</div><div class="ks">건</div></div>
       </div>
+
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:16px;font-weight:800">🚚 거래명세서 DB</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input class="si" type="text" id="dlv-search" placeholder="🔍 거래처/품목/PO번호..." style="width:180px;font-size:13px" oninput="renderDeliveryDB()">
-            <button onclick="showDBHistoryModal('delivery','📜 거래명세서 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 거래명세서DB 신규작성 클릭');try{openDeliveryModal()}catch(e){console.error('❌ 거래명세서DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:8px 16px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 등록</button>
+        <div class="ch">
+          <div class="ct"><div class="ci c1">🚚</div>거래명세서 (입고 확인)
+            <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button onclick="if(typeof openPurchaseDeliveryModal==='function')openPurchaseDeliveryModal(null);else alert('거래명세서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 거래명세서 수신</button>
           </div>
         </div>
-        <div style="overflow-x:auto"><table class="tbl" style="min-width:780px">
-          <thead><tr>
-            <th style="min-width:90px">프로젝트코드</th>
-            <th style="min-width:120px">거래처</th>
-            <th style="min-width:100px">고객담당자</th>
-            <th style="min-width:80px">거래일</th>
-            <th style="min-width:140px">품목</th>
-            <th style="min-width:60px">수량</th>
-            <th style="min-width:90px">공급가액</th>
-            <th style="min-width:70px">세액</th>
-            <th style="min-width:90px">합계금액</th>
-            <th style="min-width:100px">PO번호</th>
-            <th style="min-width:60px">파일</th>
-            <th style="min-width:50px"></th>
-          </tr></thead>
-          <tbody id="dlvBody"><tr><td colspan="12"><div class="empty"><div class="ei">🚚</div><div class="et">거래명세서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PDF 업로드하면 AI가 자동으로 항목을 추출합니다</div></div></td></tr></tbody>
-        </table></div>
-        <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="dlv-cnt"></div>
+        <div class="cb" style="padding:8px 12px">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input class="si" type="text" id="dlvSrch" placeholder="🔍 거래명세번호 / PO코드 / 거래처 / 품목..." oninput="if(typeof filterDLV==='function')filterDLV()" style="flex:1;min-width:200px">
+            <select class="ss" id="dlvStatusFilter" onchange="if(typeof filterDLV==='function')filterDLV()" style="min-width:130px">
+              <option value="">전체 검수상태</option>
+              <option value="검수완료">검수완료</option>
+              <option value="일부불량">일부불량</option>
+              <option value="미검수">미검수</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:1100px">
+              <thead><tr>
+                <th style="min-width:130px">거래명세번호</th>
+                <th style="min-width:110px">PO코드</th>
+                <th style="min-width:110px">PR코드</th>
+                <th style="min-width:130px">거래처</th>
+                <th style="min-width:90px">입고일</th>
+                <th style="min-width:200px">품목</th>
+                <th style="min-width:110px;text-align:right">공급가</th>
+                <th style="min-width:90px;text-align:right">VAT</th>
+                <th style="min-width:110px;text-align:right">총금액</th>
+                <th style="min-width:90px">검수상태</th>
+                <th style="min-width:80px;text-align:center">파일</th>
+              </tr></thead>
+              <tbody id="dlvBody">
+                <tr><td colspan="11"><div class="empty"><div class="ei">🚚</div><div class="et">입고 거래명세서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처로부터 받은 입고 거래명세서 업로드 시 자동 파싱</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="dlv-cnt"></div>
+        </div>
+        <div class="cn">※ 영업 거래명세서(출고, 발행)와 별개 · 매입 거래명세서는 입고 시 거래처에서 수신</div>
       </div>
     </div>
-    <!-- 📂 자료 입력 모달 -->
-    
-    <!-- ✅ 납품확인서 입력 모달 -->
-    
 
-    <!-- 📑 계약서 입력 모달 -->
-    
-
-    <!-- 🧾 세금계산서 DB 탭 -->
+    <!-- 🧾 세금계산서 DB (구매: 매입세금) -->
     <div class="page" id="tab-tax-db">
       <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">🧾 총 건수</div><div class="kv" id="tax-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">💰 이번달 공급가액</div><div class="kv" id="tax-month-amt" style="color:var(--p);font-size:18px">0</div><div class="ks">원</div></div>
-        <div class="kpi"><div class="kl">🏭 거래처 수</div><div class="kv" id="tax-co-cnt">0</div><div class="ks">곳</div></div>
-        <div class="kpi"><div class="kl">📅 최근 등록</div><div class="kv" id="tax-last-date" style="font-size:14px">-</div><div class="ks"></div></div>
+        <div class="kpi"><div class="kl">🧾 총 매입세금</div><div class="kv" id="tax-tot">0</div><div class="ks">건</div></div>
+        <div class="kpi"><div class="kl">💰 이번달 매입액</div><div class="kv" id="tax-month-amt" style="color:var(--p);font-size:18px">0</div><div class="ks">원</div></div>
+        <div class="kpi"><div class="kl">📊 매입 VAT 합계</div><div class="kv" id="tax-vat-sum" style="font-size:18px">0</div><div class="ks">원</div></div>
+        <div class="kpi"><div class="kl">⏳ 결제대기</div><div class="kv" id="tax-unpaid" style="color:var(--a)">0</div><div class="ks">건</div></div>
       </div>
+
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:16px;font-weight:800">🧾 세금계산서 DB</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input class="si" type="text" id="tax-search" placeholder="🔍 거래처/품목/승인번호..." style="width:180px;font-size:13px" oninput="renderTaxDB()">
-            <button onclick="showDBHistoryModal('tax','📜 세금계산서 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 세금계산서DB 신규작성 클릭');try{openTaxModal()}catch(e){console.error('❌ 세금계산서DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:8px 16px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 등록</button>
+        <div class="ch">
+          <div class="ct"><div class="ci c1">🧾</div>매입 세금계산서
+            <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button onclick="if(typeof openPurchaseTaxModal==='function')openPurchaseTaxModal(null);else alert('세금계산서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 세금계산서 수신</button>
           </div>
         </div>
-        <div style="overflow-x:auto"><table class="tbl" style="min-width:820px">
-          <thead><tr>
-            <th style="min-width:90px">프로젝트코드</th>
-            <th style="min-width:120px">공급받는자</th>
-            <th style="min-width:100px">고객담당자</th>
-            <th style="min-width:80px">작성일</th>
-            <th style="min-width:140px">품목</th>
-            <th style="min-width:90px">공급가액</th>
-            <th style="min-width:70px">세액</th>
-            <th style="min-width:90px">합계금액</th>
-            <th style="min-width:120px">승인번호</th>
-            <th style="min-width:80px">관리번호</th>
-            <th style="min-width:60px">파일</th>
-            <th style="min-width:50px"></th>
-          </tr></thead>
-          <tbody id="taxBody"><tr><td colspan="12"><div class="empty"><div class="ei">🧾</div><div class="et">세금계산서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PDF 업로드하면 AI가 자동으로 항목을 추출합니다</div></div></td></tr></tbody>
-        </table></div>
-        <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="tax-cnt"></div>
+        <div class="cb" style="padding:8px 12px">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input class="si" type="text" id="taxSrch" placeholder="🔍 발행번호 / PR코드 / 거래처 / 사업자번호..." oninput="if(typeof filterTAX==='function')filterTAX()" style="flex:1;min-width:200px">
+            <select class="ss" id="taxPayFilter" onchange="if(typeof filterTAX==='function')filterTAX()" style="min-width:130px">
+              <option value="">전체 결제상태</option>
+              <option value="paid">결제완료</option>
+              <option value="unpaid">결제대기</option>
+              <option value="overdue">지연</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:1200px">
+              <thead><tr>
+                <th style="min-width:160px">세금계산서번호</th>
+                <th style="min-width:110px">PR코드</th>
+                <th style="min-width:130px">거래처</th>
+                <th style="min-width:120px">사업자번호</th>
+                <th style="min-width:90px">발행일</th>
+                <th style="min-width:110px;text-align:right">공급가</th>
+                <th style="min-width:90px;text-align:right">VAT</th>
+                <th style="min-width:110px;text-align:right">총금액</th>
+                <th style="min-width:90px">결제예정일</th>
+                <th style="min-width:80px;text-align:center">전자세금</th>
+                <th style="min-width:90px">결제상태</th>
+                <th style="min-width:80px;text-align:center">파일</th>
+              </tr></thead>
+              <tbody id="taxBody">
+                <tr><td colspan="12"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처에서 받은 매입세금계산서 업로드 시 자동 파싱</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="tax-cnt"></div>
+        </div>
+        <div class="cn">※ 영업 세금계산서(매출세금, 발행)와 별개 · 매입세금계산서는 거래처에서 수신 (부가세 환급 대상)</div>
       </div>
     </div>
+
 
     <!-- 🚚 거래명세서 입력 모달 -->
     
 
     <!-- 🧾 세금계산서 입력 모달 -->
     
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 🆕 구매 대시보드 신규 페이지 4개 (다음 세션에서 내용 채워질 예정) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
+    <!-- 📝 구매요청서 DB (PR Master) -->
+    <div class="page" id="tab-pr-db">
+      <div class="kr" style="grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:9px">
+        <div class="kpi c1"><div class="kl">📥 구매요청접수</div><div class="kv" id="pr-kpi-1">-</div><div class="ks">건</div></div>
+        <div class="kpi c2"><div class="kl">📊 납기확인중</div><div class="kv" id="pr-kpi-2">-</div><div class="ks">건</div></div>
+        <div class="kpi c1"><div class="kl">📦 발주완료</div><div class="kv" id="pr-kpi-3">-</div><div class="ks">건</div></div>
+        <div class="kpi c2"><div class="kl">🚚 입고확인</div><div class="kv" id="pr-kpi-4">-</div><div class="ks">건</div></div>
+        <div class="kpi c1"><div class="kl">🧾 완료예정</div><div class="kv" id="pr-kpi-5">-</div><div class="ks">건</div></div>
+        <div class="kpi c2"><div class="kl">✅ 매입완료</div><div class="kv" id="pr-kpi-6">-</div><div class="ks">건</div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">📝</div>구매요청서 DB
+            <span id="prSyncBadge" style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="ss" id="prStatusFilter" style="min-width:130px">
+              <option value="">전체 상태</option>
+              <option value="구매요청접수">구매요청접수</option>
+              <option value="납기확인중">납기확인중</option>
+              <option value="발주완료">발주완료</option>
+              <option value="입고확인">입고확인</option>
+              <option value="완료예정">완료예정</option>
+              <option value="매입완료">매입완료</option>
+            </select>
+            <input class="si" type="text" id="prSearch" placeholder="🔍 PR코드/품목/거래처..." style="width:200px">
+            <button onclick="openPRModal(null)" style="padding:4px 12px;border-radius:7px;border:1px solid var(--p);background:var(--p);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 구매요청서 추가</button>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:1100px">
+              <thead><tr>
+                <th style="min-width:120px">PR코드</th>
+                <th style="min-width:90px">영업코드</th>
+                <th style="min-width:80px">요청일</th>
+                <th style="min-width:80px">납기희망</th>
+                <th style="min-width:80px">요청부서</th>
+                <th style="min-width:70px">요청자</th>
+                <th style="min-width:200px">품목요약</th>
+                <th style="min-width:100px">총금액</th>
+                <th style="min-width:90px">거래처</th>
+                <th style="min-width:90px">진행상태</th>
+                <th style="min-width:60px">파일</th>
+              </tr></thead>
+              <tbody id="prTableBody">
+                <tr><td colspan="11"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">우측 상단 + 버튼으로 구매요청서 추가</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="prTableCnt"></div>
+        </div>
+        <div class="cn">※ PR코드 자동채번: PR-YYMMDD-NN · 영업프로젝트(SL/SP)별로 PR 여러개 가능</div>
+      </div>
+    </div>
+
+    <!-- 🧩 BOM DB -->
+    <div class="page" id="tab-bom-db">
+      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
+        <div class="kpi c1"><div class="kl">🧩 등록 BOM</div><div class="kv" id="bom-kpi-total">-</div><div class="ks">개</div></div>
+        <div class="kpi c2"><div class="kl">📦 완제품</div><div class="kv" id="bom-kpi-finished">-</div><div class="ks">개</div></div>
+        <div class="kpi c1"><div class="kl">🔧 조립품</div><div class="kv" id="bom-kpi-assembly">-</div><div class="ks">개</div></div>
+        <div class="kpi c2"><div class="kl">⚙️ 반제품</div><div class="kv" id="bom-kpi-semi">-</div><div class="ks">개</div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">🧩</div>BOM 마스터
+            <span id="bomSyncBadge" style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="ss" id="bomTypeFilter" style="min-width:120px">
+              <option value="">전체 유형</option>
+              <option value="완제품">완제품</option>
+              <option value="조립품">조립품</option>
+              <option value="반제품">반제품</option>
+            </select>
+            <input class="si" type="text" id="bomSearch" placeholder="🔍 BOM코드/제품명/품번..." style="width:200px">
+            <button onclick="openBOMModal(null)" style="padding:4px 12px;border-radius:7px;border:1px solid var(--p);background:var(--p);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">+ BOM 추가</button>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:900px">
+              <thead><tr>
+                <th style="min-width:100px">BOM코드</th>
+                <th style="min-width:200px">제품명</th>
+                <th style="min-width:80px">유형</th>
+                <th style="min-width:70px">버전</th>
+                <th style="min-width:70px">품목수</th>
+                <th style="min-width:120px">추정원가</th>
+                <th style="min-width:90px">등록경로</th>
+                <th style="min-width:100px">관련 PR</th>
+                <th style="min-width:90px">등록일</th>
+              </tr></thead>
+              <tbody id="bomTableBody">
+                <tr><td colspan="9"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="bomTableCnt"></div>
+        </div>
+        <div class="cn">※ 구매요청서 AI파싱 시 productName 일치하면 매칭, 없으면 신규 생성</div>
+      </div>
+    </div>
+
+    <!-- 💼 회계전표 DB (구매입고정산) -->
+    <div class="page" id="tab-settle-db">
+      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
+        <div class="kpi c1"><div class="kl">💼 정산 건수</div><div class="kv" id="stl-kpi-total">-</div><div class="ks">건</div></div>
+        <div class="kpi c2"><div class="kl">💰 총 매입액</div><div class="kv" id="stl-kpi-amount">-</div><div class="ks">원</div></div>
+        <div class="kpi c1"><div class="kl">✅ 결제완료</div><div class="kv" id="stl-kpi-paid">-</div><div class="ks">건</div></div>
+        <div class="kpi c2"><div class="kl">⏳ 미결제</div><div class="kv" id="stl-kpi-unpaid" style="color:var(--a)">-</div><div class="ks">건</div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">💼</div>회계전표 / 구매입고정산
+            <span id="stlSyncBadge" style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="ss" id="stlPayFilter" style="min-width:120px">
+              <option value="">전체 결제상태</option>
+              <option value="paid">결제완료</option>
+              <option value="unpaid">미결제</option>
+            </select>
+            <input class="si" type="text" id="stlSearch" placeholder="🔍 정산번호/거래처/PR코드..." style="width:200px">
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:1000px">
+              <thead><tr>
+                <th style="min-width:100px">정산번호</th>
+                <th style="min-width:100px">PR코드</th>
+                <th style="min-width:80px">정산일</th>
+                <th style="min-width:100px">거래처</th>
+                <th style="min-width:110px">매입금액(합계)</th>
+                <th style="min-width:80px">결제수단</th>
+                <th style="min-width:80px">결제일</th>
+                <th style="min-width:90px">회계전표No</th>
+                <th style="min-width:70px">결제상태</th>
+                <th style="min-width:60px">파일</th>
+              </tr></thead>
+              <tbody id="stlTableBody">
+                <tr><td colspan="10"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매입고정산 문서 업로드 시 자동 생성됩니다</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="stlTableCnt"></div>
+        </div>
+        <div class="cn">※ 진행상태 최종단계 = 매입완료 · 회계 시스템 연동 시 회계전표번호 자동 입력</div>
+      </div>
+    </div>
+
+    <!-- 🏪 거래처 DB -->
+    <div class="page" id="tab-vendor">
+      <div class="kr" style="grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:9px">
+        <div class="kpi c1"><div class="kl">🏪 전체 거래처</div><div class="kv" id="vd-kpi-total">-</div><div class="ks">개</div></div>
+        <div class="kpi c2"><div class="kl">📥 분류대기</div><div class="kv" id="vd-kpi-pending" style="color:var(--a)">-</div><div class="ks">개</div></div>
+        <div class="kpi c1"><div class="kl">💳 카드결제</div><div class="kv" id="vd-kpi-card">-</div><div class="ks">개</div></div>
+        <div class="kpi c2"><div class="kl">🌐 해외</div><div class="kv" id="vd-kpi-overseas">-</div><div class="ks">개</div></div>
+        <div class="kpi c1"><div class="kl">📎 등록증 보유</div><div class="kv" id="vd-kpi-doc">-</div><div class="ks">개</div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">🏪</div>거래처 마스터
+            <span id="vdSyncBadge" style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">엑셀 연동</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="ss" id="vdCategoryFilter" style="min-width:160px">
+              <option value="">전체 분류</option>
+              <option value="📥 분류대기">📥 분류대기</option>
+              <option value="💳 카드결제/소액">💳 카드결제/소액</option>
+              <option value="🏭 기계·정밀가공·금형">🏭 기계·정밀가공·금형</option>
+              <option value="⚡ 전자·반도체·전기">⚡ 전자·반도체·전기</option>
+              <option value="🧪 화학·소재·가스·약품">🧪 화학·소재·가스·약품</option>
+              <option value="🔩 공구·부품·체결류">🔩 공구·부품·체결류</option>
+              <option value="💻 시스템·SI·소프트웨어">💻 시스템·SI·소프트웨어</option>
+              <option value="🛠️ 엔지니어링·설계">🛠️ 엔지니어링·설계</option>
+              <option value="🔬 연구·시험·계측">🔬 연구·시험·계측</option>
+              <option value="📦 상사·무역·유통">📦 상사·무역·유통</option>
+              <option value="🎓 학교·연구기관">🎓 학교·연구기관</option>
+              <option value="🌐 해외/직구">🌐 해외/직구</option>
+              <option value="🏢 기타">🏢 기타</option>
+            </select>
+            <input class="si" type="text" id="vdSearch" placeholder="🔍 거래처명/약칭/사업자번호..." style="width:220px">
+            <button onclick="reloadVendorXLSX()" style="padding:4px 12px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">🔄 엑셀 재로드</button>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto">
+            <table class="tbl" style="min-width:1100px">
+              <thead><tr>
+                <th style="min-width:50px">#</th>
+                <th style="min-width:200px">거래처명</th>
+                <th style="min-width:140px">약칭</th>
+                <th style="min-width:160px">분류</th>
+                <th style="min-width:120px">사업자번호</th>
+                <th style="min-width:80px">대표자</th>
+                <th style="min-width:120px">전화번호</th>
+                <th style="min-width:100px">ENJET담당자</th>
+                <th style="min-width:80px">거래상태</th>
+                <th style="min-width:80px">첨부</th>
+              </tr></thead>
+              <tbody id="vendorTableBody">
+                <tr><td colspan="10"><div class="empty"><div class="ei">🏪</div><div class="et">거래처 데이터 로드 중...</div><div style="font-size:15px;color:var(--t3);margin-top:4px">🏭 구매/2.거래처DB/거래처DB_v1.xlsx 에서 자동 로드됩니다</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="vendorTableCnt"></div>
+        </div>
+        <div class="cn">※ 마스터 엑셀: SharePoint 🏭 구매/2.거래처DB/거래처DB_v1.xlsx · 분류 변경은 엑셀에서 직접</div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
     </div>
   </div>
 </div>
@@ -2480,6 +2757,118 @@ async function readSP(prefix, opts) {
     );
   }
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🏪 거래처DB 로딩 (별도 폴더 - 🏭 구매/2.거래처DB/거래처DB_v1.xlsx)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let vendorData = [];
+
+async function loadVendorDB() {
+  console.log("🏪 거래처DB 로드 시작...");
+  try {
+    await getIds();
+    const t = await getToken();
+    const enc = VENDOR_XLSX_PATH.split("/").map(encodeURIComponent).join("/");
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`, {
+      headers: { Authorization: "Bearer " + t }
+    });
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const buf = await r.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellStyles: false });
+    const sh = wb.Sheets["거래처DB"] || wb.Sheets[wb.SheetNames[0]];
+    if(!sh) throw new Error("거래처DB 시트 없음");
+    const rows = XLSX.utils.sheet_to_json(sh, { defval: "" });
+    vendorData = rows.filter(r => r["거래처명"]);
+    console.log(`✅ 거래처DB 로드: ${vendorData.length}건`);
+    renderVendorDB();
+    return vendorData;
+  } catch(e) {
+    console.error("❌ 거래처DB 로드 실패:", e.message);
+    const tbody = document.getElementById("vendorTableBody");
+    if(tbody) tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="ei">⚠️</div><div class="et">거래처DB 로드 실패</div><div style="font-size:14px;color:var(--t3);margin-top:4px">${e.message}</div><div style="font-size:13px;color:var(--t3);margin-top:6px">SharePoint 🏭 구매/2.거래처DB/거래처DB_v1.xlsx 파일을 확인하세요</div></div></td></tr>`;
+    return [];
+  }
+}
+
+async function reloadVendorXLSX() {
+  const badge = document.getElementById("vdSyncBadge");
+  if(badge) badge.textContent = "로딩중...";
+  await loadVendorDB();
+  if(badge) badge.textContent = "엑셀 연동";
+}
+
+function renderVendorDB() {
+  const tbody = document.getElementById("vendorTableBody");
+  if(!tbody) return;
+  if(!vendorData.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="ei">🏪</div><div class="et">거래처 데이터 없음</div></div></td></tr>`;
+    return;
+  }
+  
+  // 필터 적용
+  const catFilter = document.getElementById("vdCategoryFilter")?.value || "";
+  const search = (document.getElementById("vdSearch")?.value || "").toLowerCase().trim();
+  
+  let filtered = vendorData.filter(v => {
+    if(catFilter && v["분류"] !== catFilter) return false;
+    if(search) {
+      const blob = [v["거래처명"], v["약칭"], v["사업자등록번호"], v["대표자"]].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  
+  // KPI 갱신
+  const setKpi = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("vd-kpi-total", vendorData.length);
+  setKpi("vd-kpi-pending", vendorData.filter(v => v["분류"] === "📥 분류대기").length);
+  setKpi("vd-kpi-card", vendorData.filter(v => v["분류"] === "💳 카드결제/소액").length);
+  setKpi("vd-kpi-overseas", vendorData.filter(v => v["분류"] === "🌐 해외/직구").length);
+  setKpi("vd-kpi-doc", vendorData.filter(v => v["사업자등록증파일"] || v["통장사본파일"]).length);
+  setKpi("badge-vd", vendorData.length);
+  
+  // 테이블 행
+  tbody.innerHTML = filtered.slice(0, 200).map(v => {
+    const docs = [];
+    if(v["사업자등록증파일"]) docs.push("📋");
+    if(v["통장사본파일"]) docs.push("🏦");
+    return `<tr>
+      <td style="text-align:center;color:var(--t3);font-family:var(--m)">${v["번호"]||""}</td>
+      <td style="font-weight:600">${escapeHtml(v["거래처명"]||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(v["약칭"]||"")}</td>
+      <td style="text-align:center">${escapeHtml(v["분류"]||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(v["사업자등록번호"]||"")}</td>
+      <td>${escapeHtml(v["대표자"]||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(v["전화번호"]||"")}</td>
+      <td>${escapeHtml(v["ENJET담당자"]||"")}</td>
+      <td style="text-align:center"><span class="badge ${v["거래상태"]==="활성"?"good":""}">${v["거래상태"]||"-"}</span></td>
+      <td style="text-align:center;font-size:16px">${docs.join(" ")||"-"}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("vendorTableCnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${vendorData.length}건 표시${filtered.length>200?` (200건까지만 표시)`:""}`;
+}
+
+// HTML 이스케이프 헬퍼 (XSS 방지)
+function escapeHtml(s) {
+  return String(s||"").replace(/[&<>"']/g, ch => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[ch]));
+}
+
+// 거래처DB 필터 이벤트 연결 (DOMContentLoaded 후)
+window.addEventListener("DOMContentLoaded", () => {
+  const cf = document.getElementById("vdCategoryFilter");
+  const sf = document.getElementById("vdSearch");
+  if(cf) cf.addEventListener("change", renderVendorDB);
+  if(sf) sf.addEventListener("input", () => {
+    clearTimeout(window._vdSearchTimer);
+    window._vdSearchTimer = setTimeout(renderVendorDB, 200);
+  });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // ━━ 데이터 ━━
 let SD=[], PD=[], CD=[], coMap={}, selCo=null, cfF={type:"all"};
@@ -5369,7 +5758,7 @@ function dbExtractSaveData(dbType) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // SP 저장 + localStorage 백업 (안전 저장)
-// dataKey: localStorage 키 (e.g. "ord_data")
+// dataKey: localStorage 키 (e.g. "pord_data")
 // spPath: SP 파일 경로
 // data: 저장할 배열
 // 반환: {sp:true/false, local:true/false}
@@ -5950,7 +6339,7 @@ function renderExhSummaryCards(exhs) {
 // 전시회 일정 시스템 (Teams 채널 캘린더 연동)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const TEAMS_CHANNEL_ID = "19:b1e966aa118749a885eb61d3325aa05c@thread.tacv2";
-const EXH_SP_FILE = "🏭 구매/99.Dashboard(real-time)/exhibitions.json";
+const EXH_SP_FILE = "🏭 구매/99.Dashboard(real-time)/UNUSED-exhibitions.json";
 const EXH_FOLDER_BASE = "📦영업/6. 마케팅/전시회"; // 전시회 파일 폴더
 let exhSchedule = [];   // 전체 전시회 일정
 let exhEditIdx = -1;    // 수정 중인 인덱스 (-1: 신규)
@@ -7334,8 +7723,8 @@ function slFileName(act, docType, originalName) {
   return parts.join("_") + ext;
 }
 
-const SL_SP_JSON   = "🏭 구매/99.Dashboard(real-time)/sales-activities.json";
-const MTG_LOG_SP_PATH = "🏭 구매/99.Dashboard(real-time)/mtg-logs.json";
+const SL_SP_JSON   = "🏭 구매/99.Dashboard(real-time)/purchase-requests.json";
+const MTG_LOG_SP_PATH = "🏭 구매/99.Dashboard(real-time)/UNUSED-mtg-logs.json";
 const SL_ADMIN_EMAIL = "baekhoon@enjet.co.kr";
 const PLANNER_URL    = "https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.planner/_djb2_msteams_prefix_271436294?context=%7B%22channelId%22%3A%2219%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
 let _plannerPlanId   = null; // 캐시
@@ -7366,7 +7755,7 @@ let slGroupId = null;
 
 // ─── SP JSON 저장/로드 ───
 async function saveSLToSP() {
-  const result = await safeSaveDB("sl_data", SL_SP_JSON, slData);
+  const result = await safeSaveDB("pa_data", SL_SP_JSON, slData);
   if(!result.sp && !result.local) {
     alert("⚠️ 구매활동 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
   } else if(!result.sp) {
@@ -7382,16 +7771,16 @@ async function saveSLToSP() {
 }
 async function loadSLFromSP() {
   try {
-    const data = await safeLoadDB("sl_data", SL_SP_JSON);
+    const data = await safeLoadDB("pa_data", SL_SP_JSON);
     // 로컬이 SP보다 더 많으면 → 사용자가 추가한 데이터 SP 저장 실패한 경우 → 로컬 우선
     try {
-      const cached = localStorage.getItem("sl_data");
+      const cached = localStorage.getItem("pa_data");
       if(cached) {
         const parsed = JSON.parse(cached);
         if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
           console.log(`🛡️ 구매활동 로컬 우선 (${parsed.data.length} > ${data.length})`);
           slData = parsed.data.filter(item => isSLEvent(item));
-          safeSaveDB("sl_data", SL_SP_JSON, slData).catch(()=>{});
+          safeSaveDB("pa_data", SL_SP_JSON, slData).catch(()=>{});
           renderSLAll();
           $("slUpd","🛡️ 로컬 복원: "+new Date().toLocaleTimeString("ko-KR"));
           if(Array.isArray(PD) && PD.length > 0) syncPipelineFromSL();
@@ -7416,7 +7805,7 @@ async function loadSLFromSP() {
     console.error("구매활동 로드 실패:", e);
     // 로컬에서 폴백
     try {
-      const cached = localStorage.getItem("sl_data");
+      const cached = localStorage.getItem("pa_data");
       if(cached) {
         const parsed = JSON.parse(cached);
         if(Array.isArray(parsed.data)) {
@@ -15550,20 +15939,20 @@ const TITLES={purchase:"📊 구매 현황",cashflow:"💰 현금흐름",pipelin
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 📄 견적서 DB 시스템
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const QDB_SP_FILE = "🏭 구매/99.Dashboard(real-time)/quote-db.json";
+const QDB_SP_FILE = "🏭 구매/99.Dashboard(real-time)/purchase-quote-db.json";
 let quoteDB = []; // 견적서 DB 배열
 
 // SP에서 로드
 async function loadQuoteDB() {
-  const data = await safeLoadDB("qdb_data", QDB_SP_FILE);
+  const data = await safeLoadDB("pqdb_data", QDB_SP_FILE);
   try {
-    const cached = localStorage.getItem("qdb_data");
+    const cached = localStorage.getItem("pqdb_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 견적서 DB 로컬 우선 (${parsed.data.length} > ${data.length})`);
         quoteDB = parsed.data;
-        safeSaveDB("qdb_data", QDB_SP_FILE, quoteDB).catch(()=>{});
+        safeSaveDB("pqdb_data", QDB_SP_FILE, quoteDB).catch(()=>{});
         $("badge-qdb", quoteDB.length);
         renderQDB();
         return;
@@ -15578,7 +15967,7 @@ async function loadQuoteDB() {
 
 // SP에 저장
 async function saveQuoteDB() {
-  const result = await safeSaveDB("qdb_data", QDB_SP_FILE, quoteDB);
+  const result = await safeSaveDB("pqdb_data", QDB_SP_FILE, quoteDB);
   $("badge-qdb", quoteDB.length);
   if(!result.sp && !result.local) {
     alert("⚠️ 견적서 DB 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
@@ -18692,7 +19081,7 @@ window.addEventListener("DOMContentLoaded",()=>{
 });
 
 async function saveMtgLogsToSP() {
-  const result = await safeSaveDB("mtg_data", MTG_LOG_SP_PATH, window._mtgLogs||[]);
+  const result = await safeSaveDB("UNUSED_mtg_data", MTG_LOG_SP_PATH, window._mtgLogs||[]);
   if(!result.sp && !result.local) {
     console.warn("⚠️ 회의록 저장 실패!");
   }
@@ -18711,7 +19100,7 @@ async function loadMtgLogsFromSP() {
       // 머지: SP + 메모리 + localStorage (id 중복 제거)
       let local = [];
       try {
-        const cached = localStorage.getItem("mtg_data");
+        const cached = localStorage.getItem("UNUSED_mtg_data");
         if(cached) {
           const parsed = JSON.parse(cached);
           if(Array.isArray(parsed.data)) local = parsed.data;
@@ -18723,7 +19112,7 @@ async function loadMtgLogsFromSP() {
       window._mtgLogs = [...onlyMem, ...localOnly, ...fromSP];
       // localStorage 갱신
       try {
-        localStorage.setItem("mtg_data", JSON.stringify({
+        localStorage.setItem("UNUSED_mtg_data", JSON.stringify({
           data: window._mtgLogs,
           ts: new Date().toISOString(),
           count: window._mtgLogs.length,
@@ -18763,11 +19152,11 @@ function renderMtgLogTable(data){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 📦 발주서 DB
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const ORD_SP_PATH = "🏭 구매/99.Dashboard(real-time)/order-db.json";
+const ORD_SP_PATH = "🏭 구매/99.Dashboard(real-time)/purchase-order-db.json";
 let _ordData = [];
 
 async function saveOrderToSP() {
-  const result = await safeSaveDB("ord_data", ORD_SP_PATH, _ordData);
+  const result = await safeSaveDB("pord_data", ORD_SP_PATH, _ordData);
   $("badge-ord", _ordData.length);
   if(!result.sp && !result.local) {
     alert("⚠️ 발주서 저장 실패!\n네트워크/권한 문제로 SP와 로컬 모두 저장 실패.\n다시 시도하거나 페이지 새로고침해주세요.");
@@ -18784,17 +19173,17 @@ async function saveOrderToSP() {
 }
 
 async function loadOrderDB() {
-  const data = await safeLoadDB("ord_data", ORD_SP_PATH);
+  const data = await safeLoadDB("pord_data", ORD_SP_PATH);
   // 로컬이 SP보다 더 많은 데이터를 가지고 있으면 → 사용자가 신규 추가했는데 SP 저장 실패한 경우
   // 이 경우 로컬 데이터 우선 + SP에 다시 저장 시도
   try {
-    const cached = localStorage.getItem("ord_data");
+    const cached = localStorage.getItem("pord_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 로컬 데이터 더 많음 (${parsed.data.length} > ${data.length}) - 로컬 우선 사용 + SP 재저장`);
         _ordData = parsed.data;
-        safeSaveDB("ord_data", ORD_SP_PATH, _ordData).catch(()=>{});
+        safeSaveDB("pord_data", ORD_SP_PATH, _ordData).catch(()=>{});
         renderOrderDB();
         return;
       }
@@ -19208,14 +19597,14 @@ function deleteOrder(id){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🚚 거래명세서 DB + 🧾 세금계산서 DB
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const DLV_SP_PATH = "🏭 구매/99.Dashboard(real-time)/delivery-db.json";
-const TAX_SP_PATH = "🏭 구매/99.Dashboard(real-time)/tax-db.json";
+const DLV_SP_PATH = "🏭 구매/99.Dashboard(real-time)/purchase-delivery-db.json";
+const TAX_SP_PATH = "🏭 구매/99.Dashboard(real-time)/purchase-tax-db.json";
 let _dlvData = [], _taxData = [];
 
 const fmtWon = n => n ? Number(n).toLocaleString("ko-KR") + "원" : "-";
 
 async function saveDeliveryToSP() {
-  const result = await safeSaveDB("dlv_data", DLV_SP_PATH, _dlvData);
+  const result = await safeSaveDB("pdlv_data", DLV_SP_PATH, _dlvData);
   $("badge-dlv", _dlvData.length);
   if(!result.sp && !result.local) alert("⚠️ 거래명세서 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
     // 저장 시각 기록 + 표시
@@ -19227,15 +19616,15 @@ async function saveDeliveryToSP() {
   return result;
 }
 async function loadDeliveryDB() {
-  const data = await safeLoadDB("dlv_data", DLV_SP_PATH);
+  const data = await safeLoadDB("pdlv_data", DLV_SP_PATH);
   try {
-    const cached = localStorage.getItem("dlv_data");
+    const cached = localStorage.getItem("pdlv_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 로컬 데이터 우선 (${parsed.data.length} > ${data.length})`);
         _dlvData = parsed.data;
-        safeSaveDB("dlv_data", DLV_SP_PATH, _dlvData).catch(()=>{});
+        safeSaveDB("pdlv_data", DLV_SP_PATH, _dlvData).catch(()=>{});
         renderDeliveryDB();
         return;
       }
@@ -19245,7 +19634,7 @@ async function loadDeliveryDB() {
   renderDeliveryDB();
 }
 async function saveTaxToSP() {
-  const result = await safeSaveDB("tax_data", TAX_SP_PATH, _taxData);
+  const result = await safeSaveDB("ptax_data", TAX_SP_PATH, _taxData);
   $("badge-tax", _taxData.length);
   if(!result.sp && !result.local) alert("⚠️ 세금계산서 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
     // 저장 시각 기록 + 표시
@@ -19257,15 +19646,15 @@ async function saveTaxToSP() {
   return result;
 }
 async function loadTaxDB() {
-  const data = await safeLoadDB("tax_data", TAX_SP_PATH);
+  const data = await safeLoadDB("ptax_data", TAX_SP_PATH);
   try {
-    const cached = localStorage.getItem("tax_data");
+    const cached = localStorage.getItem("ptax_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 로컬 데이터 우선 (${parsed.data.length} > ${data.length})`);
         _taxData = parsed.data;
-        safeSaveDB("tax_data", TAX_SP_PATH, _taxData).catch(()=>{});
+        safeSaveDB("ptax_data", TAX_SP_PATH, _taxData).catch(()=>{});
         renderTaxDB();
         return;
       }
@@ -20062,11 +20451,11 @@ async function parseTaxPdf(file) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ✅ 납품확인서 DB
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const CFM_SP_PATH = "🏭 구매/99.Dashboard(real-time)/confirm-db.json";
+const CFM_SP_PATH = "🏭 구매/99.Dashboard(real-time)/UNUSED-confirm-db.json";
 let _cfmData = [];
 
 async function saveConfirmToSP() {
-  const result = await safeSaveDB("cfm_data", CFM_SP_PATH, _cfmData);
+  const result = await safeSaveDB("UNUSED_cfm_data", CFM_SP_PATH, _cfmData);
   $("badge-cfm", _cfmData.length);
   if(!result.sp && !result.local) alert("⚠️ 납품확인서 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
     // 저장 시각 기록 + 표시
@@ -20079,15 +20468,15 @@ async function saveConfirmToSP() {
 }
 
 async function loadConfirmDB() {
-  const data = await safeLoadDB("cfm_data", CFM_SP_PATH);
+  const data = await safeLoadDB("UNUSED_cfm_data", CFM_SP_PATH);
   try {
-    const cached = localStorage.getItem("cfm_data");
+    const cached = localStorage.getItem("UNUSED_cfm_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 납품확인서 로컬 우선 (${parsed.data.length} > ${data.length})`);
         _cfmData = parsed.data;
-        safeSaveDB("cfm_data", CFM_SP_PATH, _cfmData).catch(()=>{});
+        safeSaveDB("UNUSED_cfm_data", CFM_SP_PATH, _cfmData).catch(()=>{});
         $("badge-cfm", _cfmData.length);
         renderConfirmDB();
         return;
@@ -20292,11 +20681,11 @@ async function parseCfmPdf(file) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 📑 계약서 DB
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const CTR_SP_PATH = "🏭 구매/99.Dashboard(real-time)/contract-db.json";
+const CTR_SP_PATH = "🏭 구매/99.Dashboard(real-time)/UNUSED-contract-db.json";
 let _ctrData = [];
 
 async function saveContractToSP() {
-  const result = await safeSaveDB("ctr_data", CTR_SP_PATH, _ctrData);
+  const result = await safeSaveDB("UNUSED_ctr_data", CTR_SP_PATH, _ctrData);
   $("badge-ctr", _ctrData.length);
   if(!result.sp && !result.local) alert("⚠️ 계약서 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
     // 저장 시각 기록 + 표시
@@ -20309,15 +20698,15 @@ async function saveContractToSP() {
 }
 
 async function loadContractDB() {
-  const data = await safeLoadDB("ctr_data", CTR_SP_PATH);
+  const data = await safeLoadDB("UNUSED_ctr_data", CTR_SP_PATH);
   try {
-    const cached = localStorage.getItem("ctr_data");
+    const cached = localStorage.getItem("UNUSED_ctr_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 계약서 로컬 우선 (${parsed.data.length} > ${data.length})`);
         _ctrData = parsed.data;
-        safeSaveDB("ctr_data", CTR_SP_PATH, _ctrData).catch(()=>{});
+        safeSaveDB("UNUSED_ctr_data", CTR_SP_PATH, _ctrData).catch(()=>{});
         $("badge-ctr", _ctrData.length);
         renderContractDB();
         return;
@@ -20518,11 +20907,11 @@ async function parseCtrPdf(file) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 📂 자료 DB
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const PDB_SP_PATH = "🏭 구매/99.Dashboard(real-time)/proposal-db.json";
+const PDB_SP_PATH = "🏭 구매/99.Dashboard(real-time)/UNUSED-proposal-db.json";
 let _pdbData = [];
 
 async function saveProposalToSP() {
-  const result = await safeSaveDB("pdb_data", PDB_SP_PATH, _pdbData);
+  const result = await safeSaveDB("UNUSED_pdb_data", PDB_SP_PATH, _pdbData);
   $("badge-pdb", _pdbData.length);
   if(!result.sp && !result.local) alert("⚠️ 자료 저장 실패!\n네트워크/권한 문제. 다시 시도해주세요.");
     // 저장 시각 기록 + 표시
@@ -20535,15 +20924,15 @@ async function saveProposalToSP() {
 }
 
 async function loadProposalDB() {
-  const data = await safeLoadDB("pdb_data", PDB_SP_PATH);
+  const data = await safeLoadDB("UNUSED_pdb_data", PDB_SP_PATH);
   try {
-    const cached = localStorage.getItem("pdb_data");
+    const cached = localStorage.getItem("UNUSED_pdb_data");
     if(cached) {
       const parsed = JSON.parse(cached);
       if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
         console.log(`🛡️ 자료 로컬 우선 (${parsed.data.length} > ${data.length})`);
         _pdbData = parsed.data;
-        safeSaveDB("pdb_data", PDB_SP_PATH, _pdbData).catch(()=>{});
+        safeSaveDB("UNUSED_pdb_data", PDB_SP_PATH, _pdbData).catch(()=>{});
         $("badge-pdb", _pdbData.length);
         renderProposalDB();
         return;
