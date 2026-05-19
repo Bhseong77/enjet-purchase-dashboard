@@ -159,7 +159,8 @@
     grid-template-rows: auto auto;
   }
   /* 미리보기 패널 모바일: 기본 50vh, .expanded 클래스로 80vh */
-  #order-preview-pane, #cfm-preview-pane, #ctr-preview-pane, #dlv-preview-pane, #tax-preview-pane {
+  #order-preview-pane, #cfm-preview-pane, #ctr-preview-pane, #dlv-preview-pane, #tax-preview-pane,
+  #sl-f-preview-pane {
     max-height: 50vh !important;
     min-height: 200px !important;
     border-right: none !important;
@@ -167,13 +168,24 @@
     transition: max-height 0.3s ease;
   }
   #order-preview-pane.expanded, #cfm-preview-pane.expanded,
-  #ctr-preview-pane.expanded, #dlv-preview-pane.expanded, #tax-preview-pane.expanded {
+  #ctr-preview-pane.expanded, #dlv-preview-pane.expanded, #tax-preview-pane.expanded,
+  #sl-f-preview-pane.expanded {
     max-height: 80vh !important;
   }
   /* 모바일에서 모달 자체도 더 크게 (전체 화면 활용) */
-  #orderModal > div, #cfmModal > div, #ctrModal > div, #dlvModal > div, #taxModal > div {
+  #orderModal > div, #cfmModal > div, #ctrModal > div, #dlvModal > div, #taxModal > div,
+  #slModal > div, #purchaseQuoteModal > div, #purchaseOrderModal > div, 
+  #purchaseDeliveryModal > div, #purchaseTaxModal > div {
     max-height: 96vh !important;
     border-radius: 8px !important;
+  }
+  /* 모바일: slModal 2단 그리드 → 1단 stack (미리보기 위, 폼 아래) */
+  #slModal > div > div[style*="grid-template-columns:1.2fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr !important;
+  }
+  #sl-f-preview-pane {
+    max-height: 40vh !important;
   }
 
   /* ── 상단바: 타이틀만 표시, 버튼들 숨김 ── */
@@ -903,10 +915,45 @@
 
       <!-- 추가/수정 모달 -->
       <div id="slModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-        <div class="modal-inner" style="background:#fff;border-radius:16px;padding:28px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
-          <button onclick="closeSLModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-          <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="slModalTitle">📋 구매활동 추가</div>
-          <div style="font-size:13px;color:var(--t3);margin-bottom:18px">영업프로젝트 선택 → 구매요청서 업로드 → AI파싱 → 등록 완료</div>
+        <div class="modal-inner" style="background:#fff;border-radius:16px;width:96vw;max-width:1500px;height:94vh;max-height:94vh;position:relative;display:flex;flex-direction:column;overflow:hidden">
+          <!-- 헤더 (고정) -->
+          <div style="padding:18px 28px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <div>
+              <div style="font-size:19px;font-weight:900;color:var(--t)" id="slModalTitle">📋 구매활동 추가</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:2px">영업프로젝트 선택 → 구매요청서 업로드 → AI파싱 → 등록 완료</div>
+            </div>
+            <button onclick="closeSLModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+          </div>
+
+          <!-- 2단 그리드: 좌(미리보기 큰 panel) / 우(폼) -->
+          <div style="flex:1;display:grid;grid-template-columns:1.2fr 1fr;gap:0;overflow:hidden;min-height:0">
+
+            <!-- ╔════════════════════════════════════════════════════════ -->
+            <!-- ║ 좌측: PDF 미리보기 (크게)                                -->
+            <!-- ╚════════════════════════════════════════════════════════ -->
+            <div style="background:#f8fafc;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-height:0">
+              <div style="padding:10px 16px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+                <div style="font-size:14px;font-weight:700;color:var(--t)">📄 구매요청서 미리보기</div>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span id="sl-f-preview-zoom-label" style="font-size:12px;color:var(--t3);font-family:var(--m)">100%</span>
+                  <button type="button" onclick="zoomPreviewSL(-0.2)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:13px;font-family:var(--m)">−</button>
+                  <button type="button" onclick="zoomPreviewSL(0.2)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:13px;font-family:var(--m)">+</button>
+                  <button type="button" onclick="zoomPreviewSL(0)" style="padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:12px;font-family:var(--s)">초기화</button>
+                </div>
+              </div>
+              <div id="sl-f-preview-pane" style="flex:1;overflow:auto;padding:14px;background:#f1f5f9;min-height:0">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px;padding:60px 30px;text-align:center;min-height:400px">
+                  <div style="font-size:64px;margin-bottom:16px;opacity:0.5">📄</div>
+                  <div style="font-weight:700;color:#475569;font-size:16px;margin-bottom:8px">PDF 미리보기 영역</div>
+                  <div style="color:#94a3b8;font-size:13px;line-height:1.7">우측 [파일 선택] 으로<br>구매요청서 PDF를 업로드하면<br>여기에 큰 화면으로 표시됩니다.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ╔════════════════════════════════════════════════════════ -->
+            <!-- ║ 우측: 입력 폼 (스크롤)                                   -->
+            <!-- ╚════════════════════════════════════════════════════════ -->
+            <div style="overflow-y:auto;padding:18px 24px;min-height:0">
 
           <!-- 1단계: 영업프로젝트코드 선택 -->
           <div style="margin-bottom:14px;padding:12px;background:var(--pd);border-radius:8px;border:1px solid var(--p)">
@@ -1012,7 +1059,7 @@
             <textarea class="si" id="sl-f-note" placeholder="요청 사유, 특이사항, 거래처 후보 등" style="width:100%;height:60px;resize:vertical"></textarea>
           </div>
 
-          <!-- ② 구매요청서 업로드 (필수) + 미리보기 + AI 파싱 -->
+          <!-- ② 구매요청서 업로드 (필수) + AI 파싱 -->
           <div style="margin-bottom:14px;padding:14px;background:#fff7ed;border-radius:8px;border:2px solid var(--a)">
             <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">② 구매요청서 PDF 업로드 <span style="color:var(--r)">*</span></label>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1021,10 +1068,8 @@
               <button type="button" onclick="aiParsePR()" 
                 style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
             </div>
-            <div style="font-size:11px;color:var(--t3);margin-top:6px">※ 구매요청서 PDF 업로드 시 AI가 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:6px">※ PDF 업로드 시 좌측에 미리보기 표시 · AI 파싱으로 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
             <div id="sl-f-prfile-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
-            <!-- 📄 PDF 미리보기 영역 -->
-            <div id="sl-f-preview-pane" style="margin-top:10px;min-height:0;max-height:400px;overflow-y:auto;border-radius:6px;background:#fff;"></div>
           </div>
 
           <!-- 참석자 (DM 발송용) -->
@@ -1044,9 +1089,13 @@
             </div>
           </div>
 
-          <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button onclick="closeSLModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-            <button onclick="saveSLActivity()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 + PR 생성</button>
+            </div><!-- /우측 폼 영역 (스크롤) -->
+          </div><!-- /2단 그리드 (좌:미리보기, 우:폼) -->
+
+          <!-- 풋터 (고정, 저장/취소 버튼) -->
+          <div style="padding:14px 24px;border-top:1px solid var(--border);background:var(--bg3);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+            <button onclick="closeSLModal()" style="padding:10px 24px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+            <button onclick="saveSLActivity()" style="padding:10px 26px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 + PR 생성</button>
           </div>
         </div>
       </div>
@@ -22549,6 +22598,23 @@ function previewZoomOut(containerId) {
 function previewZoomReset(containerId) {
   window._previewZoom[containerId] = 1;
   _previewZoomApply(containerId);
+}
+
+// 🆕 구매활동 모달의 미리보기 줌 (단순 인터페이스)
+function zoomPreviewSL(delta) {
+  const containerId = "sl-f-preview-pane";
+  const cur = window._previewZoom[containerId] || 1;
+  let newZoom;
+  if(delta === 0) {
+    newZoom = 1;  // 초기화
+  } else {
+    newZoom = Math.max(0.3, Math.min(5, cur + delta));
+  }
+  window._previewZoom[containerId] = newZoom;
+  _previewZoomApply(containerId);
+  // 레이블 갱신
+  const lbl = document.getElementById("sl-f-preview-zoom-label");
+  if(lbl) lbl.textContent = Math.round(newZoom*100) + "%";
 }
 
 // 모바일: 미리보기 패널 확장/축소 토글
