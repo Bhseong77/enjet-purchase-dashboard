@@ -504,6 +504,67 @@
           <div class="cb" style="padding:14px" id="pCategoryList"><div class="sw"><div class="spr"></div></div></div>
         </div>
       </div>
+
+      <!-- 🚀 빠른 시작 가이드 + AI 설정 -->
+      <div class="g2b" style="margin-top:9px">
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c1">🚀</div>빠른 시작 가이드</div></div>
+          <div class="cb" style="padding:14px;font-size:13px;line-height:1.7">
+            <div style="background:var(--pd);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid var(--p)">
+              <b style="color:var(--p)">1. 구매활동 추가</b><br>
+              📋 구매활동 → <code>+ 신규</code> → 영업 SL/SP 코드 선택 → 구매요청서 PDF 업로드
+            </div>
+            <div style="background:var(--ad);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid var(--a)">
+              <b style="color:var(--a)">2. 구매요청서 PR 등록</b><br>
+              📝 구매요청서 DB → <code>+ 구매요청서 추가</code> → 자동채번 PR-YYMMDD-NN → BOM 자동매칭
+            </div>
+            <div style="background:var(--gd);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid var(--g)">
+              <b style="color:var(--g)">3. 거래처 견적 → 발주 → 입고 → 세금계산서 → 정산</b><br>
+              각 단계마다 [+ 추가] 버튼으로 입력 (PO/ST 코드 자동채번)
+            </div>
+            <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;border-left:3px solid #f59e0b">
+              <b style="color:#92400e">🤖 AI 자동 입력</b><br>
+              모달의 <code>🤖 AI 파싱</code> 버튼 → PDF → Copilot/OpenAI가 자동 추출
+            </div>
+            <div style="text-align:right;margin-top:10px;font-size:12px;color:var(--t3)">
+              💡 콘솔에서 <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">seedPurchaseTestData()</code> 입력 → 샘플 데이터 자동 시드
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c2">🤖</div>AI 파싱 설정</div></div>
+          <div class="cb" style="padding:14px">
+            <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.6">
+              구매요청서/견적서/세금계산서 PDF에서 자동 추출합니다.
+              <br><b>기본: M365 Copilot</b> (회사 라이선스로 동작) — 키 등록 불필요
+              <br><b>백업: OpenAI GPT-4o</b> (이미지 PDF/스캔본용) — 키 등록 시 자동 폴백
+            </div>
+            
+            <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:8px">
+              <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px">🔑 OpenAI API Key <span style="font-weight:400;color:var(--t3)">(선택)</span></label>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <input class="si" type="password" id="purchase-oai-key" placeholder="sk-..." style="flex:1;min-width:200px;font-family:var(--m);font-size:12px">
+                <button onclick="savePurchaseOAIKey()" style="padding:7px 14px;border-radius:6px;border:none;background:var(--p);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--s);white-space:nowrap">저장</button>
+                <button onclick="clearPurchaseOAIKey()" style="padding:7px 12px;border-radius:6px;border:1px solid var(--border2);background:transparent;font-size:13px;cursor:pointer;font-family:var(--s);white-space:nowrap">삭제</button>
+              </div>
+              <div id="purchase-oai-status" style="font-size:11px;margin-top:6px;color:var(--t3)">키 미등록 (Copilot만 사용)</div>
+            </div>
+            
+            <details style="font-size:12px;color:var(--t3);margin-top:8px">
+              <summary style="cursor:pointer;font-weight:700;color:var(--t2);padding:4px 0">📖 AI 파싱 동작 원리</summary>
+              <div style="padding:8px 4px;line-height:1.7">
+                1. PDF 첨부 → 🤖 AI 파싱 버튼 클릭<br>
+                2. pdfjs로 PDF 텍스트 추출 시도<br>
+                3-A. 텍스트 PDF → <b>M365 Copilot Chat API</b>로 분석 → JSON 추출<br>
+                3-B. 이미지 PDF (스캔본) → OpenAI 키 있으면 GPT-4o vision으로 자동 폴백<br>
+                4. 모달의 빈 필드들에 자동 채움 (기존 값 덮어쓰지 않음)<br>
+                5. 사람이 확인/보정 후 저장
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 현금흐름 -->
@@ -842,7 +903,7 @@
 
       <!-- 추가/수정 모달 -->
       <div id="slModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-        <div class="modal-inner" style="background:#fff;border-radius:16px;padding:28px;width:680px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <div class="modal-inner" style="background:#fff;border-radius:16px;padding:28px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
           <button onclick="closeSLModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
           <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="slModalTitle">📋 구매활동 추가</div>
           <div style="font-size:13px;color:var(--t3);margin-bottom:18px">영업프로젝트 선택 → 구매요청서 업로드 → AI파싱 → 등록 완료</div>
@@ -951,7 +1012,7 @@
             <textarea class="si" id="sl-f-note" placeholder="요청 사유, 특이사항, 거래처 후보 등" style="width:100%;height:60px;resize:vertical"></textarea>
           </div>
 
-          <!-- ② 구매요청서 업로드 (필수) -->
+          <!-- ② 구매요청서 업로드 (필수) + 미리보기 + AI 파싱 -->
           <div style="margin-bottom:14px;padding:14px;background:#fff7ed;border-radius:8px;border:2px solid var(--a)">
             <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">② 구매요청서 PDF 업로드 <span style="color:var(--r)">*</span></label>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -962,6 +1023,8 @@
             </div>
             <div style="font-size:11px;color:var(--t3);margin-top:6px">※ 구매요청서 PDF 업로드 시 AI가 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
             <div id="sl-f-prfile-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
+            <!-- 📄 PDF 미리보기 영역 -->
+            <div id="sl-f-preview-pane" style="margin-top:10px;min-height:0;max-height:400px;overflow-y:auto;border-radius:6px;background:#fff;"></div>
           </div>
 
           <!-- 참석자 (DM 발송용) -->
@@ -2091,7 +2154,7 @@
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               <span style="font-size:14px;color:var(--t3)" id="qdb-upd">-</span>
-              <button onclick="if(typeof openPurchaseQuoteModal==='function')openPurchaseQuoteModal(null);else alert('견적서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 견적서 수신</button>
+              <button onclick="openPurchaseQuoteModal(null)" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 견적서 수신</button>
             </div>
           </div>
           <div class="cb" style="padding:8px 12px">
@@ -2154,7 +2217,7 @@
             <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button onclick="if(typeof openPurchaseOrderModal==='function')openPurchaseOrderModal(null);else alert('발주서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 발주서 작성</button>
+            <button onclick="openPurchaseOrderModal(null)" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 발주서 작성</button>
           </div>
         </div>
         <div class="cb" style="padding:8px 12px">
@@ -2209,7 +2272,7 @@
             <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button onclick="if(typeof openPurchaseDeliveryModal==='function')openPurchaseDeliveryModal(null);else alert('거래명세서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 거래명세서 수신</button>
+            <button onclick="openPurchaseDeliveryModal(null)" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 거래명세서 수신</button>
           </div>
         </div>
         <div class="cb" style="padding:8px 12px">
@@ -2263,7 +2326,7 @@
             <span style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button onclick="if(typeof openPurchaseTaxModal==='function')openPurchaseTaxModal(null);else alert('세금계산서 입력 기능 다음 세션 구현 예정')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 세금계산서 수신</button>
+            <button onclick="openPurchaseTaxModal(null)" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 세금계산서 수신</button>
           </div>
         </div>
         <div class="cb" style="padding:8px 12px">
@@ -2442,6 +2505,7 @@
               <option value="unpaid">미결제</option>
             </select>
             <input class="si" type="text" id="stlSearch" placeholder="🔍 정산번호/거래처/PR코드..." style="width:200px">
+            <button onclick="openSettleModal(null)" style="padding:4px 12px;border-radius:7px;border:1px solid var(--p);background:var(--p);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 정산 추가</button>
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
@@ -2460,7 +2524,7 @@
                 <th style="min-width:60px">파일</th>
               </tr></thead>
               <tbody id="stlTableBody">
-                <tr><td colspan="10"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매입고정산 문서 업로드 시 자동 생성됩니다</div></div></td></tr>
+                <tr><td colspan="10"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">우측 상단 [+ 정산 추가] 버튼으로 추가하세요</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -2873,20 +2937,28 @@ async function _purchaseCallAI(base64, prompt, engine) {
   }
   const { id: convId } = await convRes.json();
   
-  const fullPrompt = `${prompt}\n\n=== PDF 내용 ===\n${pdfText.substring(0, 8000)}`;
+  const fullPrompt = `${prompt}\n\n아래는 PDF에서 추출한 텍스트입니다. 이 내용만 보고 JSON을 추출하세요:\n\n${pdfText.substring(0, 6000)}`;
   
   const chatRes = await fetch(`https://graph.microsoft.com/beta/copilot/conversations/${convId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
-    body: JSON.stringify({ message: { text: fullPrompt } }),
+    body: JSON.stringify({
+      message: { text: fullPrompt },
+      locationHint: { timeZone: "Asia/Seoul" }   // 🔧 필수: Copilot이 locationHint 요구
+    }),
   });
   if(!chatRes.ok) {
     const e = await chatRes.text().catch(()=>"");
     throw new Error("Copilot 응답 실패: " + e.substring(0,200));
   }
   const chatData = await chatRes.json();
-  // Copilot 응답 형식: chatData.text 또는 chatData.message?.text
-  const text = chatData.text || chatData.message?.text || chatData.response || "";
+  // Copilot 응답 형식: chatData.messages 배열 마지막에서 추출 (영업 코드와 일치)
+  const msgs = chatData.messages || [];
+  let text = "";
+  for(let i = msgs.length - 1; i >= 0; i--) {
+    if(msgs[i].text) { text = msgs[i].text; break; }
+  }
+  if(!text) text = chatData.text || chatData.message?.text || "";
   return _purchaseExtractJson(text);
 }
 
@@ -3120,6 +3192,12 @@ window.addEventListener("DOMContentLoaded", () => {
         } else {
           info.style.display = "none";
         }
+      }
+      // 📄 자동 미리보기
+      if(f && typeof renderFilePreview === "function") {
+        renderFilePreview(f, "sl-f-preview-pane").catch(e => console.warn("미리보기 실패:", e));
+      } else if(!f) {
+        const pp = document.getElementById("sl-f-preview-pane"); if(pp) pp.innerHTML = "";
       }
     });
   }
@@ -4433,6 +4511,64 @@ function updateAllBadges() {
     }
   });
 }
+
+// 🔑 OpenAI API 키 관리 (구매 대시보드 AI 파싱용)
+function savePurchaseOAIKey() {
+  const input = document.getElementById("purchase-oai-key");
+  const status = document.getElementById("purchase-oai-status");
+  const key = (input?.value || "").trim();
+  
+  if(!key) { alert("OpenAI API Key를 입력해주세요. (sk-로 시작하는 키)"); return; }
+  if(!key.startsWith("sk-")) {
+    if(!confirm("⚠️ OpenAI 키는 보통 'sk-'로 시작합니다.\n그래도 저장하시겠어요?")) return;
+  }
+  
+  try {
+    localStorage.setItem("oai_key", key);
+    if(status) {
+      status.textContent = `✅ 키 등록됨 (${key.length}자 · 마지막 4자리: ...${key.slice(-4)})`;
+      status.style.color = "var(--g)";
+    }
+    if(input) input.value = "";  // 보안: 입력란 초기화
+    
+    // 영업 코드와도 호환 (oai_key는 공용)
+    alert("✅ OpenAI 키가 저장되었습니다.\n\n이제 PDF 파싱 시 Copilot 실패하면 자동으로 GPT-4o vision으로 폴백됩니다.");
+  } catch(e) {
+    alert("⚠️ localStorage 저장 실패: " + e.message);
+  }
+}
+
+function clearPurchaseOAIKey() {
+  if(!confirm("🗑️ OpenAI API 키를 삭제하시겠어요?\n\n이후 이미지 PDF는 AI 파싱이 안 됩니다.")) return;
+  try {
+    localStorage.removeItem("oai_key");
+    const status = document.getElementById("purchase-oai-status");
+    if(status) {
+      status.textContent = "키 미등록 (Copilot만 사용)";
+      status.style.color = "var(--t3)";
+    }
+    alert("✅ OpenAI 키가 삭제되었습니다.");
+  } catch(e) {
+    alert("⚠️ 삭제 실패: " + e.message);
+  }
+}
+
+// 페이지 로드 시 OAI 키 상태 표시
+window.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    const key = localStorage.getItem("oai_key") || "";
+    const status = document.getElementById("purchase-oai-status");
+    if(status) {
+      if(key) {
+        status.textContent = `✅ 키 등록됨 (마지막 4자리: ...${key.slice(-4)})`;
+        status.style.color = "var(--g)";
+      } else {
+        status.textContent = "키 미등록 (Copilot만 사용 · 이미지 PDF 파싱 불가)";
+        status.style.color = "var(--t3)";
+      }
+    }
+  }, 300);
+});
 
 // 데이터 변경 후 자동 호출 (loadAllPurchaseDB 끝에 연결)
 // 그리고 구매현황 탭 진입 시도 호출
@@ -10543,8 +10679,12 @@ function renderSLAll() {
   filterSL();
   updateSLKPI(slData);
   $("badge-sl", slData.length);
+  // 🔧 구매 대시보드: badge-pa도 갱신 (구매활동 사이드바)
+  $("badge-pa", slData.length);
   if(typeof renderRecentSLCard === "function") renderRecentSLCard();
   if(typeof updateMobBadges === "function") updateMobBadges();
+  // 🔧 구매 대시보드: 사이드바 통합 배지 갱신 (다른 DB 카운트도)
+  if(typeof updateAllBadges === "function") updateAllBadges();
 }
 
 
@@ -17029,9 +17169,9 @@ function openSLModal(act) {
     // 프로젝트코드
     document.getElementById("sl-f-pjcode").value=act.pjcode||"";
     slModalSetPjcode(act.pjcode||"", act.pjcode||"");
-    document.getElementById("sl-f-status").value=act.status||"신규";
-    // 고객담당자
-    document.getElementById("sl-f-custmgr").value=act.custMgr||"";
+    document.getElementById("sl-f-status").value=act.status||"구매요청접수";
+    // 고객담당자 (구매에서는 reqDept 호환)
+    document.getElementById("sl-f-custmgr").value=act.custMgr||act.reqDept||"";
     slModalSetCustMgr(act.custMgr||"", act.company||"");
     document.getElementById("sl-f-salesmgr").value=act.salesMgr||"";
     document.getElementById("sl-f-start").value=act.start||"";
@@ -17040,18 +17180,37 @@ function openSLModal(act) {
     const _att=document.getElementById("sl-f-attendees"); if(_att) _att.value=act.attendees||"";
     const _st=document.getElementById("sl-f-stime"); if(_st) _st.value=act.startTime||"09:00";
     const _et=document.getElementById("sl-f-etime"); if(_et) _et.value=act.endTime||"18:00";
+    // 🔧 구매 전용 필드 (수정 모드)
+    const _sn=document.getElementById("sl-f-salesname"); if(_sn) _sn.value=act.salesPjName||"";
+    const _rd=document.getElementById("sl-f-reqdept"); if(_rd) _rd.value=act.reqDept||"";
+    const _pr=document.getElementById("sl-f-priority"); if(_pr) _pr.value=act.priority||"일반";
+    // 수정 모드는 파일 다시 첨부 안 함
+    const _f=document.getElementById("sl-f-prfile"); if(_f) _f.value="";
+    const _fi=document.getElementById("sl-f-prfile-info"); if(_fi) {
+      if(act.prFileName) { _fi.style.display="block"; _fi.textContent=`📎 기존 파일: ${act.prFileName} (재첨부 시 교체)`; _fi.style.color="var(--t3)"; }
+      else { _fi.style.display="none"; }
+    }
   } else {
     slEditId=null;
     {const _e16=document.getElementById("slModalTitle");if(_e16) _e16.textContent="구매활동 추가";}
-    ["sl-f-company","sl-f-pjcode","sl-f-custmgr","sl-f-salesmgr","sl-f-note"].forEach(id=>{
+    ["sl-f-company","sl-f-pjcode","sl-f-custmgr","sl-f-salesmgr","sl-f-note","sl-f-salesname"].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value="";
     });
     slModalSetPjcode("", "");
     slModalSetCustMgr("", "");
     const _att=document.getElementById("sl-f-attendees"); if(_att) _att.value="";
-    document.getElementById("sl-f-status").value="신규";
+    // 🔧 구매 대시보드: 진행상태 기본값 = 구매요청접수
+    document.getElementById("sl-f-status").value="구매요청접수";
+    // 🔧 현업 요청부서 + 우선순위 초기화
+    const _rd=document.getElementById("sl-f-reqdept"); if(_rd) _rd.value="";
+    const _pr=document.getElementById("sl-f-priority"); if(_pr) _pr.value="일반";
     document.getElementById("sl-f-start").value=new Date().toISOString().split("T")[0];
     document.getElementById("sl-f-end").value="";
+    // 🔧 파일 input + AI 파싱 상태 초기화
+    const _f=document.getElementById("sl-f-prfile"); if(_f) _f.value="";
+    const _fi=document.getElementById("sl-f-prfile-info"); if(_fi) { _fi.style.display="none"; _fi.textContent=""; }
+    // 🔧 미리보기 영역 비우기
+    const _pp=document.getElementById("sl-f-preview-pane"); if(_pp) _pp.innerHTML="";
   }
 
   // 🛡️ 자동저장 + 복원 (신규 모드)
