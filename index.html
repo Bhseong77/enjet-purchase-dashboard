@@ -869,48 +869,40 @@
             <input class="si" type="text" id="slSrch" placeholder="🔍 고객사/프로젝트코드..." oninput="filterSL()" style="width:180px">
             <select class="ss" id="slStatusFilter" onchange="filterSL()" style="font-size:15px">
               <option value="">전체 상태</option>
-              <option value="신규">🆕 신규</option>
-              <option value="제안">💡 제안</option>
-              <option value="견적">📋 견적</option>
-              <option value="발주">📦 발주</option>
-              <option value="진행">▶️ 진행</option>
-              <option value="납품완료">✅ 납품완료</option>
-              <option value="세금계산서미발행">🧾 세금계산서미발행</option>
-              <option value="세금계산서완료">✅ 세금계산서완료</option>
-              <option value="잔금">💰 잔금</option>
-              <option value="유지보수(무상)">🔧 유지보수</option>
-              <option value="종료">⛔ 종료</option>
+              <option value="구매요청접수">📥 구매요청접수</option>
+              <option value="납기확인중">📊 납기확인중</option>
+              <option value="발주완료">📦 발주완료</option>
+              <option value="입고확인">🚚 입고확인</option>
+              <option value="완료예정">🧾 완료예정</option>
+              <option value="매입완료">✅ 매입완료</option>
+              <option value="보류">⏸ 보류</option>
+              <option value="취소">❌ 취소</option>
             </select>
             <span style="font-size:14px;color:var(--t3)" id="slUpd">-</span>
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto"><table class="tbl" style="min-width:980px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:1100px">
             <thead><tr>
-              <th style="min-width:130px">고객사</th>
-              <th style="min-width:110px">프로젝트코드</th>
-              <th style="min-width:60px;text-align:center">차수</th>
-              <th style="min-width:100px">진행상태</th>
-              <th style="min-width:90px">최근활동일</th>
-              <th style="min-width:75px">고객담당자</th>
-              <th style="min-width:75px">구매담당자</th>
-              <th style="text-align:center;min-width:55px;font-size:14px">📝 회의록</th>
-              <th style="text-align:center;min-width:55px;font-size:14px">📂 자료</th>
-              <th style="text-align:center;min-width:55px;font-size:14px">📄 견적서</th>
-              <th style="text-align:center;min-width:55px;font-size:14px">📦 발주서</th>
-              <th style="text-align:center;min-width:55px;font-size:14px">📑 계약서</th>
-              <th style="text-align:center;min-width:60px;font-size:14px">🚚 거래명세서</th>
-              <th style="text-align:center;min-width:75px;font-size:14px">🧾 세금계산서</th>
-              <th style="text-align:center;min-width:55px;font-size:14px">✅ 납품확인서</th>
-              <th style="min-width:45px"></th>
+              <th style="min-width:140px">영업프로젝트 (고객사)</th>
+              <th style="min-width:110px">SL/SP 코드</th>
+              <th style="min-width:80px">진행상태</th>
+              <th style="min-width:95px">요청일</th>
+              <th style="min-width:90px">현업 요청부서</th>
+              <th style="min-width:80px">구매담당자</th>
+              <th style="text-align:center;min-width:70px;font-size:13px">📦 PR 건수</th>
+              <th style="text-align:center;min-width:70px;font-size:13px">📎 PDF</th>
+              <th style="text-align:center;min-width:70px;font-size:13px">📁 SP 폴더</th>
+              <th style="text-align:center;min-width:65px;font-size:13px">우선순위</th>
+              <th style="min-width:60px;text-align:center">편집</th>
             </tr></thead>
             <tbody id="slBody">
-              <tr><td colspan="15"><div class="empty"><div class="ei">📋</div><div class="et">구매활동 없음</div><div style="margin-top:10px"><button onclick="openSLModal(null)" style="padding:7px 18px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:16px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 첫 구매활동 추가</button></div></div></td></tr>
+              <tr><td colspan="11"><div class="empty"><div class="ei">📋</div><div class="et">구매활동 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">영업프로젝트(SL/SP)별로 구매활동 1건 + 구매요청서 PDF 업로드 → AI 파싱 → 품목별 PR 자동 생성</div><div style="margin-top:10px"><button onclick="openSLModal(null)" style="padding:7px 18px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:16px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 첫 구매활동 추가</button></div></div></td></tr>
             </tbody>
           </table></div>
           <div style="font-size:14px;color:var(--t3);margin-top:6px;text-align:right" id="slCnt"></div>
         </div>
-        <div class="cn">※ SharePoint 🏭 구매/1.구매활동/ 자동 저장 · 고객사별 폴더 자동 생성</div>
+        <div class="cn">※ 1 구매활동 = 1 영업프로젝트 · 구매요청서 PDF 1장 = PR DB의 품목 N행 자동 생성 · SharePoint 🏭 구매/1.구매활동/ 자동 저장</div>
       </div>
 
       <!-- 추가/수정 모달 -->
@@ -14296,9 +14288,10 @@ function filterSL() {
   const q=(document.getElementById("slSrch")?.value||"").toLowerCase();
   const st=document.getElementById("slStatusFilter")?.value||"";
   let d=slData;
-  if(q) d=d.filter(r=>[r.company,r.pjcode,r.custMgr,r.salesMgr].some(v=>String(v||"").toLowerCase().includes(q)));
+  if(q) d=d.filter(r=>[r.company,r.pjcode,r.custMgr,r.salesMgr,r.reqDept,r.salesPjName].some(v=>String(v||"").toLowerCase().includes(q)));
   if(st) d=d.filter(r=>r.status===st);
-  renderSLTable(d);
+  // 🆕 구매 대시보드 전용 렌더 (영업 컬럼 절대 안 보임)
+  renderSLTablePurchase(d);
   const cntText = d.length+"건"+(d.length!==slData.length?" (필터됨)":"");
   $("slCnt",cntText);
   // 헤더의 카운트 뱃지도 갱신
@@ -14314,6 +14307,137 @@ function filterSL() {
       badge.style.color = "var(--a)";
     }
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 구매 대시보드 전용 구매활동 목록 렌더 (영업 컬럼 완전 배제)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderSLTablePurchase(data) {
+  const body = document.getElementById("slBody");
+  if(!body) return;
+  // thead/tbody 복원
+  const thead = body.closest("table")?.querySelector("thead");
+  if(thead) thead.style.display = "";
+  body.style.display = "";
+  
+  if(!data.length) {
+    body.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">📋</div><div class="et">구매활동 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 추가] 또는 아래 버튼으로 구매활동을 시작하세요</div><div style="margin-top:10px"><button onclick="openSLModal(null)" style="padding:7px 18px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:16px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 첫 구매활동 추가</button></div></div></td></tr>`;
+    return;
+  }
+  
+  // 최근순 정렬
+  const sorted = [...data].sort((a,b) => {
+    const da = a.updatedAt||a.start||a.createdAt||"";
+    const db = b.updatedAt||b.start||b.createdAt||"";
+    return db.localeCompare(da);
+  });
+  
+  // 구매 진행상태 옵션
+  const PURCHASE_STATUS = ["구매요청접수","납기확인중","발주완료","입고확인","완료예정","매입완료","보류","취소"];
+  const STATUS_BADGE = {
+    "구매요청접수": {bg:"var(--pd)", fg:"var(--p)", icon:"📥"},
+    "납기확인중":   {bg:"var(--ad)", fg:"var(--a)", icon:"📊"},
+    "발주완료":     {bg:"#dbeafe",   fg:"#1d4ed8",  icon:"📦"},
+    "입고확인":     {bg:"#fef3c7",   fg:"#92400e",  icon:"🚚"},
+    "완료예정":     {bg:"#e0e7ff",   fg:"#4338ca",  icon:"🧾"},
+    "매입완료":     {bg:"var(--gd)", fg:"var(--g)", icon:"✅"},
+    "보류":         {bg:"var(--bg3)",fg:"var(--t3)", icon:"⏸"},
+    "취소":         {bg:"#fee2e2",   fg:"var(--r)", icon:"❌"},
+  };
+  
+  const rows = sorted.map(r => {
+    const company = (r.company||"").replace(/'/g,"\\'");
+    const pjcode = r.pjcode || "";
+    const salesPjName = r.salesPjName || "";
+    
+    // 영업프로젝트 표시 (고객사 + 프로젝트명)
+    const projectCell = `<div style="display:flex;flex-direction:column;gap:2px">
+      <span style="font-weight:700;font-size:13px;color:var(--t)">${escapeHtml(r.company||"-")}</span>
+      ${salesPjName ? `<span style="font-size:11px;color:var(--t3)">${escapeHtml(salesPjName)}</span>` : ""}
+    </div>`;
+    
+    // SL/SP 코드
+    const codeCell = pjcode 
+      ? `<span class="tm" style="font-size:13px;color:var(--p);font-weight:700;font-family:var(--m)">${escapeHtml(pjcode)}</span>`
+      : `<span style="color:var(--t3);font-size:12px">-</span>`;
+    
+    // 진행상태 (구매용 8단계)
+    const statusBadge = STATUS_BADGE[r.status] || STATUS_BADGE["구매요청접수"];
+    const statusSelect = `<select onchange="updateSLStatus('${r.id}',this.value)"
+      style="padding:3px 7px;border-radius:6px;border:1px solid ${statusBadge.fg}40;font-size:12px;font-family:var(--s);background:${statusBadge.bg};color:${statusBadge.fg};font-weight:700;cursor:pointer">
+      ${PURCHASE_STATUS.map(s => `<option value="${s}" ${s===r.status?"selected":""}>${(STATUS_BADGE[s]||{}).icon||""} ${s}</option>`).join("")}
+    </select>`;
+    
+    // 연관 PR 개수 (parentSLId로 카운트)
+    const relatedPRs = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+      ? _prMaster.filter(p => p.parentSLId === r.id)
+      : [];
+    const prCount = relatedPRs.length;
+    const prBadge = prCount > 0
+      ? `<span style="padding:3px 10px;border-radius:5px;background:var(--pd);color:var(--p);font-weight:700;font-size:12px" title="PR DB에서 확인 가능">${prCount}건</span>`
+      : `<span style="color:var(--t3);font-size:11px">0건</span>`;
+    
+    // PDF 파일 (parentPRFile)
+    const pdfFile = relatedPRs[0]?.parentPRFile || "";
+    const pdfCell = pdfFile
+      ? `<span style="font-size:11px;color:var(--g)" title="${escapeHtml(pdfFile)}">📎</span>`
+      : `<span style="color:var(--t3);font-size:11px">-</span>`;
+    
+    // SP 폴더 링크
+    const spCell = pjcode 
+      ? `<button onclick="event.stopPropagation();openSPFolderForAct('${r.id}')" style="padding:2px 8px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--p);font-size:11px;cursor:pointer;font-family:var(--s)" title="SP 폴더 열기">📁 열기</button>`
+      : `<span style="color:var(--t3);font-size:11px">-</span>`;
+    
+    // 우선순위
+    const priority = r.priority || "일반";
+    const priorityBadge = {
+      "긴급": `<span style="padding:2px 7px;border-radius:5px;background:#fee2e2;color:var(--r);font-weight:700;font-size:11px">🔴 긴급</span>`,
+      "일반": `<span style="padding:2px 7px;border-radius:5px;background:var(--bg3);color:var(--t2);font-size:11px">일반</span>`,
+      "낮음": `<span style="padding:2px 7px;border-radius:5px;background:#f3f4f6;color:var(--t3);font-size:11px">낮음</span>`,
+    }[priority] || priority;
+    
+    return `<tr style="cursor:pointer" onclick="openSLModal(slData.find(x=>x.id==='${r.id}'))">
+      <td onclick="event.stopPropagation()">${projectCell}</td>
+      <td onclick="event.stopPropagation()">${codeCell}</td>
+      <td onclick="event.stopPropagation()">${statusSelect}</td>
+      <td style="font-family:var(--m);font-size:12px;color:var(--t2)">${escapeHtml(r.start || r.createdAt?.substring(0,10) || "-")}</td>
+      <td style="font-size:12px">${escapeHtml(r.reqDept||r.custMgr||"-")}</td>
+      <td style="font-size:12px">${escapeHtml(r.salesMgr||"-")}</td>
+      <td style="text-align:center" onclick="event.stopPropagation();if(${prCount}>0)go('pr-db',null);">${prBadge}</td>
+      <td style="text-align:center">${pdfCell}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()">${spCell}</td>
+      <td style="text-align:center">${priorityBadge}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <button onclick="openSLModal(slData.find(x=>x.id==='${r.id}'))" style="border:none;background:transparent;cursor:pointer;color:var(--p);font-size:15px" title="수정">✏️</button>
+        <button onclick="if(confirm('삭제하시겠어요?\\n관련 PR ${prCount}건은 그대로 유지됩니다.'))deleteSLActivity('${r.id}')" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px" title="삭제">🗑️</button>
+      </td>
+    </tr>`;
+  }).join("");
+  
+  body.innerHTML = rows;
+}
+
+// SP 폴더 열기 (영업 함수가 있으면 활용, 없으면 폴더 URL 생성)
+function openSPFolderForAct(actId) {
+  const act = slData.find(x => x.id === actId);
+  if(!act) { alert("활동 정보 없음"); return; }
+  // 영업 코드의 slFolderPath 활용
+  if(typeof slFolderPath === "function" && typeof spSiteName !== "undefined") {
+    const path = slFolderPath(act, "");
+    const url = `https://enjetco.sharepoint.com/sites/${spSiteName||"06.BackOffice"}/Shared%20Documents/${path.split("/").map(encodeURIComponent).join("/")}`;
+    window.open(url, "_blank");
+  } else {
+    alert(`SP 폴더: 🏭 구매/1.구매활동/.../${act.company||"-"}/${act.pjcode||""}`);
+  }
+}
+
+// 구매활동 삭제
+async function deleteSLActivity(actId) {
+  const idx = slData.findIndex(x => x.id === actId);
+  if(idx < 0) return;
+  slData.splice(idx, 1);
+  await saveSLToSP();
+  renderSLAll();
 }
 
 // ━━ 모바일 카드 스와이프 제스처 ━━
