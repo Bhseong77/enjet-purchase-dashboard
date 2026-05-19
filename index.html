@@ -4348,6 +4348,22 @@ async function aiParsePurchaseTax() {
 
 // 파일 선택 시 정보 표시
 window.addEventListener("DOMContentLoaded", () => {
+  // 🆕 구매 모달들이 영업 모달 안에 nested돼서 안 보이는 문제 해결
+  // body 직속으로 이동
+  const purchaseModals = [
+    "purchaseQuoteModal", "purchaseOrderModal", "purchaseDeliveryModal", 
+    "purchaseTaxModal", "settleModal", "prGroupModal", "prReviewModal",
+    "bomPriceHistoryModal"
+  ];
+  purchaseModals.forEach(mid => {
+    const m = document.getElementById(mid);
+    if(m && m.parentElement !== document.body) {
+      const oldParent = m.parentElement?.id || "(unknown)";
+      document.body.appendChild(m);
+      console.log(`📦 ${mid} 모달을 body 직속으로 이동 (이전 부모: ${oldParent})`);
+    }
+  });
+  
   const prInput = document.getElementById("sl-f-prfile");
   if(prInput) {
     prInput.addEventListener("change", () => {
