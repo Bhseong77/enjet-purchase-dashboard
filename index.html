@@ -3156,7 +3156,7 @@ async function _purchaseCallAI(base64, prompt, engine) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4000, responseMimeType: "application/json" }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: "application/json" }
         }),
       });
       if(!res.ok) {
@@ -3178,7 +3178,7 @@ async function _purchaseCallAI(base64, prompt, engine) {
             { text: prompt },
             { inline_data: { mime_type: "image/png", data: imgBase64 } }
           ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4000, responseMimeType: "application/json" }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: "application/json" }
         }),
       });
       if(!res.ok) {
@@ -3207,7 +3207,7 @@ async function _purchaseCallAI(base64, prompt, engine) {
           messages: [{ role: "user", content: fullPrompt }],
           response_format: { type: "json_object" },
           temperature: 0.1,
-          max_tokens: 4000,       // 33품목 JSON 다 들어가게
+          max_tokens: 8000,       // 33품목 JSON 다 들어가게
         })
       });
       if(!res.ok) {
@@ -3230,7 +3230,7 @@ async function _purchaseCallAI(base64, prompt, engine) {
             { type: "image_url", image_url: { url: `data:image/png;base64,${imgBase64}` } }
           ]}],
           response_format: { type: "json_object" },
-          max_tokens: 4000,
+          max_tokens: 8000,
         })
       });
       if(!res.ok) {
@@ -3844,18 +3844,15 @@ function parseENJETPRTextLocally(pdfText) {
     console.log("📋 마지막 품목 샘플:", result.items[result.items.length-1]);
   }
   
-  // 🆕 목표 품목수 추출 (합계/총건수 패턴) - 검증용
+  // 🆕 목표 품목수 추출 (검증용)
+  // ⚠️ ENJET 양식: "합계 108"은 총수량(qty 합), 품목 수가 아님 → 신뢰하지 않음
   let expectedCount = 0;
   
-  // 패턴 1: "합계 33" "합계 :  33"
-  const sumMatch = pdfText.match(/합계\s*:?\s*(\d{1,3})/);
-  if(sumMatch) expectedCount = Math.max(expectedCount, parseInt(sumMatch[1], 10));
-  
-  // 패턴 2: 마지막 No (33번까지 있으면 33개)
+  // 패턴 1: 마지막 No (33번까지 있으면 33개) - 가장 신뢰할 만함
   const maxItemNo = result.items.length > 0 ? Math.max(...result.items.map(it => it.no || 0)) : 0;
+  if(maxItemNo > expectedCount) expectedCount = maxItemNo;
   
-  // 패턴 3: PDF 전체에서 No(번호)의 최댓값 찾기 (놓친 행 있는지 확인)
-  // "No\n1\n품명..." 형태이거나 "1 품명 ... \n2 품명 ..." 같은 줄에서 첫 숫자
+  // 패턴 2: PDF 전체에서 No(번호)의 최댓값 찾기 (놓친 행 있는지 확인)
   const allNos = [];
   const numLinePattern = /^\s*(\d{1,3})\s+[가-힣A-Za-z]/gm;
   let nm;
@@ -3871,9 +3868,84 @@ function parseENJETPRTextLocally(pdfText) {
     else break;
   }
   if(consecutiveMax > expectedCount) expectedCount = consecutiveMax;
-  if(maxItemNo > expectedCount) expectedCount = maxItemNo;
   
-  console.log(`📊 검증: 목표 ${expectedCount}개 (합계라인 ${sumMatch?.[1]||"-"} / 마지막No ${maxItemNo} / 연속최대 ${consecutiveMax}) vs 추출 ${result.items.length}개`);
+  // 🆕 패턴 3: "총수량 N" 또는 "합계 N"이 maxItemNo보다 작은 경우만 채택
+  // (대부분 ENJET에서 합계 = 총수량인데, 가끔 "합계 33건" 같이 품목수일 수도 있음)
+  // 보수적으로: maxItemNo 이상이면 무시 (총수량으로 추정)
+  const sumMatch = pdfText.match(/합계\s*:?\s*(\d{1,3})/);
+  const sumValue = sumMatch ? parseInt(sumMatch[1], 10) : 0;
+  // 합계가 maxItemNo와 같거나 작으면 품목 수일 가능성 (드물지만)
+  if(sumValue > 0 && sumValue <= maxItemNo * 1.2 && sumValue > expectedCount) {
+    expectedCount = sumValue;
+  }
+  
+  console.log(`📊 검증: 목표 ${expectedCount}개 (마지막No ${maxItemNo} / 연속최대 ${consecutiveMax} / 합계라인 ${sumValue}=총수량 추정) vs 추출 ${result.items.length}개`);
+  
+  // 🚀 누락 No 자동 보충 - 정규식 다회 시도
+  if(expectedCount > 0 && result.items.length < expectedCount) {
+    const foundNos = new Set(result.items.map(it => it.no));
+    const missingNos = [];
+    for(let i = 1; i <= expectedCount; i++) {
+      if(!foundNos.has(i)) missingNos.push(i);
+    }
+    
+    console.log(`🔍 누락 No ${missingNos.length}개 자동 보충 시도: [${missingNos.slice(0,10).join(", ")}${missingNos.length>10?"...":""}]`);
+    
+    // 각 누락된 No를 텍스트에서 직접 찾기 (더 유연한 패턴)
+    for(const targetNo of missingNos) {
+      // 패턴: "28\n품명..." 또는 "28 품명 ..." (No로 시작하는 라인)
+      // 여러 패턴 시도
+      const patterns = [
+        // 패턴A: 라인 시작 + 28 + 공백 + 한글/영문 (1-2 토큰만)
+        new RegExp(`(?:^|\\n)\\s*${targetNo}\\s+([가-힣A-Za-z][가-힣A-Za-z0-9\\s\\-_/]{1,30}?)\\s+((?:BM|BR|EPC|HV|MS|NMP|GT|HVPK|SLSBWRK|ARJ|KQ|PS|EHB|LIO|RP|T16|K|M|TP)[A-Za-z\\d_\\-\\.\\(\\) ]+)`, "i"),
+        // 패턴B: "28번 품명 ..."
+        new RegExp(`(?:^|\\n)\\s*${targetNo}번?\\s+([가-힣A-Za-z][가-힣A-Za-z\\s\\-_]{1,30})`, "i"),
+      ];
+      
+      let foundItem = null;
+      for(const pat of patterns) {
+        const m = pat.exec(pdfText);
+        if(m) {
+          const name = m[1]?.trim() || "";
+          const partNo = m[2]?.trim() || "";
+          if(name.length > 0 && name.length < 50) {
+            foundItem = {
+              no: targetNo,
+              name,
+              partNo,
+              spec: "",
+              unit: "EA",
+              qty: 0,
+              dueDate: "",
+              projectName: "",
+              projectNo: partNo.split(/[_\-\.]/)[0] || "",
+              vendor: "",
+            };
+            // 같은 라인에 단가/날짜 있으면 추출
+            const ctxStart = pdfText.indexOf(m[0]);
+            const ctxEnd = Math.min(ctxStart + 250, pdfText.length);
+            const ctx = pdfText.substring(ctxStart, ctxEnd);
+            const dateMatch = ctx.match(/(\d{4}-\d{2}-\d{2})/);
+            if(dateMatch) foundItem.dueDate = dateMatch[1];
+            const qtyMatch = ctx.match(/\bEA\s+(\d+)|\bSET\s+(\d+)|\b(\d+)\s+EA\b/);
+            if(qtyMatch) foundItem.qty = parseInt(qtyMatch[1]||qtyMatch[2]||qtyMatch[3], 10);
+            break;
+          }
+        }
+      }
+      
+      if(foundItem) {
+        result.items.push(foundItem);
+        console.log(`  ✅ No ${targetNo} 보충됨: ${foundItem.name} (${foundItem.partNo})`);
+      } else {
+        console.warn(`  ⚠️ No ${targetNo} 보충 실패 - PDF에서 패턴 찾지 못함`);
+      }
+    }
+    
+    // 보충 후 정렬
+    result.items.sort((a,b) => (Number(a.no)||0) - (Number(b.no)||0));
+    console.log(`🔍 보충 후 총 ${result.items.length}/${expectedCount}개`);
+  }
   
   result._expectedCount = expectedCount;
   result._isComplete = expectedCount > 0 ? (result.items.length >= expectedCount) : true;
