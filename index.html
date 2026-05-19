@@ -426,7 +426,7 @@
     <div class="content">
 
     <!-- 구매 현황 -->
-    <div class="page on" id="tab-sales">
+    <div class="page on" id="tab-purchase">
       <div class="pbar">
         <div class="pl">📅 조회 기간</div>
         <div class="pps">
@@ -724,172 +724,8 @@
         <div class="cn">※ [매출자료] 파일의 프로젝트현황 시트 자동 연동 · 데이터 업데이트 시 상단 [🔄 업데이트] 클릭</div>
       </div>
     </div>
-
-    <!-- 고객사 -->
-    <div class="page" id="tab-customer">
-      <div class="kr">
-        <div class="kpi c1"><div class="kl">전체 연락처</div><div class="kv"><span id="ct-tot">-</span><span style="font-size:15px;color:var(--t2)">명</span></div><div class="ks">리멤버 DB</div></div>
-        <div class="kpi c2"><div class="kl">등록 회사</div><div class="kv"><span id="ct-co">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks"></div></div>
-        <div class="kpi c3"><div class="kl">국내</div><div class="kv"><span id="ct-dom">-</span><span style="font-size:15px;color:var(--t2)">명</span></div><div class="ks"></div></div>
-        <div class="kpi c4"><div class="kl">해외</div><div class="kv"><span id="ct-int">-</span><span style="font-size:15px;color:var(--t2)">명</span></div><div class="ks"></div></div>
-      </div>
-
-      <!-- 🆕 신규 등록 카드 (주간/월간/연간) -->
-      <div class="card" style="margin-bottom:9px">
-        <div class="ch" style="margin-bottom:8px">
-          <div class="ct"><div class="ci" style="background:linear-gradient(135deg,#f59e0b,#d97706)">🆕</div>신규 등록 <span id="ct-week-cnt" style="font-size:13px;color:var(--t3);font-weight:400;margin-left:4px">-</span></div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:12px;color:var(--t3)" id="ct-week-range"></span>
-            <div style="display:flex;gap:3px">
-              <button onclick="setContactPeriod('week',this)" class="period-btn on" style="padding:4px 10px;border-radius:6px;border:1px solid var(--p);background:var(--p);color:#fff;font-size:12px;cursor:pointer;font-weight:700;font-family:var(--s)">주간</button>
-              <button onclick="setContactPeriod('month',this)" class="period-btn" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--t2);font-size:12px;cursor:pointer;font-family:var(--s)">월간</button>
-              <button onclick="setContactPeriod('year',this)" class="period-btn" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--t2);font-size:12px;cursor:pointer;font-family:var(--s)">연간</button>
-            </div>
-          </div>
-        </div>
-        <div id="ct-week-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
-          <div style="color:var(--t3);font-size:13px;padding:10px">신규 등록 없음</div>
-        </div>
-      </div>
-
-      <!-- 액션 바 -->
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <button onclick="syncFromSharedOutlookContacts()" id="btnSyncShared"
-          style="padding:5px 12px;border-radius:7px;border:1px solid var(--g);background:var(--gd);color:var(--g);font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">
-          🔗 팀원 Outlook 읽기
-        </button>
-        <button onclick="syncContactsToOutlook()" id="btnSyncOutlook"
-          style="padding:5px 12px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">
-          📤 Outlook 내보내기
-        </button>
-        <button onclick="openNewContactModal()"
-          style="padding:5px 14px;border-radius:7px;border:none;background:var(--g);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">
-          + 신규 담당자
-        </button>
-      </div>
-
-      <div class="g2">
-        <div class="card" style="margin-bottom:0">
-          <div class="ch">
-            <div class="ct"><div class="ci c1">🏢</div>고객사 목록</div>
-            <span style="font-size:14px;color:var(--t3)" id="ct-upd">-</span>
-          </div>
-          <div class="cb" style="padding:8px 12px">
-            <div style="display:flex;gap:6px;margin-bottom:8px">
-              <input class="si" type="text" placeholder="🔍 회사명..." id="coSrch" oninput="filterCos()">
-              <select class="ss" id="coTp" onchange="filterCos()"><option value="">전체</option><option value="국내">🇰🇷 국내</option><option value="해외">🌏 해외</option></select>
-            </div>
-            <div class="col" id="coList" style="max-height:480px;overflow-y:auto"><div class="sw"><div class="spr"></div></div></div>
-          </div>
-        </div>
-        <div class="card" style="margin-bottom:0">
-          <div class="ch">
-            <div class="ct"><div class="ci c2">👥</div>담당자 <span id="selCoNm" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:3px">회사를 선택하세요</span></div>
-            <div style="display:flex;align-items:center;gap:5px">
-              <span style="font-size:14px;color:var(--t3)" id="ctCnt"></span>
-              <button onclick="openNewContactModal(selCo)"
-                style="padding:3px 10px;border-radius:7px;border:none;background:var(--g);color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규</button>
-            </div>
-          </div>
-          <div class="cb" style="padding:8px 12px">
-            <div style="display:flex;gap:6px;margin-bottom:8px">
-              <input class="si" type="text" placeholder="🔍 이름 / 직함..." id="ctSrch" oninput="filterCtP()" style="flex:1">
-              <!-- D: 등록자 필터 -->
-              <select class="ss" id="ctRegFilter" onchange="filterCtP()" style="min-width:90px">
-                <option value="">전체</option>
-              </select>
-            </div>
-            <div class="cgd" id="ctGrid" style="max-height:440px;overflow-y:auto">
-              <div class="empty" style="grid-column:1/-1"><div class="ei">👈</div><div class="et">좌측에서 회사를 선택하세요</div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 🏢 조직도 탭 -->
-    <div class="page" id="tab-orgchart">
-
-      <!-- KPI -->
-      <div class="kr" style="grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:9px" id="org-kpi-row">
-        <div class="kpi"><div class="kl">👥 재직 인원</div><div class="kv" id="org-kpi-total" style="color:var(--p)">-</div><div class="ks" id="org-kpi-total-sub">명</div></div>
-        <div class="kpi"><div class="kl">📋 정규직</div><div class="kv" id="org-kpi-regular">-</div><div class="ks">명</div></div>
-        <div class="kpi"><div class="kl">🗓 입사예정</div><div class="kv" id="org-kpi-new" style="color:var(--g)">-</div><div class="ks">명</div></div>
-        <div class="kpi"><div class="kl">🏖 휴직</div><div class="kv" id="org-kpi-leave" style="color:var(--a)">-</div><div class="ks">명</div></div>
-        <div class="kpi"><div class="kl">🏢 부서 수</div><div class="kv" id="org-kpi-dept">-</div><div class="ks">개</div></div>
-      </div>
-
-      <!-- 조직도 뷰 선택 -->
-      <div class="card" style="margin-bottom:9px">
-        <div class="ch">
-          <div class="ct"><div class="ci c1">🏢</div>조직도
-            <span id="orgSyncBadge" style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <div style="display:flex;gap:3px">
-              <button class="pp on" id="org-view-tree" onclick="setOrgView('tree',this)" style="padding:3px 12px;font-size:14px">🌳 트리</button>
-              <button class="pp" id="org-view-card" onclick="setOrgView('card',this)" style="padding:3px 12px;font-size:14px">📇 카드</button>
-            </div>
-            <select class="ss" id="orgDeptFilter" onchange="filterOrgChart()" style="min-width:130px">
-              <option value="">전체 부서</option>
-            </select>
-            <input class="si" type="text" id="orgSearch" placeholder="🔍 이름/직급 검색..." oninput="filterOrgChart()" style="width:160px">
-            <span style="font-size:13px;color:var(--t3)" id="orgUpd">-</span>
-            <button onclick="loadOrgData(true)" style="padding:4px 12px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">🔄 동기화</button>
-          </div>
-        </div>
-        <div class="cb" style="padding:12px 16px;min-height:200px;overflow-x:auto" id="orgChartBody">
-          <div class="sw"><div class="spr"></div></div>
-        </div>
-      </div>
-
-      <!-- 인사현황 테이블 -->
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c2">👥</div>인사현황</div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select class="ss" id="orgTableDept" onchange="renderOrgTable()" style="min-width:130px">
-              <option value="">전체 부서</option>
-            </select>
-            <select class="ss" id="orgTableStatus" onchange="renderOrgTable()">
-              <option value="">전체 상태</option>
-              <option value="재직">재직</option>
-              <option value="휴직">🏖 휴직</option>
-              <option value="예정">🗓 예정</option>
-            </select>
-            <select class="ss" id="orgTableType" onchange="renderOrgTable()">
-              <option value="">전체 고용형태</option>
-              <option value="정규직">정규직</option>
-              <option value="계약직">계약직</option>
-            </select>
-            <input class="si" type="text" id="orgTableSearch" placeholder="🔍 이름/부서..." oninput="renderOrgTable()" style="width:150px">
-          </div>
-        </div>
-        <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto">
-            <table class="tbl">
-              <thead><tr>
-                <th style="min-width:90px">부서</th>
-                <th style="min-width:70px">팀</th>
-                <th style="min-width:60px">직급</th>
-                <th style="min-width:70px">성명</th>
-                <th style="min-width:80px">입사일</th>
-                <th style="min-width:60px">근무지</th>
-                <th style="min-width:70px">고용형태</th>
-                <th style="min-width:60px">상태</th>
-              </tr></thead>
-              <tbody id="orgTableBody">
-                <tr><td colspan="8"><div class="empty"><div class="ei">👥</div><div class="et">데이터 로딩 중...</div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="orgTableCnt"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- 구매활동 Log -->
-    <div class="page" id="tab-sales-log">
+    <div class="page" id="tab-purchase-log">
       <div class="kr">
         <div class="kpi c1"><div class="kl">전체 활동</div><div class="kv"><span id="sl-tot">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="sl-period">-</div></div>
         <div class="kpi c2"><div class="kl">신규/견적</div><div class="kv"><span id="sl-new">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"></div></div>
@@ -2136,183 +1972,9 @@
         </div>
       </div>
     </div>
-
-    <!-- 마케팅 -->
-    <div class="page" id="tab-marketing">
-
-      <!-- KPI 요약 -->
-      <div class="kr">
-        <div class="kpi c1"><div class="kl">전체 전시회</div><div class="kv"><span id="exh-sched-tot">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="exh-yr-label">2026년</div></div>
-        <div class="kpi c2"><div class="kl">부스 참가</div><div class="kv"><span id="exh-sched-booth">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks"></div></div>
-        <div class="kpi c3"><div class="kl">준비중/진행중</div><div class="kv"><span id="exh-sched-prep">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks"><span class="badge warn">액션 필요</span></div></div>
-        <div class="kpi c4"><div class="kl">완료</div><div class="kv"><span id="exh-sched-done">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks"><span class="badge up">완료</span></div></div>
-      </div>
-
-      <!-- 전시회 일정 캘린더 (구매활동과 동일한 구조) -->
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c1">📅</div>국내/해외 전시회 일정
-            <span id="exhSyncBadge" style="font-size:14px;padding:1px 6px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">Outlook 그룹</span>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <div style="display:flex;gap:3px">
-              <button class="pp on" id="exh-view-w" onclick="setExhView('week',this)" style="padding:3px 10px;font-size:15px">주간</button>
-              <button class="pp" id="exh-view-m" onclick="setExhView('month',this)" style="padding:3px 10px;font-size:15px">월간</button>
-              <button class="pp" id="exh-view-a" onclick="setExhView('all',this)" style="padding:3px 10px;font-size:15px">전체</button>
-            </div>
-            <div id="exhCalNav" style="display:flex;align-items:center;gap:4px">
-              <button onclick="exhNavPrev()" style="padding:3px 10px;border-radius:7px;border:1px solid var(--border2);background:transparent;font-size:16px;cursor:pointer;font-weight:700;color:var(--t2)">◀</button>
-              <button onclick="exhNavToday()" id="exhNavLabel" style="padding:3px 10px;border-radius:7px;border:1px solid var(--border2);background:transparent;font-size:14px;cursor:pointer;font-weight:600;font-family:var(--s);color:var(--t);min-width:100px;text-align:center">이번 주</button>
-              <button onclick="exhNavNext()" style="padding:3px 10px;border-radius:7px;border:1px solid var(--border2);background:transparent;font-size:16px;cursor:pointer;font-weight:700;color:var(--t2)">▶</button>
-              <button onclick="document.getElementById('exhCalDatePicker').showPicker?document.getElementById('exhCalDatePicker').showPicker():document.getElementById('exhCalDatePicker').click()" style="padding:3px 8px;border-radius:7px;border:1px solid var(--border2);background:transparent;font-size:16px;cursor:pointer" title="날짜 선택">📅</button>
-              <input type="date" id="exhCalDatePicker" onchange="exhNavGoToDate(this.value)" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
-            </div>
-            <button onclick="syncExhFromTeams()" style="padding:4px 10px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">🔄 동기화</button>
-            <button onclick="openExhModal(null)" style="padding:4px 10px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 추가</button>
-          </div>
-        </div>
-        <div class="cb" style="padding:12px 16px;min-height:120px" id="exhCalendar">
-          <div class="sw"><div class="spr"></div></div>
-        </div>
-        <div class="cn">※ Outlook 그룹 캘린더 실시간 연동 · 직접 추가/수정도 가능 · SharePoint 저장</div>
-      </div>
-
-      <!-- 전시회 상세 테이블 -->
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c2">📋</div>전시회 목록 상세</div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:14px;color:var(--t3)" id="exhSchedUpd">-</span>
-            <button onclick="openExhModal(null)" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 일정 추가</button>
-          </div>
-        </div>
-        <div class="cb" style="padding:10px 14px">
-          <div class="tw"><table class="tbl" id="exhSchedTbl">
-            <thead><tr>
-              <th>전시회명</th><th>구분</th><th>참가유형</th>
-              <th>시작일</th><th>종료일</th>
-              <th>국가/도시</th><th>행사장</th>
-              <th>담당자</th><th>진행상태</th>
-              <th style="text-align:center">📁 준비파일</th>
-              <th style="text-align:center">📁 결과파일</th>
-              <th style="text-align:center">🎪 고객파일</th>
-              <th></th>
-            </tr></thead>
-            <tbody id="exhSchedBody">
-              <tr><td colspan="11"><div class="empty"><div class="ei">📅</div><div class="et">전시회 일정이 없습니다</div><div style="margin-top:10px"><button onclick="openExhModal(null)" style="padding:7px 18px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:16px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 첫 번째 전시회 추가</button></div></div></td></tr>
-            </tbody>
-          </table></div>
-        </div>
-      </div>
-
-      <!-- 파일 관리 모달 -->
-      <div id="exhFileModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-        <div style="background:#fff;border-radius:16px;padding:24px;width:680px;max-width:95vw;max-height:80vh;overflow-y:auto;position:relative">
-          <button onclick="document.getElementById('exhFileModal').style.display='none'"
-            style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-          <div style="font-size:18px;font-weight:900;color:var(--t);margin-bottom:16px" id="exhFileModalTitle">파일 목록</div>
-          <div id="exhFileModalBody"></div>
-          <div style="margin-top:16px;text-align:right">
-            <button onclick="uploadExhFile(document.getElementById('exhFileModal').dataset.exhId, document.getElementById('exhFileModal').dataset.fileType)"
-              style="padding:7px 16px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:16px;cursor:pointer;font-weight:700;font-family:var(--s)">
-              ⬆ 파일 추가 업로드
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 추가/수정 모달 -->
-      <div id="exhModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-        <div style="background:#fff;border-radius:16px;padding:28px;width:580px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative">
-          <button onclick="closeExhModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-          <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:20px" id="exhModalTitle">전시회 추가</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div style="grid-column:1/-1">
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">전시회명 *</label>
-              <input class="si" type="text" id="exh-f-name" placeholder="예: SEMICON Korea 2027" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">시작일 *</label>
-              <input class="si" type="date" id="exh-f-start" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">종료일 *</label>
-              <input class="si" type="date" id="exh-f-end" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">국내/해외</label>
-              <select class="ss" id="exh-f-region" style="width:100%">
-                <option value="국내">🇰🇷 국내</option>
-                <option value="해외">🌏 해외</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">참가유형</label>
-              <select class="ss" id="exh-f-type" style="width:100%">
-                <option value="부스참가">🏪 부스 참가</option>
-                <option value="방문참관">👀 방문 참관</option>
-                <option value="온라인">💻 온라인</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">국가</label>
-              <input class="si" type="text" id="exh-f-country" placeholder="예: 한국, USA, Germany" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">도시</label>
-              <input class="si" type="text" id="exh-f-city" placeholder="예: 서울, San Jose, Munich" style="width:100%">
-            </div>
-            <div style="grid-column:1/-1">
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">행사장</label>
-              <input class="si" type="text" id="exh-f-venue" placeholder="예: COEX, San Jose Convention Center" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">담당자</label>
-              <input class="si" type="text" id="exh-f-manager" placeholder="예: 성백훈" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">담당자 이메일 <span style="font-weight:400;color:var(--t3)">(초대장 발송용)</span></label>
-              <input class="si" type="email" id="exh-f-manager-email" placeholder="예: bh@enjet.co.kr" style="width:100%">
-            </div>
-            <div>
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">진행상태</label>
-              <select class="ss" id="exh-f-status" style="width:100%">
-                <option value="준비중">🔄 준비중</option>
-                <option value="진행중">▶️ 진행중</option>
-                <option value="완료">✅ 완료</option>
-                <option value="취소">❌ 취소</option>
-              </select>
-            </div>
-            <div style="grid-column:1/-1">
-              <label style="font-size:15px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">비고/메모</label>
-              <textarea class="si" id="exh-f-note" placeholder="부스 크기, 예산, 준비 사항 등" style="width:100%;height:70px;resize:vertical"></textarea>
-            </div>
-          </div>
-          <div style="margin-top:16px;padding:12px;background:var(--bg3);border-radius:8px">
-            <div style="font-size:15px;font-weight:700;color:var(--t2);margin-bottom:8px">저장 시 자동 실행</div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap">
-              <label style="display:flex;align-items:center;gap:5px;font-size:15px;cursor:pointer">
-                <input type="checkbox" id="opt-teams-cal" checked> 📅 Teams 캘린더 등록
-              </label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:15px;cursor:pointer">
-                <input type="checkbox" id="opt-email" checked> 📧 이메일 초대장
-              </label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:15px;cursor:pointer">
-                <input type="checkbox" id="opt-teams-msg" checked> 💬 Teams 채널 알림
-              </label>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
-            <button onclick="closeExhModal()" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:16px;cursor:pointer;font-family:var(--s)">취소</button>
-            <button onclick="saveExhEvent()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:16px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 + 공유</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 미팅 -->
       <!-- ✅ 구매 Todo 탭 -->
-      <div class="page" id="tab-sales-todo">
+      <div class="page" id="tab-purchase-todo">
 
         <!-- KPI -->
         <div class="kr" style="grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:9px">
@@ -2452,66 +2114,6 @@
         </div>
       </div>
 
-      <!-- 회의록 DB 탭 -->
-      <div class="page" id="tab-sales-meeting">
-
-        <!-- KPI -->
-        <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-          <div class="kpi"><div class="kl">📝 총 회의록</div><div class="kv" id="mtg-tot">0</div><div class="ks">건</div></div>
-          <div class="kpi"><div class="kl">⚠️ 미연결</div><div class="kv" id="mtg-unlinked" style="color:var(--r)">0</div><div class="ks">건</div></div>
-          <div class="kpi"><div class="kl">🔗 연결됨</div><div class="kv" id="mtg-linked" style="color:var(--g)">0</div><div class="ks">건</div></div>
-          <div class="kpi"><div class="kl">📅 이번 달</div><div class="kv" id="mtg-month">0</div><div class="ks">건</div></div>
-        </div>
-
-        <div class="card">
-          <div class="ch">
-            <div class="ct"><div class="ci c2">📝</div>회의록 DB</div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <input class="si" type="text" id="mtgLogSrch" placeholder="🔍 고객사/내용/담당자..." oninput="filterMtgLog()" style="width:180px">
-              <select class="ss" id="mtgLogType" onchange="filterMtgLog()">
-                <option value="">전체 유형</option>
-                <option value="영업미팅">영업미팅</option>
-                <option value="기술미팅">기술미팅</option>
-                <option value="전화상담">전화상담</option>
-                <option value="화상회의">화상회의</option>
-              </select>
-              <select class="ss" id="mtgLinkFilter" onchange="filterMtgLog()" style="min-width:100px">
-                <option value="">전체</option>
-                <option value="unlinked">⚠️ 미연결만</option>
-                <option value="linked">🔗 연결됨만</option>
-              </select>
-              <span style="font-size:13px;color:var(--t3)" id="mtgLogUpd">-</span>
-              <button onclick="showDBHistoryModal('mtg','📜 회의록 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 회의록DB 신규작성 클릭');try{openMtgDBModal()}catch(e){console.error('❌ 회의록DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 작성</button>
-            </div>
-          </div>
-          <div class="cb" style="padding:10px 14px">
-            <div style="overflow-x:auto"><table class="tbl" style="min-width:800px">
-              <thead><tr>
-                <th style="min-width:90px">프로젝트코드</th>
-                <th style="min-width:110px">고객사</th>
-                <th style="min-width:100px">고객사 참석자</th>
-                <th style="min-width:90px">일시</th>
-                <th style="min-width:80px">장소</th>
-                <th style="min-width:90px">구매담당자</th>
-                <th style="min-width:60px">유형</th>
-                <th style="min-width:160px">✨ AI 요약</th>
-                <th style="min-width:80px">연결상태</th>
-                <th style="min-width:80px;text-align:center">파일/내용</th>
-                <th style="min-width:60px"></th>
-              </tr></thead>
-              <tbody id="mtgLogBody">
-                <tr><td colspan="11"><div class="empty"><div class="ei">📝</div>
-                  <div class="et">회의록 없음</div>
-                  <div style="font-size:13px;color:var(--t3);margin-top:6px">구매활동에서 회의록 업로드 시 자동 기록 · 또는 [+ 신규 작성]으로 독립 작성</div>
-                </div></td></tr>
-              </tbody>
-            </table></div>
-            <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="mtgLogCnt"></div>
-          </div>
-        </div>
-      </div>
-
-
     <!-- 📦 발주서 DB 탭 -->
     <div class="page" id="tab-order-db">
       <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
@@ -2588,115 +2190,8 @@
         <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="dlv-cnt"></div>
       </div>
     </div>
-
-    <!-- ✅ 납품확인서 DB 탭 -->
-    <div class="page" id="tab-confirm-db">
-      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">✅ 총 건수</div><div class="kv" id="cfm-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">💰 이번달 합계</div><div class="kv" id="cfm-month-amt" style="color:var(--g);font-size:18px">0</div><div class="ks">원</div></div>
-        <div class="kpi"><div class="kl">🏭 거래처 수</div><div class="kv" id="cfm-co-cnt">0</div><div class="ks">곳</div></div>
-        <div class="kpi"><div class="kl">📅 최근 등록</div><div class="kv" id="cfm-last-date" style="font-size:14px">-</div><div class="ks"></div></div>
-      </div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:16px;font-weight:800">✅ 납품확인서 DB</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input class="si" type="text" id="cfm-search" placeholder="🔍 거래처/품목/프로젝트..." style="width:180px;font-size:13px" oninput="renderConfirmDB()">
-            <button onclick="showDBHistoryModal('confirm','📜 납품확인서 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 납품확인서DB 신규작성 클릭');try{openConfirmModal()}catch(e){console.error('❌ 납품확인서DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:8px 16px;border-radius:8px;border:none;background:var(--g);color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 등록</button>
-          </div>
-        </div>
-        <div style="overflow-x:auto"><table class="tbl" style="min-width:780px">
-          <thead><tr>
-            <th style="min-width:90px">프로젝트코드</th>
-            <th style="min-width:120px">거래처</th>
-            <th style="min-width:100px">고객담당자</th>
-            <th style="min-width:80px">납품일</th>
-            <th style="min-width:140px">품목</th>
-            <th style="min-width:60px">수량</th>
-            <th style="min-width:90px">납품금액</th>
-            <th style="min-width:100px">PO번호</th>
-            <th style="min-width:70px">상태</th>
-            <th style="min-width:60px">파일</th>
-            <th style="min-width:50px"></th>
-          </tr></thead>
-          <tbody id="cfmBody"><tr><td colspan="11"><div class="empty"><div class="ei">✅</div><div class="et">납품확인서 없음</div></div></td></tr></tbody>
-        </table></div>
-        <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="cfm-cnt"></div>
-      </div>
-    </div>
-
-    <!-- 📂 자료 DB 탭 -->
-    <div class="page" id="tab-proposal-db">
-      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">📂 총 건수</div><div class="kv" id="pdb-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">🏭 거래처 수</div><div class="kv" id="pdb-co-cnt">0</div><div class="ks">곳</div></div>
-        <div class="kpi"><div class="kl">📁 폴더 수</div><div class="kv" id="pdb-folder-cnt">0</div><div class="ks">개</div></div>
-        <div class="kpi"><div class="kl">📅 최근 등록</div><div class="kv" id="pdb-last-date" style="font-size:14px">-</div><div class="ks"></div></div>
-      </div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:16px;font-weight:800">📂 자료 DB</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input class="si" type="text" id="pdb-search" placeholder="🔍 거래처/프로젝트/폴더명..." style="width:180px;font-size:13px" oninput="renderProposalDB()">
-            <button onclick="showDBHistoryModal('proposal','📜 자료 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 자료DB 신규작성 클릭');try{openProposalModal()}catch(e){console.error('❌ 자료DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:8px 16px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 등록</button>
-          </div>
-        </div>
-        <div style="overflow-x:auto"><table class="tbl" style="min-width:800px">
-          <thead><tr>
-            <th style="min-width:90px">프로젝트코드</th>
-            <th style="min-width:120px">거래처</th>
-            <th style="min-width:100px">고객담당자</th>
-            <th style="min-width:80px">등록일</th>
-            <th style="min-width:120px">폴더명(자료구분)</th>
-            <th style="min-width:120px">파일명</th>
-            <th style="min-width:80px">구매담당자</th>
-            <th style="min-width:60px">파일</th>
-            <th style="min-width:50px"></th>
-          </tr></thead>
-          <tbody id="pdbBody"><tr><td colspan="9"><div class="empty"><div class="ei">📂</div><div class="et">자료 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">구매활동 탭에서 자료 업로드 시 자동 등록됩니다</div></div></td></tr></tbody>
-        </table></div>
-        <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="pdb-cnt"></div>
-      </div>
-    </div>
-
     <!-- 📂 자료 입력 모달 -->
     
-
-    <!-- 📑 계약서 DB 탭 -->
-    <div class="page" id="tab-contract-db">
-      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">📑 총 건수</div><div class="kv" id="ctr-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">💰 이번달 계약금액</div><div class="kv" id="ctr-month-amt" style="color:var(--p);font-size:18px">0</div><div class="ks">원</div></div>
-        <div class="kpi"><div class="kl">🏭 거래처 수</div><div class="kv" id="ctr-co-cnt">0</div><div class="ks">곳</div></div>
-        <div class="kpi"><div class="kl">📅 최근 등록</div><div class="kv" id="ctr-last-date" style="font-size:14px">-</div><div class="ks"></div></div>
-      </div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:16px;font-weight:800">📑 계약서 DB</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input class="si" type="text" id="ctr-search" placeholder="🔍 거래처/품목/프로젝트..." style="width:180px;font-size:13px" oninput="renderContractDB()">
-            <button onclick="showDBHistoryModal('contract','📜 계약서 이력')" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);margin-right:6px" title="이 DB의 모든 작업 이력 조회">📜 이력조회</button><button onclick="console.log('🔘 계약서DB 신규작성 클릭');try{openContractModal()}catch(e){console.error('❌ 계약서DB 모달 에러:',e);alert('모달 열기 실패: '+e.message)}" style="padding:8px 16px;border-radius:8px;border:none;background:#0369a1;color:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 신규 등록</button>
-          </div>
-        </div>
-        <div style="overflow-x:auto"><table class="tbl" style="min-width:820px">
-          <thead><tr>
-            <th style="min-width:90px">프로젝트코드</th>
-            <th style="min-width:120px">거래처</th>
-            <th style="min-width:100px">고객담당자</th>
-            <th style="min-width:80px">계약일</th>
-            <th style="min-width:140px">품목/내용</th>
-            <th style="min-width:90px">계약금액</th>
-            <th style="min-width:80px">납기일</th>
-            <th style="min-width:70px">상태</th>
-            <th style="min-width:60px">파일</th>
-            <th style="min-width:50px"></th>
-          </tr></thead>
-          <tbody id="ctrBody"><tr><td colspan="10"><div class="empty"><div class="ei">📑</div><div class="et">계약서 없음</div></div></td></tr></tbody>
-        </table></div>
-        <div style="font-size:13px;color:var(--t3);margin-top:8px;text-align:right" id="ctr-cnt"></div>
-      </div>
-    </div>
-
     <!-- ✅ 납품확인서 입력 모달 -->
     
 
@@ -2745,153 +2240,6 @@
 
     <!-- 🧾 세금계산서 입력 모달 -->
     
-
-    <!-- 📁 자료 DB 탭 (전시회 준비파일 통합 관리) -->
-    <div class="page" id="tab-exh-prep-db">
-      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">📁 총 자료</div><div class="kv" id="prepdb-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">⚠️ 미연결</div><div class="kv" id="prepdb-unlinked" style="color:var(--r)">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">🔗 연결됨</div><div class="kv" id="prepdb-linked" style="color:var(--g)">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">📅 이번 달</div><div class="kv" id="prepdb-month">0</div><div class="ks">건</div></div>
-      </div>
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c1">📁</div>자료 DB</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input class="si" type="text" id="prepdbSrch" placeholder="🔍 전시회 / 파일명 / 담당자..." oninput="filterExhFileDB('prep')" style="width:200px">
-            <select class="ss" id="prepdbExhFilter" onchange="filterExhFileDB('prep')" style="min-width:130px">
-              <option value="">전체 전시회</option>
-            </select>
-            <select class="ss" id="prepdbLinkFilter" onchange="filterExhFileDB('prep')" style="min-width:100px">
-              <option value="">전체</option>
-              <option value="unlinked">⚠️ 미연결</option>
-              <option value="linked">🔗 연결됨</option>
-            </select>
-            <span style="font-size:13px;color:var(--t3)" id="prepdb-upd">-</span>
-            <button onclick="openExhFileDBUpload('prep')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 파일 등록</button>
-          </div>
-        </div>
-        <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto">
-            <table class="tbl" style="min-width:750px">
-              <thead><tr>
-                <th style="min-width:140px">파일명</th>
-                <th style="min-width:120px">전시회</th>
-                <th style="min-width:90px">등록일</th>
-                <th style="min-width:70px">담당자</th>
-                <th style="min-width:80px">연결상태</th>
-                <th style="min-width:70px;text-align:center">파일</th>
-                <th style="min-width:50px"></th>
-              </tr></thead>
-              <tbody id="prepdbBody">
-                <tr><td colspan="7"><div class="empty"><div class="ei">📁</div><div class="et">자료 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">전시회 목록에서 준비파일 업로드 또는 [+ 파일 등록]으로 독립 등록</div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 📊 전시회결과 DB 탭 -->
-    <div class="page" id="tab-exh-result-db">
-      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi"><div class="kl">📊 총 결과</div><div class="kv" id="resultdb-tot">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">⚠️ 미연결</div><div class="kv" id="resultdb-unlinked" style="color:var(--r)">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">🔗 연결됨</div><div class="kv" id="resultdb-linked" style="color:var(--g)">0</div><div class="ks">건</div></div>
-        <div class="kpi"><div class="kl">📅 이번 달</div><div class="kv" id="resultdb-month">0</div><div class="ks">건</div></div>
-      </div>
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c3">📊</div>전시회결과 DB</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input class="si" type="text" id="resultdbSrch" placeholder="🔍 전시회 / 파일명 / 담당자..." oninput="filterExhFileDB('result')" style="width:200px">
-            <select class="ss" id="resultdbExhFilter" onchange="filterExhFileDB('result')" style="min-width:130px">
-              <option value="">전체 전시회</option>
-            </select>
-            <select class="ss" id="resultdbLinkFilter" onchange="filterExhFileDB('result')" style="min-width:100px">
-              <option value="">전체</option>
-              <option value="unlinked">⚠️ 미연결</option>
-              <option value="linked">🔗 연결됨</option>
-            </select>
-            <span style="font-size:13px;color:var(--t3)" id="resultdb-upd">-</span>
-            <button onclick="openExhFileDBUpload('result')" style="padding:4px 12px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 결과 등록</button>
-          </div>
-        </div>
-        <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto">
-            <table class="tbl" style="min-width:750px">
-              <thead><tr>
-                <th style="min-width:140px">파일명</th>
-                <th style="min-width:120px">전시회</th>
-                <th style="min-width:90px">등록일</th>
-                <th style="min-width:70px">담당자</th>
-                <th style="min-width:80px">연결상태</th>
-                <th style="min-width:70px;text-align:center">파일</th>
-                <th style="min-width:50px"></th>
-              </tr></thead>
-              <tbody id="resultdbBody">
-                <tr><td colspan="7"><div class="empty"><div class="ei">📊</div><div class="et">결과 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">전시회 목록에서 결과파일 업로드 또는 [+ 결과 등록]으로 독립 등록</div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 전시회 Contact -->
-    <div class="page" id="tab-exhibition">
-      <div class="kr">
-        <div class="kpi c1"><div class="kl">전시회 수</div><div class="kv"><span id="exh-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks">등록된 전시회</div></div>
-        <div class="kpi c2"><div class="kl">전체 컨택</div><div class="kv"><span id="exh-total">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"></div></div>
-        <div class="kpi c3"><div class="kl">팔로업 필요</div><div class="kv"><span id="exh-follow">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span class="badge warn">액션 필요</span></div></div>
-        <div class="kpi c4"><div class="kl">거래 연결</div><div class="kv"><span id="exh-conv">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span class="badge up">성과</span></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c1">🎪</div>전시회고객 DB</div>
-          <span style="font-size:14px;color:var(--t3)" id="exh-upd">데이터 업로드 대기</span>
-        </div>
-        <div class="cb" style="padding:10px 14px">
-          <!-- 전시회 필터 -->
-          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <select class="ss" id="exhFilter" onchange="filterExh()" style="min-width:200px">
-              <option value="">전체 전시회</option>
-            </select>
-            <select class="ss" id="exhStatus" onchange="filterExh()">
-              <option value="">전체 상태</option>
-              <option value="팔로업필요">🔔 팔로업 필요</option>
-              <option value="진행중">🔄 진행중</option>
-              <option value="거래연결">✅ 거래 연결</option>
-              <option value="종료">⬛ 종료</option>
-            </select>
-            <input class="si" type="text" placeholder="🔍 회사명 / 담당자..." id="exhSrch" oninput="filterExh()" style="flex:1;min-width:150px">
-            <button onclick="document.getElementById('exhFileInput').click()" style="padding:5px 12px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">📂 Excel 업로드</button>
-            <input type="file" id="exhFileInput" accept=".xlsx,.csv" style="display:none" onchange="loadExhFile(this.files[0])">
-          </div>
-
-          <!-- 전시회 탭 -->
-          <div id="exhTabs" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;overflow-x:auto"></div>
-
-          <!-- 컨택 테이블 -->
-          <div class="tw"><table class="tbl" id="exhTbl">
-            <thead><tr>
-              <th>전시회</th><th>회사명</th><th>담당자</th><th>직함</th><th>국가</th>
-              <th>연락처</th><th>관심제품</th><th>상태</th><th>팔로업</th><th>비고</th>
-            </tr></thead>
-            <tbody id="exhBody">
-              <tr><td colspan="10"><div class="empty"><div class="ei">📂</div><div class="et">전시회 Contact 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">우측 상단 Excel 업로드 또는 데이터 공유해주세요</div></div></td></tr>
-            </tbody>
-          </table></div>
-          <div style="font-size:14px;color:var(--t3);margin-top:8px;text-align:right" id="exh-count"></div>
-        </div>
-        <div class="cn">※ Excel 업로드: 전시회명, 회사명, 담당자, 직함, 국가, 이메일, 전화, 관심제품, 상태, 팔로업일, 비고 컬럼 형식</div>
-      </div>
-
-      <!-- 전시회별 요약 카드 -->
-      <div id="exhSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:9px;margin-top:9px"></div>
-    </div>
-
     </div>
   </div>
 </div>
@@ -3605,7 +2953,7 @@ function selP(type,yr,sub,label,el) {
   event.stopPropagation();
   document.querySelectorAll(".di").forEach(d=>d.classList.remove("sel")); el.classList.add("sel");
   document.querySelectorAll(".dm").forEach(d=>d.classList.remove("open"));
-  document.querySelectorAll("#tab-sales .pp").forEach(p=>p.classList.remove("on"));
+  document.querySelectorAll("#tab-purchase .pp").forEach(p=>p.classList.remove("on"));
   (el.closest(".pw")?.querySelector(".pp")||document.getElementById("pp-all")).classList.add("on");
   $("prange",label); $("k-badge",label.substring(0,10));
   const d=filterSD(type,yr,sub);
@@ -8447,7 +7795,7 @@ async function syncSLFromTeams() {
 
 function setSLView(v,el) {
   slView=v;
-  document.querySelectorAll("#tab-sales-log .pp").forEach(b=>b.classList.remove("on"));
+  document.querySelectorAll("#tab-purchase-log .pp").forEach(b=>b.classList.remove("on"));
   el.classList.add("on");
   slNavBase = new Date(); // 탭 전환 시 오늘로 리셋
   slNavUpdateLabel();
@@ -16196,7 +15544,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={sales:"📊 구매 현황",cashflow:"💰 현금흐름",pipeline:"🔄 파이프라인",customer:"🏭 고객사 DB",orgchart:"🏢 조직도","sales-log":"📋 구매활동","sales-todo":"✅ 구매Todo","quote-db":"📄 견적서 DB","sales-meeting":"📝 회의록 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","order-db":"📦 발주서 DB","proposal-db":"📂 자료 DB","confirm-db":"✅ 납품확인서 DB","contract-db":"📑 계약서 DB",marketing:"📣 마케팅 활동","exh-prep-db":"📁 자료 DB","exh-result-db":"📊 전시회결과 DB",exhibition:"🎪 전시회고객 DB"};
+const TITLES={purchase:"📊 구매 현황",cashflow:"💰 현금흐름",pipeline:"🔄 파이프라인","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 BOM DB","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB",vendor:"🏪 거래처 DB"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -19097,7 +18445,7 @@ function go(id, el) {
   $("ptitle", TITLES[id]||id);
 
   // DB 탭으로 이동 시 DB 그룹 자동 펼치기
-  const DB_TABS = ["sales-meeting","proposal-db","quote-db","order-db","contract-db","delivery-db","tax-db","confirm-db"];
+  const DB_TABS = ["pr-db","bom-db","quote-db","order-db","delivery-db","tax-db","settle-db"];
   if(DB_TABS.includes(id)) {
     openDbGroup();
     // DB 토글 버튼도 on 표시
@@ -19111,56 +18459,26 @@ function go(id, el) {
   if(mobItem) mobItem.classList.add("on");
   // FAB: 구매활동 탭에서만 표시
   const fab = document.getElementById("mobFab");
-  if(fab) fab.style.display = (id==="sales-log") ? "flex" : "none";
+  if(fab) fab.style.display = (id==="purchase-log") ? "flex" : "none";
   // 더보기 패널 닫기
   closeMobMore();
 
   if(!acct) return; // 로그인 전에는 자동로드 안함
 
-  // 미팅 탭
-  if(id==="sales-meeting") {
-    loadMtgLogsFromSP();
-  }
-  if(id==="mkt-meeting") {
-    loadMeetings(id);
-  }
-  // 마케팅 탭 (전시회 일정)
-  if(id==="marketing") {
-    if(exhSchedule.length===0) {
-      loadExhFromSP().then(()=>setTimeout(()=>syncExhFromTeams(),1000)).catch(()=>syncExhFromTeams());
-    }
-    if(window._exhSyncInterval) clearInterval(window._exhSyncInterval);
-    window._exhSyncInterval=setInterval(()=>{
-      if(id==="marketing") {
-    exhNavBase = new Date();
-    exhNavUpdateLabel();
-    syncExhFromTeams();
-  }
-      else clearInterval(window._exhSyncInterval);
-    },3*60*1000);
-  }
-  // 구매활동 Log 탭
-  // 견적서 DB 탭
-  if(id==="orgchart") {
-    loadOrgData();
-  }
-  if(id==="sales-todo") {
+  // 구매 Todo
+  if(id==="purchase-todo") {
     loadTodoFromPlanner();
   }
+  // 견적서 DB
   if(id==="quote-db") {
     loadQuoteDB().then(()=>autoLinkDBsToActivities(true));
   }
-  if(id==="exh-prep-db") {
-    renderExhFileDB("prep");
-  }
-  if(id==="exh-result-db") {
-    renderExhFileDB("result");
-  }
-  if(id==="sales-log") {
+  // 구매활동 Log
+  if(id==="purchase-log") {
     loadSLFromSP().then(()=>syncSLFromTeams());
-    // 고객담당자 자동완성 위해 컨택 데이터도 로드
+    // 거래처 자동완성 위해 거래처DB도 로드
     if(exhData.length === 0) loadCustContactsFromSP();
-    // 프로젝트코드 검색 위해 PD(프로젝트List)도 로드
+    // 프로젝트코드 검색 위해 PD(영업프로젝트 List)도 로드 (영업 데이터 읽기)
     if(typeof PD !== "undefined" && PD.length === 0 && typeof loadProject === "function") {
       loadProject().catch(e=>console.warn("PD 로드 실패:", e.message));
     }
@@ -19168,7 +18486,7 @@ function go(id, el) {
     if(dashProjects.length === 0) {
       loadDashProjectsFromSP().catch(e=>console.warn("Dash 프로젝트 로드 실패:", e.message));
     }
-    // 🆕 프로젝트코드 요청 목록 로드 - 구매활동 카드 "요청중" 배지 표시용
+    // 프로젝트코드 요청 목록 로드 - 구매활동 카드 "요청중" 배지 표시용
     (async () => {
       try {
         if(!Array.isArray(pjCodeRequests) || !pjCodeRequests.length) {
@@ -19178,15 +18496,9 @@ function go(id, el) {
         }
       } catch(e) { console.warn("프로젝트코드 요청 로드 실패:", e.message); }
     })();
-    // 회의록 배지(badge-sm) 갱신용 - 메모리에 없을 때만 로드
-    if(!Array.isArray(window._mtgLogs) || !window._mtgLogs.length) {
-      loadMtgLogsFromSP().catch(e=>console.warn("회의록 로드 실패:", e.message));
-    } else {
-      $("badge-sm", window._mtgLogs.length);
-    }
     if(window._slSyncInterval) clearInterval(window._slSyncInterval);
     window._slSyncInterval=setInterval(()=>{
-      if(document.getElementById("tab-sales-log")?.classList.contains("on")) syncSLFromTeams();
+      if(document.getElementById("tab-purchase-log")?.classList.contains("on")) syncSLFromTeams();
       else clearInterval(window._slSyncInterval);
     },3*60*1000);
   }
@@ -19208,14 +18520,11 @@ function go(id, el) {
   if(id==="delivery-db") { loadDeliveryDB().then(()=>autoLinkDBsToActivities(true)); }
   if(id==="tax-db") { loadTaxDB().then(()=>autoLinkDBsToActivities(true)); }
   if(id==="order-db") { loadOrderDB().then(()=>autoLinkDBsToActivities(true)); }
-  if(id==="proposal-db") { loadProposalDB().then(()=>autoLinkDBsToActivities(true)); }
-  if(id==="confirm-db") { loadConfirmDB().then(()=>autoLinkDBsToActivities(true)); }
-  if(id==="contract-db") { loadContractDB().then(()=>autoLinkDBsToActivities(true)); }
-  // 고객사 관리 탭
-  if(id==="customer") {
-    if(exhData.length === 0) loadCustContactsFromSP();
-    updateRegFilters(); // D: 등록자 필터 갱신
+  // 거래처 DB 탭 (다음 세션에서 loadVendorDB 함수 구현 예정)
+  if(id==="vendor") {
+    if(typeof loadVendorDB === "function") loadVendorDB();
   }
+  // 구매요청서 DB / BOM DB / 회계전표 DB는 다음 세션 구현
 }
 // ─── 모바일 탭바 헬퍼 ───
 // ━━ 뒤로가기 두 번 눌러야 앱 나가기 (모바일 UX) ━━
