@@ -2933,6 +2933,1501 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 구매 대시보드 전용 데이터 객체 + 자동채번 + JSON 저장/로드
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 구매 데이터 메모리 객체 (영업의 _ordData 등과 별개)
+let _prMaster = [];     // 구매요청서 PR 마스터 (PR-YYMMDD-NN)
+let _pqdbData = [];     // 매입 견적서 (purchase quote)
+let _pordData = [];     // 매입 발주서 (purchase order, PO-YYMMDD-NN)
+let _pdlvData = [];     // 입고 거래명세서
+let _ptaxData = [];     // 매입 세금계산서
+let _pstlData = [];     // 회계전표 (settle, ST-YYMMDD-NN)
+let _bomData  = [];     // BOM 마스터
+
+// ━━ 자동채번 함수 (PR-YYMMDD-NN, PO-YYMMDD-NN, ST-YYMMDD-NN) ━━
+function nextPurchaseCode(prefix, dataArray) {
+  // YYMMDD 산출 (오늘 날짜)
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth()+1).padStart(2,"0");
+  const dd = String(now.getDate()).padStart(2,"0");
+  const datePart = yy + mm + dd;
+  
+  // 오늘 날짜 prefix로 시작하는 코드들 검색
+  const todayPrefix = `${prefix}-${datePart}-`;
+  const todayCodes = (dataArray || []).filter(d => {
+    const code = d.code || d.prCode || d.poCode || d.stCode || "";
+    return typeof code === "string" && code.startsWith(todayPrefix);
+  });
+  
+  // 가장 큰 NN 추출
+  let maxNN = 0;
+  todayCodes.forEach(d => {
+    const code = d.code || d.prCode || d.poCode || d.stCode || "";
+    const m = code.match(/-(\d+)$/);
+    if(m) {
+      const n = parseInt(m[1], 10);
+      if(n > maxNN) maxNN = n;
+    }
+  });
+  
+  // 다음 번호 = max + 1, 2자리 패딩
+  const nextNN = String(maxNN + 1).padStart(2, "0");
+  return `${prefix}-${datePart}-${nextNN}`;
+}
+
+// 사용 예: nextPRCode() → "PR-260519-01"
+function nextPRCode() { return nextPurchaseCode("PR", _prMaster); }
+function nextPOCode() { return nextPurchaseCode("PO", _pordData); }
+function nextSTCode() { return nextPurchaseCode("ST", _pstlData); }
+
+// ━━ 9개 JSON 저장/로드 함수 (영업 safeSaveDB 패턴) ━━
+
+// 1. PR 마스터 (구매요청서)
+async function savePRMaster() {
+  const r = await safeSaveDB("pr_master", PR_SP_PATH, _prMaster);
+  if(r.sp) console.log(`✅ PR Master 저장: ${_prMaster.length}건`);
+  return r;
+}
+async function loadPRMaster() {
+  _prMaster = await safeLoadDB("pr_master", PR_SP_PATH);
+  console.log(`📥 PR Master 로드: ${_prMaster.length}건`);
+  if(typeof renderPRDB === "function") renderPRDB();
+  return _prMaster;
+}
+
+// 2. 매입 견적서
+async function savePQDB() {
+  const r = await safeSaveDB("pqdb_data", PQDB_SP_PATH, _pqdbData);
+  if(r.sp) console.log(`✅ 매입견적 저장: ${_pqdbData.length}건`);
+  return r;
+}
+async function loadPQDB() {
+  _pqdbData = await safeLoadDB("pqdb_data", PQDB_SP_PATH);
+  console.log(`📥 매입견적 로드: ${_pqdbData.length}건`);
+  if(typeof renderPQDB === "function") renderPQDB();
+  return _pqdbData;
+}
+
+// 3. 매입 발주서
+async function savePORD() {
+  const r = await safeSaveDB("pord_data", PORD_SP_PATH, _pordData);
+  if(r.sp) console.log(`✅ 매입발주 저장: ${_pordData.length}건`);
+  return r;
+}
+async function loadPORD() {
+  _pordData = await safeLoadDB("pord_data", PORD_SP_PATH);
+  console.log(`📥 매입발주 로드: ${_pordData.length}건`);
+  if(typeof renderPORD === "function") renderPORD();
+  return _pordData;
+}
+
+// 4. 입고 거래명세서
+async function savePDLV() {
+  const r = await safeSaveDB("pdlv_data", PDLV_SP_PATH, _pdlvData);
+  if(r.sp) console.log(`✅ 입고 거래명세 저장: ${_pdlvData.length}건`);
+  return r;
+}
+async function loadPDLV() {
+  _pdlvData = await safeLoadDB("pdlv_data", PDLV_SP_PATH);
+  console.log(`📥 입고 거래명세 로드: ${_pdlvData.length}건`);
+  if(typeof renderPDLV === "function") renderPDLV();
+  return _pdlvData;
+}
+
+// 5. 매입 세금계산서
+async function savePTAX() {
+  const r = await safeSaveDB("ptax_data", PTAX_SP_PATH, _ptaxData);
+  if(r.sp) console.log(`✅ 매입세금 저장: ${_ptaxData.length}건`);
+  return r;
+}
+async function loadPTAX() {
+  _ptaxData = await safeLoadDB("ptax_data", PTAX_SP_PATH);
+  console.log(`📥 매입세금 로드: ${_ptaxData.length}건`);
+  if(typeof renderPTAX === "function") renderPTAX();
+  return _ptaxData;
+}
+
+// 6. 회계전표
+async function savePSTL() {
+  const r = await safeSaveDB("pstl_data", PSTL_SP_PATH, _pstlData);
+  if(r.sp) console.log(`✅ 회계전표 저장: ${_pstlData.length}건`);
+  return r;
+}
+async function loadPSTL() {
+  _pstlData = await safeLoadDB("pstl_data", PSTL_SP_PATH);
+  console.log(`📥 회계전표 로드: ${_pstlData.length}건`);
+  if(typeof renderPSTL === "function") renderPSTL();
+  return _pstlData;
+}
+
+// 7. BOM
+async function saveBOMDB() {
+  const r = await safeSaveDB("bom_data", BOM_SP_PATH, _bomData);
+  if(r.sp) console.log(`✅ BOM 저장: ${_bomData.length}건`);
+  return r;
+}
+async function loadBOMDB() {
+  _bomData = await safeLoadDB("bom_data", BOM_SP_PATH);
+  console.log(`📥 BOM 로드: ${_bomData.length}건`);
+  if(typeof renderBOMDB === "function") renderBOMDB();
+  return _bomData;
+}
+
+// 8. BOM 자동 매칭/생성 (구매요청서 AI 파싱 시 사용)
+// productName이 같으면 매칭, 없으면 신규 생성
+function matchOrCreateBOM(productName, hint) {
+  productName = (productName||"").trim();
+  if(!productName) return null;
+  
+  // 기존 BOM 검색 (제품명 정확 일치)
+  let existing = _bomData.find(b => 
+    (b.productName||"").trim().toLowerCase() === productName.toLowerCase()
+  );
+  if(existing) return existing;
+  
+  // 새 BOM 생성
+  const code = `BOM-${String(_bomData.length+1).padStart(4,"0")}`;
+  const newBom = {
+    bomCode: code,
+    productName: productName,
+    type: hint?.type || "조립품",
+    version: "v1.0",
+    itemCount: hint?.itemCount || 0,
+    estCost: hint?.estCost || 0,
+    source: hint?.source || "구매요청서 자동생성",
+    relatedPRs: hint?.relatedPR ? [hint.relatedPR] : [],
+    createdAt: new Date().toISOString(),
+  };
+  _bomData.push(newBom);
+  saveBOMDB().catch(e => console.warn("BOM 자동저장 실패:", e.message));
+  return newBom;
+}
+
+// ━━ 구매 데이터 일괄 로드 (로그인 후 한 번에) ━━
+async function loadAllPurchaseDB() {
+  console.log("🔄 구매 데이터 일괄 로드 시작...");
+  await Promise.all([
+    loadPRMaster(),
+    loadPQDB(),
+    loadPORD(),
+    loadPDLV(),
+    loadPTAX(),
+    loadPSTL(),
+    loadBOMDB(),
+  ]);
+  console.log("✅ 구매 데이터 일괄 로드 완료");
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📄 매입 견적서 모달 - open/save/render/calc
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _pqEditId = null;  // 수정 모드 ID
+
+function openPurchaseQuoteModal(id) {
+  _pqEditId = id || null;
+  const modal = document.getElementById("purchaseQuoteModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  // 거래처 datalist 채우기 (vendorData에서)
+  const vlist = document.getElementById("pq-vendor-list");
+  if(vlist && Array.isArray(vendorData)) {
+    vlist.innerHTML = vendorData.slice(0, 100).map(v => 
+      `<option value="${escapeHtml(v["거래처명"]||"")}"></option>`
+    ).join("");
+  }
+  
+  // 필드 초기화 또는 기존 데이터 로드
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    // 수정 모드
+    const d = _pqdbData.find(x => x.id === id);
+    if(!d) { alert("견적서 데이터 없음"); return; }
+    document.getElementById("pqModalTitle").textContent = "📄 매입 견적서 수정";
+    setField("pq-f-prcode", d.prCode);
+    setField("pq-f-salescode", d.salesCode);
+    setField("pq-f-vendor", d.vendor);
+    setField("pq-f-type", d.type || "일반견적");
+    setField("pq-f-quoteno", d.quoteNo);
+    setField("pq-f-date", d.quoteDate);
+    setField("pq-f-valid", d.validUntil);
+    setField("pq-f-delivery", d.deliveryDate);
+    setField("pq-f-items", d.items);
+    setField("pq-f-supply", d.supplyAmount);
+    setField("pq-f-vat", d.vatAmount);
+    setField("pq-f-total", d.totalAmount);
+    setField("pq-f-status", d.status || "검토중");
+    setField("pq-f-note", d.note);
+  } else {
+    // 신규 모드
+    document.getElementById("pqModalTitle").textContent = "📄 매입 견적서 수신";
+    const today = new Date().toISOString().slice(0,10);
+    ["pq-f-prcode","pq-f-salescode","pq-f-vendor","pq-f-quoteno","pq-f-items","pq-f-note"].forEach(id => setField(id, ""));
+    setField("pq-f-date", today);
+    setField("pq-f-valid", "");
+    setField("pq-f-delivery", "");
+    setField("pq-f-supply", "");
+    setField("pq-f-vat", "");
+    setField("pq-f-total", "");
+    setField("pq-f-type", "일반견적");
+    setField("pq-f-status", "검토중");
+  }
+  
+  // 파일 정보 초기화
+  const fInfo = document.getElementById("pq-f-file-info");
+  if(fInfo) fInfo.style.display = "none";
+  const fInput = document.getElementById("pq-f-file");
+  if(fInput) fInput.value = "";
+  
+  modal.style.display = "flex";
+}
+
+function closePurchaseQuoteModal() {
+  const modal = document.getElementById("purchaseQuoteModal");
+  if(modal) modal.style.display = "none";
+  _pqEditId = null;
+}
+
+// 공급가 입력 시 VAT 자동 계산 (10%)
+function pqCalcTotal() {
+  const supply = Number(document.getElementById("pq-f-supply")?.value || 0);
+  const vatEl = document.getElementById("pq-f-vat");
+  const totalEl = document.getElementById("pq-f-total");
+  
+  // VAT가 비어있으면 자동 계산
+  if(vatEl && (!vatEl.value || !vatEl.dataset.manual)) {
+    vatEl.value = Math.round(supply * 0.1);
+  }
+  const vat = Number(vatEl?.value || 0);
+  if(totalEl) totalEl.value = supply + vat;
+}
+// VAT 수동 입력 감지
+window.addEventListener("DOMContentLoaded", () => {
+  const vatEl = document.getElementById("pq-f-vat");
+  if(vatEl) {
+    vatEl.addEventListener("input", () => {
+      vatEl.dataset.manual = "1";
+      const supply = Number(document.getElementById("pq-f-supply")?.value || 0);
+      const vat = Number(vatEl.value || 0);
+      const totalEl = document.getElementById("pq-f-total");
+      if(totalEl) totalEl.value = supply + vat;
+    });
+  }
+});
+
+async function savePurchaseQuote() {
+  const prCode = document.getElementById("pq-f-prcode").value.trim();
+  const vendor = document.getElementById("pq-f-vendor").value.trim();
+  const quoteNo = document.getElementById("pq-f-quoteno").value.trim();
+  const quoteDate = document.getElementById("pq-f-date").value;
+  
+  if(!prCode) { alert("PR 코드를 입력해주세요. (예: PR-260519-01)"); return; }
+  if(!vendor) { alert("거래처를 입력해주세요."); return; }
+  if(!quoteNo) { alert("견적 번호를 입력해주세요."); return; }
+  if(!quoteDate) { alert("견적일을 선택해주세요."); return; }
+  
+  // 신규 모드 - 파일 권장 (필수는 아님)
+  if(!_pqEditId) {
+    const file = document.getElementById("pq-f-file")?.files?.[0];
+    if(!file) {
+      if(!confirm("⚠️ 견적서 PDF 첨부 없이 저장하시겠어요?\n나중에 첨부할 수 있습니다.")) return;
+    }
+  }
+  
+  const data = {
+    id: _pqEditId || ("pq_" + Date.now()),
+    prCode,
+    salesCode: document.getElementById("pq-f-salescode").value.trim(),
+    vendor,
+    type: document.getElementById("pq-f-type").value,
+    quoteNo,
+    quoteDate,
+    validUntil: document.getElementById("pq-f-valid").value,
+    deliveryDate: document.getElementById("pq-f-delivery").value,
+    items: document.getElementById("pq-f-items").value.trim(),
+    supplyAmount: Number(document.getElementById("pq-f-supply").value || 0),
+    vatAmount: Number(document.getElementById("pq-f-vat").value || 0),
+    totalAmount: Number(document.getElementById("pq-f-total").value || 0),
+    status: document.getElementById("pq-f-status").value,
+    note: document.getElementById("pq-f-note").value.trim(),
+    createdAt: _pqEditId ? (_pqdbData.find(x=>x.id===_pqEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_pqEditId) {
+    _pqdbData = _pqdbData.map(x => x.id === _pqEditId ? data : x);
+  } else {
+    _pqdbData.push(data);
+  }
+  
+  closePurchaseQuoteModal();
+  if(typeof renderPQDB === "function") renderPQDB();
+  
+  const r = await savePQDB();
+  if(r.sp) {
+    console.log("✅ 매입 견적서 저장 완료");
+  } else {
+    alert("⚠️ SP 저장 실패 (localStorage에 백업됨)\n" + (r.error || ""));
+  }
+}
+
+// 매입 견적서 테이블 렌더
+function renderPQDB() {
+  const tbody = document.getElementById("qdbBody");
+  if(!tbody) return;
+  
+  if(!_pqdbData.length) {
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">📄</div><div class="et">매입 견적서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 견적서 수신] 버튼으로 추가</div></div></td></tr>`;
+    // KPI
+    ["qdb-tot","qdb-amt","qdb-converted","qdb-pending"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
+    return;
+  }
+  
+  // 필터 적용
+  const search = (document.getElementById("qdbSrch")?.value || "").toLowerCase().trim();
+  const statusF = document.getElementById("qdbStatusFilter")?.value || "";
+  const typeF = document.getElementById("qdbTypeFilter")?.value || "";
+  
+  let filtered = _pqdbData.filter(d => {
+    if(statusF && d.status !== statusF) return false;
+    if(typeF && d.type !== typeF) return false;
+    if(search) {
+      const blob = [d.prCode, d.salesCode, d.vendor, d.quoteNo, d.items].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  
+  // 정렬: 최신 순
+  filtered.sort((a,b) => (b.quoteDate||"").localeCompare(a.quoteDate||""));
+  
+  // KPI
+  const setKpi = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("qdb-tot", _pqdbData.length);
+  setKpi("qdb-amt", _pqdbData.reduce((s,d)=>s+(d.totalAmount||0),0).toLocaleString());
+  setKpi("qdb-converted", _pqdbData.filter(d=>d.status==="발주확정").length);
+  setKpi("qdb-pending", _pqdbData.filter(d=>d.status==="검토중").length);
+  setKpi("badge-qdb", _pqdbData.length);
+  
+  // 테이블
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const statusBadge = {
+      "검토중":   `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">검토중</span>`,
+      "발주확정": `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 발주확정</span>`,
+      "보류":     `<span style="padding:2px 8px;border-radius:5px;background:var(--bg3);color:var(--t3);font-size:12px;font-weight:700">⏸ 보류</span>`,
+      "반려":     `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">❌ 반려</span>`,
+    }[d.status] || d.status;
+    
+    return `<tr style="cursor:pointer" onclick="openPurchaseQuoteModal('${d.id}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:600">${escapeHtml(d.prCode||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.salesCode||"-")}</td>
+      <td style="font-weight:600">${escapeHtml(d.vendor||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.quoteDate||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.validUntil||"-")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.deliveryDate||"-")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.quoteNo||"")}</td>
+      <td style="font-size:12px;color:var(--t2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.items||"")}">${escapeHtml(d.items||"-")}</td>
+      <td style="text-align:right;font-family:var(--m)">${(d.supplyAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
+      <td style="text-align:center">${statusBadge}</td>
+      <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()" style="text-decoration:none">📎</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+  
+  // 카운트
+  const cnt = document.getElementById("qdb-cnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_pqdbData.length}건 표시`;
+  const upd = document.getElementById("qdb-upd");
+  if(upd) upd.textContent = `최종 업데이트: ${new Date().toLocaleTimeString()}`;
+}
+
+// filterPQDB (영업 filterQDB 호환)
+function filterQDB() { renderPQDB(); }
+
+// 매입 견적서 파일 선택 시 정보 표시
+window.addEventListener("DOMContentLoaded", () => {
+  const fInput = document.getElementById("pq-f-file");
+  if(fInput) {
+    fInput.addEventListener("change", () => {
+      const f = fInput.files?.[0];
+      const info = document.getElementById("pq-f-file-info");
+      if(info) {
+        if(f) {
+          info.style.display = "block";
+          info.textContent = `📎 선택됨: ${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+          info.style.color = "var(--g)";
+        } else {
+          info.style.display = "none";
+        }
+      }
+    });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📦 매입 발주서 모달 - open/save/render/calc
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _poEditId = null;
+
+function openPurchaseOrderModal(id) {
+  _poEditId = id || null;
+  const modal = document.getElementById("purchaseOrderModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  // 거래처 datalist
+  const vlist = document.getElementById("po-vendor-list");
+  if(vlist && Array.isArray(vendorData)) {
+    vlist.innerHTML = vendorData.slice(0, 100).map(v => 
+      `<option value="${escapeHtml(v["거래처명"]||"")}"></option>`
+    ).join("");
+  }
+  
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    const d = _pordData.find(x => x.id === id);
+    if(!d) { alert("발주서 데이터 없음"); return; }
+    document.getElementById("poModalTitle").textContent = "📦 매입 발주서 수정";
+    setField("po-f-pocode", d.poCode);
+    setField("po-f-prcode", d.prCode);
+    setField("po-f-vendor", d.vendor);
+    setField("po-f-date", d.poDate);
+    setField("po-f-delivery", d.deliveryDate);
+    setField("po-f-items", d.items);
+    setField("po-f-supply", d.supplyAmount);
+    setField("po-f-vat", d.vatAmount);
+    setField("po-f-total", d.totalAmount);
+    setField("po-f-payterm", d.payTerm || "현금");
+    setField("po-f-status", d.status || "발주완료");
+    setField("po-f-note", d.note);
+  } else {
+    document.getElementById("poModalTitle").textContent = "📦 매입 발주서 작성";
+    const today = new Date().toISOString().slice(0,10);
+    // 신규 PO 코드 자동 채번
+    setField("po-f-pocode", nextPOCode());
+    ["po-f-prcode","po-f-vendor","po-f-items","po-f-note"].forEach(id => setField(id, ""));
+    setField("po-f-date", today);
+    setField("po-f-delivery", "");
+    setField("po-f-supply", "");
+    setField("po-f-vat", "");
+    setField("po-f-total", "");
+    setField("po-f-payterm", "현금");
+    setField("po-f-status", "발주완료");
+  }
+  
+  modal.style.display = "flex";
+}
+
+function closePurchaseOrderModal() {
+  const modal = document.getElementById("purchaseOrderModal");
+  if(modal) modal.style.display = "none";
+  _poEditId = null;
+}
+
+function poCalcTotal() {
+  const supply = Number(document.getElementById("po-f-supply")?.value || 0);
+  const vatEl = document.getElementById("po-f-vat");
+  const totalEl = document.getElementById("po-f-total");
+  if(vatEl && !vatEl.dataset.manual) vatEl.value = Math.round(supply * 0.1);
+  const vat = Number(vatEl?.value || 0);
+  if(totalEl) totalEl.value = supply + vat;
+}
+window.addEventListener("DOMContentLoaded", () => {
+  const vatEl = document.getElementById("po-f-vat");
+  if(vatEl) vatEl.addEventListener("input", () => {
+    vatEl.dataset.manual = "1";
+    const supply = Number(document.getElementById("po-f-supply")?.value || 0);
+    const totalEl = document.getElementById("po-f-total");
+    if(totalEl) totalEl.value = supply + Number(vatEl.value || 0);
+  });
+});
+
+async function savePurchaseOrder() {
+  const poCode = document.getElementById("po-f-pocode").value.trim();
+  const prCode = document.getElementById("po-f-prcode").value.trim();
+  const vendor = document.getElementById("po-f-vendor").value.trim();
+  const poDate = document.getElementById("po-f-date").value;
+  const deliveryDate = document.getElementById("po-f-delivery").value;
+  
+  if(!prCode) { alert("PR 코드를 입력해주세요."); return; }
+  if(!vendor) { alert("거래처를 입력해주세요."); return; }
+  if(!poDate) { alert("발주일을 선택해주세요."); return; }
+  if(!deliveryDate) { alert("납기일을 선택해주세요."); return; }
+  
+  const data = {
+    id: _poEditId || ("po_" + Date.now()),
+    poCode,
+    prCode,
+    vendor,
+    poDate,
+    deliveryDate,
+    items: document.getElementById("po-f-items").value.trim(),
+    supplyAmount: Number(document.getElementById("po-f-supply").value || 0),
+    vatAmount: Number(document.getElementById("po-f-vat").value || 0),
+    totalAmount: Number(document.getElementById("po-f-total").value || 0),
+    payTerm: document.getElementById("po-f-payterm").value,
+    status: document.getElementById("po-f-status").value,
+    note: document.getElementById("po-f-note").value.trim(),
+    createdAt: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_poEditId) {
+    _pordData = _pordData.map(x => x.id === _poEditId ? data : x);
+  } else {
+    _pordData.push(data);
+  }
+  
+  closePurchaseOrderModal();
+  if(typeof renderPORD === "function") renderPORD();
+  const r = await savePORD();
+  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+}
+
+function renderPORD() {
+  const tbody = document.getElementById("ordBody");
+  if(!tbody) return;
+  
+  if(!_pordData.length) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PO코드 자동채번: PO-YYMMDD-NN</div></div></td></tr>`;
+    ["ord-tot","ord-month-amt","ord-vendor-cnt","ord-avg-lead"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
+    return;
+  }
+  
+  const search = (document.getElementById("ordSrch")?.value || "").toLowerCase().trim();
+  const statusF = document.getElementById("ordStatusFilter")?.value || "";
+  
+  let filtered = _pordData.filter(d => {
+    if(statusF && d.status !== statusF) return false;
+    if(search) {
+      const blob = [d.poCode, d.prCode, d.vendor, d.items].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (b.poDate||"").localeCompare(a.poDate||""));
+  
+  // KPI
+  const setKpi = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("ord-tot", _pordData.length);
+  // 이번달 발주액
+  const now = new Date();
+  const yymm = now.toISOString().slice(0,7);
+  const monthAmt = _pordData.filter(d => (d.poDate||"").startsWith(yymm)).reduce((s,d) => s+(d.totalAmount||0), 0);
+  setKpi("ord-month-amt", monthAmt.toLocaleString());
+  setKpi("ord-vendor-cnt", new Set(_pordData.map(d=>d.vendor).filter(Boolean)).size);
+  // 평균 납기 (po-delivery 차이일 평균)
+  const leadDays = _pordData.filter(d=>d.poDate && d.deliveryDate).map(d => {
+    const diff = (new Date(d.deliveryDate) - new Date(d.poDate)) / 86400000;
+    return diff > 0 ? diff : 0;
+  });
+  setKpi("ord-avg-lead", leadDays.length ? Math.round(leadDays.reduce((a,b)=>a+b,0)/leadDays.length) : 0);
+  setKpi("badge-ord", _pordData.length);
+  
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const statusBadge = {
+      "발주완료": `<span style="padding:2px 8px;border-radius:5px;background:var(--pd);color:var(--p);font-size:12px;font-weight:700">📦 발주완료</span>`,
+      "입고대기": `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⏳ 입고대기</span>`,
+      "입고완료": `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 입고완료</span>`,
+      "취소":     `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">❌ 취소</span>`,
+    }[d.status] || d.status;
+    
+    return `<tr style="cursor:pointer" onclick="openPurchaseOrderModal('${d.id}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:700">${escapeHtml(d.poCode||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.prCode||"")}</td>
+      <td style="font-weight:600">${escapeHtml(d.vendor||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.poDate||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.deliveryDate||"-")}</td>
+      <td style="font-size:12px;color:var(--t2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.items||"")}">${escapeHtml(d.items||"-")}</td>
+      <td style="text-align:right;font-family:var(--m)">${(d.supplyAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
+      <td style="text-align:center;font-size:12px;color:var(--t2)">${escapeHtml(d.payTerm||"-")}</td>
+      <td style="text-align:center">${statusBadge}</td>
+      <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("ord-cnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_pordData.length}건 표시`;
+}
+function filterORD() { renderPORD(); }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🚚 입고 거래명세서 모달 - open/save/render/calc
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _pdlvEditId = null;
+
+function openPurchaseDeliveryModal(id) {
+  _pdlvEditId = id || null;
+  const modal = document.getElementById("purchaseDeliveryModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  const vlist = document.getElementById("pdlv-vendor-list");
+  if(vlist && Array.isArray(vendorData)) {
+    vlist.innerHTML = vendorData.slice(0, 100).map(v => 
+      `<option value="${escapeHtml(v["거래처명"]||"")}"></option>`
+    ).join("");
+  }
+  
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    const d = _pdlvData.find(x => x.id === id);
+    if(!d) { alert("거래명세서 데이터 없음"); return; }
+    document.getElementById("pdlvModalTitle").textContent = "🚚 입고 거래명세서 수정";
+    setField("pdlv-f-dlvno", d.dlvNo);
+    setField("pdlv-f-pocode", d.poCode);
+    setField("pdlv-f-prcode", d.prCode);
+    setField("pdlv-f-vendor", d.vendor);
+    setField("pdlv-f-date", d.dlvDate);
+    setField("pdlv-f-items", d.items);
+    setField("pdlv-f-supply", d.supplyAmount);
+    setField("pdlv-f-vat", d.vatAmount);
+    setField("pdlv-f-total", d.totalAmount);
+    setField("pdlv-f-status", d.inspectStatus || "미검수");
+    setField("pdlv-f-inspector", d.inspector);
+    setField("pdlv-f-defectnote", d.defectNote);
+  } else {
+    document.getElementById("pdlvModalTitle").textContent = "🚚 입고 거래명세서";
+    const today = new Date().toISOString().slice(0,10);
+    ["pdlv-f-dlvno","pdlv-f-pocode","pdlv-f-prcode","pdlv-f-vendor","pdlv-f-items","pdlv-f-inspector","pdlv-f-defectnote"].forEach(id => setField(id, ""));
+    setField("pdlv-f-date", today);
+    setField("pdlv-f-supply", "");
+    setField("pdlv-f-vat", "");
+    setField("pdlv-f-total", "");
+    setField("pdlv-f-status", "미검수");
+  }
+  
+  modal.style.display = "flex";
+}
+
+function closePurchaseDeliveryModal() {
+  const modal = document.getElementById("purchaseDeliveryModal");
+  if(modal) modal.style.display = "none";
+  _pdlvEditId = null;
+}
+
+function pdlvCalcTotal() {
+  const supply = Number(document.getElementById("pdlv-f-supply")?.value || 0);
+  const vatEl = document.getElementById("pdlv-f-vat");
+  const totalEl = document.getElementById("pdlv-f-total");
+  if(vatEl && !vatEl.dataset.manual) vatEl.value = Math.round(supply * 0.1);
+  const vat = Number(vatEl?.value || 0);
+  if(totalEl) totalEl.value = supply + vat;
+}
+window.addEventListener("DOMContentLoaded", () => {
+  const vatEl = document.getElementById("pdlv-f-vat");
+  if(vatEl) vatEl.addEventListener("input", () => {
+    vatEl.dataset.manual = "1";
+    const supply = Number(document.getElementById("pdlv-f-supply")?.value || 0);
+    const totalEl = document.getElementById("pdlv-f-total");
+    if(totalEl) totalEl.value = supply + Number(vatEl.value || 0);
+  });
+});
+
+async function savePurchaseDelivery() {
+  const dlvNo = document.getElementById("pdlv-f-dlvno").value.trim();
+  const vendor = document.getElementById("pdlv-f-vendor").value.trim();
+  const dlvDate = document.getElementById("pdlv-f-date").value;
+  
+  if(!dlvNo) { alert("거래명세 번호를 입력해주세요."); return; }
+  if(!vendor) { alert("거래처를 입력해주세요."); return; }
+  if(!dlvDate) { alert("입고일을 선택해주세요."); return; }
+  
+  const data = {
+    id: _pdlvEditId || ("pdlv_" + Date.now()),
+    dlvNo,
+    poCode: document.getElementById("pdlv-f-pocode").value.trim(),
+    prCode: document.getElementById("pdlv-f-prcode").value.trim(),
+    vendor,
+    dlvDate,
+    items: document.getElementById("pdlv-f-items").value.trim(),
+    supplyAmount: Number(document.getElementById("pdlv-f-supply").value || 0),
+    vatAmount: Number(document.getElementById("pdlv-f-vat").value || 0),
+    totalAmount: Number(document.getElementById("pdlv-f-total").value || 0),
+    inspectStatus: document.getElementById("pdlv-f-status").value,
+    inspector: document.getElementById("pdlv-f-inspector").value.trim(),
+    defectNote: document.getElementById("pdlv-f-defectnote").value.trim(),
+    createdAt: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_pdlvEditId) {
+    _pdlvData = _pdlvData.map(x => x.id === _pdlvEditId ? data : x);
+  } else {
+    _pdlvData.push(data);
+  }
+  
+  closePurchaseDeliveryModal();
+  if(typeof renderPDLV === "function") renderPDLV();
+  const r = await savePDLV();
+  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+}
+
+function renderPDLV() {
+  const tbody = document.getElementById("dlvBody");
+  if(!tbody) return;
+  
+  if(!_pdlvData.length) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">🚚</div><div class="et">입고 거래명세서 없음</div></div></td></tr>`;
+    ["dlv-tot","dlv-month-amt","dlv-verified","dlv-pending"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
+    return;
+  }
+  
+  const search = (document.getElementById("dlvSrch")?.value || "").toLowerCase().trim();
+  const statusF = document.getElementById("dlvStatusFilter")?.value || "";
+  
+  let filtered = _pdlvData.filter(d => {
+    if(statusF && d.inspectStatus !== statusF) return false;
+    if(search) {
+      const blob = [d.dlvNo, d.poCode, d.prCode, d.vendor, d.items].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (b.dlvDate||"").localeCompare(a.dlvDate||""));
+  
+  const setKpi = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("dlv-tot", _pdlvData.length);
+  const now = new Date();
+  const yymm = now.toISOString().slice(0,7);
+  const monthAmt = _pdlvData.filter(d => (d.dlvDate||"").startsWith(yymm)).reduce((s,d) => s+(d.totalAmount||0), 0);
+  setKpi("dlv-month-amt", monthAmt.toLocaleString());
+  setKpi("dlv-verified", _pdlvData.filter(d=>d.inspectStatus==="검수완료").length);
+  setKpi("dlv-pending", _pdlvData.filter(d=>d.inspectStatus==="미검수").length);
+  setKpi("badge-dlv", _pdlvData.length);
+  
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const statusBadge = {
+      "검수완료": `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 검수완료</span>`,
+      "일부불량": `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⚠️ 일부불량</span>`,
+      "미검수":   `<span style="padding:2px 8px;border-radius:5px;background:var(--bg3);color:var(--t3);font-size:12px;font-weight:700">⏳ 미검수</span>`,
+    }[d.inspectStatus] || d.inspectStatus;
+    
+    return `<tr style="cursor:pointer" onclick="openPurchaseDeliveryModal('${d.id}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:600">${escapeHtml(d.dlvNo||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.poCode||"-")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.prCode||"-")}</td>
+      <td style="font-weight:600">${escapeHtml(d.vendor||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.dlvDate||"")}</td>
+      <td style="font-size:12px;color:var(--t2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.items||"")}">${escapeHtml(d.items||"-")}</td>
+      <td style="text-align:right;font-family:var(--m)">${(d.supplyAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m)">${(d.vatAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
+      <td style="text-align:center">${statusBadge}</td>
+      <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("dlv-cnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_pdlvData.length}건 표시`;
+}
+function filterDLV() { renderPDLV(); }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🧾 매입 세금계산서 모달 - open/save/render/calc
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _ptaxEditId = null;
+
+function openPurchaseTaxModal(id) {
+  _ptaxEditId = id || null;
+  const modal = document.getElementById("purchaseTaxModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  const vlist = document.getElementById("ptax-vendor-list");
+  if(vlist && Array.isArray(vendorData)) {
+    vlist.innerHTML = vendorData.slice(0, 100).map(v => 
+      `<option value="${escapeHtml(v["거래처명"]||"")}"></option>`
+    ).join("");
+  }
+  
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    const d = _ptaxData.find(x => x.id === id);
+    if(!d) { alert("세금계산서 데이터 없음"); return; }
+    document.getElementById("ptaxModalTitle").textContent = "🧾 매입 세금계산서 수정";
+    setField("ptax-f-taxno", d.taxNo);
+    setField("ptax-f-prcode", d.prCode);
+    setField("ptax-f-vendor", d.vendor);
+    setField("ptax-f-bizno", d.bizNo);
+    setField("ptax-f-date", d.taxDate);
+    setField("ptax-f-paydue", d.payDue);
+    setField("ptax-f-etax", d.eTaxType || "전자");
+    setField("ptax-f-supply", d.supplyAmount);
+    setField("ptax-f-vat", d.vatAmount);
+    setField("ptax-f-total", d.totalAmount);
+    setField("ptax-f-paystatus", d.payStatus || "unpaid");
+    setField("ptax-f-paydate", d.actualPayDate);
+    setField("ptax-f-note", d.note);
+  } else {
+    document.getElementById("ptaxModalTitle").textContent = "🧾 매입 세금계산서";
+    const today = new Date().toISOString().slice(0,10);
+    ["ptax-f-taxno","ptax-f-prcode","ptax-f-vendor","ptax-f-bizno","ptax-f-note"].forEach(id => setField(id, ""));
+    setField("ptax-f-date", today);
+    setField("ptax-f-paydue", "");
+    setField("ptax-f-etax", "전자");
+    setField("ptax-f-supply", "");
+    setField("ptax-f-vat", "");
+    setField("ptax-f-total", "");
+    setField("ptax-f-paystatus", "unpaid");
+    setField("ptax-f-paydate", "");
+  }
+  
+  // 거래처 입력 시 사업자번호 자동 매칭 (거래처DB)
+  const vendorEl = document.getElementById("ptax-f-vendor");
+  const biznoEl = document.getElementById("ptax-f-bizno");
+  if(vendorEl && biznoEl && !id) {
+    vendorEl.addEventListener("change", function _h() {
+      const v = vendorData.find(x => (x["거래처명"]||"").trim() === vendorEl.value.trim());
+      if(v && v["사업자등록번호"] && !biznoEl.value) {
+        biznoEl.value = v["사업자등록번호"];
+      }
+    }, { once: true });
+  }
+  
+  modal.style.display = "flex";
+}
+
+function closePurchaseTaxModal() {
+  const modal = document.getElementById("purchaseTaxModal");
+  if(modal) modal.style.display = "none";
+  _ptaxEditId = null;
+}
+
+function ptaxCalcTotal() {
+  const supply = Number(document.getElementById("ptax-f-supply")?.value || 0);
+  const vatEl = document.getElementById("ptax-f-vat");
+  const totalEl = document.getElementById("ptax-f-total");
+  if(vatEl && !vatEl.dataset.manual) vatEl.value = Math.round(supply * 0.1);
+  const vat = Number(vatEl?.value || 0);
+  if(totalEl) totalEl.value = supply + vat;
+}
+window.addEventListener("DOMContentLoaded", () => {
+  const vatEl = document.getElementById("ptax-f-vat");
+  if(vatEl) vatEl.addEventListener("input", () => {
+    vatEl.dataset.manual = "1";
+    const supply = Number(document.getElementById("ptax-f-supply")?.value || 0);
+    const totalEl = document.getElementById("ptax-f-total");
+    if(totalEl) totalEl.value = supply + Number(vatEl.value || 0);
+  });
+});
+
+async function savePurchaseTax() {
+  const taxNo = document.getElementById("ptax-f-taxno").value.trim();
+  const vendor = document.getElementById("ptax-f-vendor").value.trim();
+  const bizNo = document.getElementById("ptax-f-bizno").value.trim();
+  const taxDate = document.getElementById("ptax-f-date").value;
+  
+  if(!taxNo) { alert("세금계산서 번호를 입력해주세요."); return; }
+  if(!vendor) { alert("거래처를 입력해주세요."); return; }
+  if(!bizNo) { alert("사업자번호를 입력해주세요."); return; }
+  if(!taxDate) { alert("발행일을 선택해주세요."); return; }
+  
+  const data = {
+    id: _ptaxEditId || ("ptax_" + Date.now()),
+    taxNo,
+    prCode: document.getElementById("ptax-f-prcode").value.trim(),
+    vendor,
+    bizNo,
+    taxDate,
+    payDue: document.getElementById("ptax-f-paydue").value,
+    eTaxType: document.getElementById("ptax-f-etax").value,
+    supplyAmount: Number(document.getElementById("ptax-f-supply").value || 0),
+    vatAmount: Number(document.getElementById("ptax-f-vat").value || 0),
+    totalAmount: Number(document.getElementById("ptax-f-total").value || 0),
+    payStatus: document.getElementById("ptax-f-paystatus").value,
+    actualPayDate: document.getElementById("ptax-f-paydate").value,
+    note: document.getElementById("ptax-f-note").value.trim(),
+    createdAt: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_ptaxEditId) {
+    _ptaxData = _ptaxData.map(x => x.id === _ptaxEditId ? data : x);
+  } else {
+    _ptaxData.push(data);
+  }
+  
+  closePurchaseTaxModal();
+  if(typeof renderPTAX === "function") renderPTAX();
+  const r = await savePTAX();
+  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+}
+
+function renderPTAX() {
+  const tbody = document.getElementById("taxBody");
+  if(!tbody) return;
+  
+  if(!_ptaxData.length) {
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div></div></td></tr>`;
+    ["tax-tot","tax-month-amt","tax-vat-sum","tax-unpaid"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
+    return;
+  }
+  
+  const search = (document.getElementById("taxSrch")?.value || "").toLowerCase().trim();
+  const payF = document.getElementById("taxPayFilter")?.value || "";
+  
+  let filtered = _ptaxData.filter(d => {
+    if(payF && d.payStatus !== payF) return false;
+    if(search) {
+      const blob = [d.taxNo, d.prCode, d.vendor, d.bizNo].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (b.taxDate||"").localeCompare(a.taxDate||""));
+  
+  const setKpi = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("tax-tot", _ptaxData.length);
+  const now = new Date();
+  const yymm = now.toISOString().slice(0,7);
+  const monthAmt = _ptaxData.filter(d => (d.taxDate||"").startsWith(yymm)).reduce((s,d) => s+(d.totalAmount||0), 0);
+  setKpi("tax-month-amt", monthAmt.toLocaleString());
+  setKpi("tax-vat-sum", _ptaxData.reduce((s,d)=>s+(d.vatAmount||0),0).toLocaleString());
+  setKpi("tax-unpaid", _ptaxData.filter(d=>d.payStatus==="unpaid").length);
+  setKpi("badge-tax", _ptaxData.length);
+  
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const payBadge = {
+      "paid":    `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 결제완료</span>`,
+      "unpaid":  `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⏳ 결제대기</span>`,
+      "overdue": `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">⚠️ 지연</span>`,
+    }[d.payStatus] || d.payStatus;
+    const eTaxBadge = d.eTaxType === "전자" ? "📧" : "📄";
+    
+    return `<tr style="cursor:pointer" onclick="openPurchaseTaxModal('${d.id}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:600">${escapeHtml(d.taxNo||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.prCode||"-")}</td>
+      <td style="font-weight:600">${escapeHtml(d.vendor||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.bizNo||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.taxDate||"")}</td>
+      <td style="text-align:right;font-family:var(--m)">${(d.supplyAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m);color:#92400e;font-weight:600">${(d.vatAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.payDue||"-")}</td>
+      <td style="text-align:center;font-size:16px">${eTaxBadge}</td>
+      <td style="text-align:center">${payBadge}</td>
+      <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("tax-cnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_ptaxData.length}건 표시`;
+}
+function filterTAX() { renderPTAX(); }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📝 구매요청서 (PR Master) 모달 - open/save/render
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _prEditId = null;
+
+function openPRModal(id) {
+  _prEditId = id || null;
+  const modal = document.getElementById("prModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    const d = _prMaster.find(x => x.id === id);
+    if(!d) { alert("PR 데이터 없음"); return; }
+    document.getElementById("prModalTitle").textContent = "📝 구매요청서 수정";
+    setField("pr-f-prcode", d.prCode);
+    setField("pr-f-salescode", d.salesCode);
+    setField("pr-f-reqdept", d.reqDept);
+    setField("pr-f-date", d.reqDate);
+    setField("pr-f-duedate", d.dueDate);
+    setField("pr-f-requester", d.requester);
+    setField("pr-f-items", d.items);
+    setField("pr-f-bom", d.bomName);
+    setField("pr-f-amount", d.amount);
+    setField("pr-f-vendor-candidates", d.vendorCandidates);
+    setField("pr-f-status", d.status || "구매요청접수");
+    setField("pr-f-priority", d.priority || "일반");
+    setField("pr-f-note", d.note);
+  } else {
+    document.getElementById("prModalTitle").textContent = "📝 구매요청서 (PR)";
+    const today = new Date().toISOString().slice(0,10);
+    setField("pr-f-prcode", nextPRCode());
+    ["pr-f-salescode","pr-f-requester","pr-f-items","pr-f-bom","pr-f-vendor-candidates","pr-f-note"].forEach(id => setField(id, ""));
+    setField("pr-f-reqdept", "");
+    setField("pr-f-date", today);
+    setField("pr-f-duedate", "");
+    setField("pr-f-amount", "");
+    setField("pr-f-status", "구매요청접수");
+    setField("pr-f-priority", "일반");
+  }
+  
+  modal.style.display = "flex";
+}
+
+function closePRModal() {
+  const modal = document.getElementById("prModal");
+  if(modal) modal.style.display = "none";
+  _prEditId = null;
+}
+
+async function savePR() {
+  const prCode = document.getElementById("pr-f-prcode").value.trim();
+  const reqDept = document.getElementById("pr-f-reqdept").value;
+  const reqDate = document.getElementById("pr-f-date").value;
+  const items = document.getElementById("pr-f-items").value.trim();
+  const bomName = document.getElementById("pr-f-bom").value.trim();
+  
+  if(!reqDept) { alert("요청부서를 선택해주세요."); return; }
+  if(!reqDate) { alert("요청일을 선택해주세요."); return; }
+  if(!items) { alert("품목 요약을 입력해주세요."); return; }
+  
+  // BOM 자동매칭/생성
+  let bomCode = "";
+  if(bomName) {
+    const bom = matchOrCreateBOM(bomName, {
+      type: "조립품",
+      source: `구매요청서 자동생성 (${prCode})`,
+      relatedPR: prCode,
+    });
+    if(bom) {
+      bomCode = bom.bomCode;
+      // 기존 BOM에 PR 추가
+      if(bom.relatedPRs && !bom.relatedPRs.includes(prCode)) {
+        bom.relatedPRs.push(prCode);
+      }
+      console.log(`🧩 BOM 매칭: ${bomName} → ${bomCode}`);
+    }
+  }
+  
+  const data = {
+    id: _prEditId || ("pr_" + Date.now()),
+    prCode,
+    salesCode: document.getElementById("pr-f-salescode").value.trim(),
+    reqDept,
+    reqDate,
+    dueDate: document.getElementById("pr-f-duedate").value,
+    requester: document.getElementById("pr-f-requester").value.trim(),
+    items,
+    bomName,
+    bomCode,
+    amount: Number(document.getElementById("pr-f-amount").value || 0),
+    vendorCandidates: document.getElementById("pr-f-vendor-candidates").value.trim(),
+    status: document.getElementById("pr-f-status").value,
+    priority: document.getElementById("pr-f-priority").value,
+    note: document.getElementById("pr-f-note").value.trim(),
+    createdAt: _prEditId ? (_prMaster.find(x=>x.id===_prEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_prEditId) {
+    _prMaster = _prMaster.map(x => x.id === _prEditId ? data : x);
+  } else {
+    _prMaster.push(data);
+  }
+  
+  closePRModal();
+  if(typeof renderPRDB === "function") renderPRDB();
+  const r = await savePRMaster();
+  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+  else if(bomCode) console.log(`✅ PR 저장 완료 + BOM 자동매칭: ${bomCode}`);
+}
+
+function renderPRDB() {
+  const tbody = document.getElementById("prTableBody");
+  if(!tbody) return;
+  
+  if(!_prMaster.length) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 구매요청서 추가] 버튼으로 추가</div></div></td></tr>`;
+    for(let i=1;i<=6;i++) { const el = document.getElementById(`pr-kpi-${i}`); if(el) el.textContent="0"; }
+    return;
+  }
+  
+  const search = (document.getElementById("prSearch")?.value || "").toLowerCase().trim();
+  const statusF = document.getElementById("prStatusFilter")?.value || "";
+  
+  let filtered = _prMaster.filter(d => {
+    if(statusF && d.status !== statusF) return false;
+    if(search) {
+      const blob = [d.prCode, d.salesCode, d.items, d.bomName, d.vendorCandidates].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (b.reqDate||"").localeCompare(a.reqDate||""));
+  
+  // 6단계 KPI
+  const stages = ["구매요청접수","납기확인중","발주완료","입고확인","완료예정","매입완료"];
+  stages.forEach((s, i) => {
+    const el = document.getElementById(`pr-kpi-${i+1}`);
+    if(el) el.textContent = _prMaster.filter(d => d.status === s).length;
+  });
+  const badge = document.getElementById("badge-pr"); if(badge) badge.textContent = _prMaster.length;
+  
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const statusBadge = {
+      "구매요청접수": `<span style="padding:2px 8px;border-radius:5px;background:var(--pd);color:var(--p);font-size:12px;font-weight:700">📥 접수</span>`,
+      "납기확인중":   `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">📊 납기확인</span>`,
+      "발주완료":     `<span style="padding:2px 8px;border-radius:5px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700">📦 발주완료</span>`,
+      "입고확인":     `<span style="padding:2px 8px;border-radius:5px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700">🚚 입고확인</span>`,
+      "완료예정":     `<span style="padding:2px 8px;border-radius:5px;background:#e0e7ff;color:#4338ca;font-size:12px;font-weight:700">🧾 완료예정</span>`,
+      "매입완료":     `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 매입완료</span>`,
+      "보류":         `<span style="padding:2px 8px;border-radius:5px;background:var(--bg3);color:var(--t3);font-size:12px;font-weight:700">⏸ 보류</span>`,
+      "취소":         `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">❌ 취소</span>`,
+    }[d.status] || d.status;
+    const priorityIcon = d.priority === "긴급" ? "🔴 " : (d.priority === "낮음" ? "" : "");
+    
+    return `<tr style="cursor:pointer" onclick="openPRModal('${d.id}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:700">${priorityIcon}${escapeHtml(d.prCode||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.salesCode||"-")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.reqDate||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.dueDate||"-")}</td>
+      <td style="font-size:12px">${escapeHtml(d.reqDept||"")}</td>
+      <td style="font-size:12px">${escapeHtml(d.requester||"-")}</td>
+      <td style="font-size:12px;color:var(--t2);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.items||"")}">${escapeHtml(d.items||"-")}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.amount||0).toLocaleString()}</td>
+      <td style="font-size:12px;color:var(--t2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.vendorCandidates||"")}">${escapeHtml(d.vendorCandidates||"-")}</td>
+      <td style="text-align:center">${statusBadge}</td>
+      <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("prTableCnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_prMaster.length}건 표시`;
+}
+
+// PR 필터 이벤트 (DOMContentLoaded 후)
+window.addEventListener("DOMContentLoaded", () => {
+  const ps = document.getElementById("prSearch");
+  const pf = document.getElementById("prStatusFilter");
+  if(ps) ps.addEventListener("input", () => {
+    clearTimeout(window._prSearchTimer);
+    window._prSearchTimer = setTimeout(renderPRDB, 200);
+  });
+  if(pf) pf.addEventListener("change", renderPRDB);
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🧩 BOM 모달 - open/save/render
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _bomEditId = null;
+
+function openBOMModal(id) {
+  _bomEditId = id || null;
+  const modal = document.getElementById("bomModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    const d = _bomData.find(x => x.bomCode === id || x.id === id);
+    if(!d) { alert("BOM 데이터 없음"); return; }
+    document.getElementById("bomModalTitle").textContent = "🧩 BOM 수정";
+    setField("bom-f-code", d.bomCode);
+    setField("bom-f-type", d.type || "조립품");
+    setField("bom-f-version", d.version || "v1.0");
+    setField("bom-f-name", d.productName);
+    setField("bom-f-partno", d.partNo);
+    setField("bom-f-itemcount", d.itemCount);
+    setField("bom-f-cost", d.estCost);
+    setField("bom-f-components", d.components);
+    setField("bom-f-source", d.source || "수동등록");
+    setField("bom-f-note", d.note);
+  } else {
+    document.getElementById("bomModalTitle").textContent = "🧩 BOM 등록";
+    const code = `BOM-${String(_bomData.length+1).padStart(4,"0")}`;
+    setField("bom-f-code", code);
+    setField("bom-f-type", "조립품");
+    setField("bom-f-version", "v1.0");
+    ["bom-f-name","bom-f-partno","bom-f-components","bom-f-note"].forEach(id => setField(id, ""));
+    setField("bom-f-itemcount", "");
+    setField("bom-f-cost", "");
+    setField("bom-f-source", "수동등록");
+  }
+  
+  modal.style.display = "flex";
+}
+
+function closeBOMModal() {
+  const modal = document.getElementById("bomModal");
+  if(modal) modal.style.display = "none";
+  _bomEditId = null;
+}
+
+async function saveBOMItem() {
+  const bomCode = document.getElementById("bom-f-code").value.trim();
+  const productName = document.getElementById("bom-f-name").value.trim();
+  
+  if(!productName) { alert("제품명을 입력해주세요. (BOM 매칭 키)"); return; }
+  
+  // 중복 체크 (제품명)
+  if(!_bomEditId) {
+    const dup = _bomData.find(b => (b.productName||"").trim().toLowerCase() === productName.toLowerCase());
+    if(dup) {
+      if(!confirm(`⚠️ 동일 제품명의 BOM이 이미 존재합니다.\n\n${dup.bomCode}: ${dup.productName}\n\n그래도 새로 만드시겠어요?`)) return;
+    }
+  }
+  
+  const data = {
+    id: _bomEditId || ("bom_" + Date.now()),
+    bomCode,
+    productName,
+    type: document.getElementById("bom-f-type").value,
+    version: document.getElementById("bom-f-version").value.trim() || "v1.0",
+    partNo: document.getElementById("bom-f-partno").value.trim(),
+    itemCount: Number(document.getElementById("bom-f-itemcount").value || 0),
+    estCost: Number(document.getElementById("bom-f-cost").value || 0),
+    components: document.getElementById("bom-f-components").value.trim(),
+    source: document.getElementById("bom-f-source").value,
+    note: document.getElementById("bom-f-note").value.trim(),
+    relatedPRs: _bomEditId ? (_bomData.find(x=>x.id===_bomEditId || x.bomCode===_bomEditId)?.relatedPRs || []) : [],
+    createdAt: _bomEditId ? (_bomData.find(x=>x.id===_bomEditId || x.bomCode===_bomEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_bomEditId) {
+    _bomData = _bomData.map(x => (x.id === _bomEditId || x.bomCode === _bomEditId) ? data : x);
+  } else {
+    _bomData.push(data);
+  }
+  
+  closeBOMModal();
+  if(typeof renderBOMDB === "function") renderBOMDB();
+  const r = await saveBOMDB();
+  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+}
+
+function renderBOMDB() {
+  const tbody = document.getElementById("bomTableBody");
+  if(!tbody) return;
+  
+  if(!_bomData.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>`;
+    ["bom-kpi-total","bom-kpi-finished","bom-kpi-assembly","bom-kpi-semi"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
+    return;
+  }
+  
+  const search = (document.getElementById("bomSearch")?.value || "").toLowerCase().trim();
+  const typeF = document.getElementById("bomTypeFilter")?.value || "";
+  
+  let filtered = _bomData.filter(d => {
+    if(typeF && d.type !== typeF) return false;
+    if(search) {
+      const blob = [d.bomCode, d.productName, d.partNo].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (b.createdAt||"").localeCompare(a.createdAt||""));
+  
+  const setKpi = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("bom-kpi-total", _bomData.length);
+  setKpi("bom-kpi-finished", _bomData.filter(d=>d.type==="완제품").length);
+  setKpi("bom-kpi-assembly", _bomData.filter(d=>d.type==="조립품").length);
+  setKpi("bom-kpi-semi", _bomData.filter(d=>d.type==="반제품").length);
+  const badge = document.getElementById("badge-bom"); if(badge) badge.textContent = _bomData.length;
+  
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const typeIcon = {"완제품":"📦","조립품":"🔧","반제품":"⚙️"}[d.type] || "";
+    const prCount = Array.isArray(d.relatedPRs) ? d.relatedPRs.length : 0;
+    return `<tr style="cursor:pointer" onclick="openBOMModal('${d.bomCode}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:700">${escapeHtml(d.bomCode||"")}</td>
+      <td style="font-weight:600">${escapeHtml(d.productName||"")}</td>
+      <td style="text-align:center">${typeIcon} ${escapeHtml(d.type||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.version||"v1.0")}</td>
+      <td style="text-align:center;font-family:var(--m)">${d.itemCount||0}</td>
+      <td style="text-align:right;font-family:var(--m);color:var(--p)">${(d.estCost||0).toLocaleString()}</td>
+      <td style="font-size:12px;color:var(--t2)">${escapeHtml(d.source||"-")}</td>
+      <td style="text-align:center;font-family:var(--m)">${prCount ? `<span style="background:var(--gd);color:var(--g);padding:2px 8px;border-radius:5px;font-weight:700;font-size:12px">${prCount}건</span>` : "-"}</td>
+      <td style="color:var(--t2);font-size:12px">${(d.createdAt||"").slice(0,10)}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("bomTableCnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_bomData.length}건 표시`;
+}
+
+// BOM 필터 이벤트
+window.addEventListener("DOMContentLoaded", () => {
+  const bs = document.getElementById("bomSearch");
+  const bt = document.getElementById("bomTypeFilter");
+  if(bs) bs.addEventListener("input", () => {
+    clearTimeout(window._bomSearchTimer);
+    window._bomSearchTimer = setTimeout(renderBOMDB, 200);
+  });
+  if(bt) bt.addEventListener("change", renderBOMDB);
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 💼 회계전표 (Settle) 모달 - open/save/render
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _stlEditId = null;
+
+function openSettleModal(id) {
+  _stlEditId = id || null;
+  const modal = document.getElementById("settleModal");
+  if(!modal) { alert("모달 DOM 없음"); return; }
+  
+  // 거래처 datalist
+  const vlist = document.getElementById("stl-vendor-list");
+  if(vlist && Array.isArray(vendorData)) {
+    vlist.innerHTML = vendorData.slice(0, 100).map(v => 
+      `<option value="${escapeHtml(v["거래처명"]||"")}"></option>`
+    ).join("");
+  }
+  
+  const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  if(id) {
+    const d = _pstlData.find(x => x.id === id);
+    if(!d) { alert("정산 데이터 없음"); return; }
+    document.getElementById("stlModalTitle").textContent = "💼 회계전표 수정";
+    setField("stl-f-stcode", d.stCode);
+    setField("stl-f-prcode", d.prCode);
+    setField("stl-f-pocode", d.poCode);
+    setField("stl-f-vendor", d.vendor);
+    setField("stl-f-date", d.stlDate);
+    setField("stl-f-amount", d.amount);
+    setField("stl-f-paymethod", d.payMethod || "계좌이체");
+    setField("stl-f-paydate", d.payDate);
+    setField("stl-f-acctno", d.acctNo);
+    setField("stl-f-paystatus", d.payStatus || "unpaid");
+    setField("stl-f-note", d.note);
+  } else {
+    document.getElementById("stlModalTitle").textContent = "💼 회계전표 / 구매입고정산";
+    const today = new Date().toISOString().slice(0,10);
+    setField("stl-f-stcode", nextSTCode());
+    ["stl-f-prcode","stl-f-pocode","stl-f-vendor","stl-f-acctno","stl-f-note"].forEach(id => setField(id, ""));
+    setField("stl-f-date", today);
+    setField("stl-f-amount", "");
+    setField("stl-f-paymethod", "계좌이체");
+    setField("stl-f-paydate", "");
+    setField("stl-f-paystatus", "unpaid");
+  }
+  
+  modal.style.display = "flex";
+}
+
+function closeSettleModal() {
+  const modal = document.getElementById("settleModal");
+  if(modal) modal.style.display = "none";
+  _stlEditId = null;
+}
+
+async function saveSettle() {
+  const stCode = document.getElementById("stl-f-stcode").value.trim();
+  const prCode = document.getElementById("stl-f-prcode").value.trim();
+  const vendor = document.getElementById("stl-f-vendor").value.trim();
+  const stlDate = document.getElementById("stl-f-date").value;
+  const amount = Number(document.getElementById("stl-f-amount").value || 0);
+  
+  if(!prCode) { alert("PR 코드를 입력해주세요."); return; }
+  if(!vendor) { alert("거래처를 입력해주세요."); return; }
+  if(!stlDate) { alert("정산일을 선택해주세요."); return; }
+  if(!amount) { alert("매입금액을 입력해주세요."); return; }
+  
+  const data = {
+    id: _stlEditId || ("stl_" + Date.now()),
+    stCode,
+    prCode,
+    poCode: document.getElementById("stl-f-pocode").value.trim(),
+    vendor,
+    stlDate,
+    amount,
+    payMethod: document.getElementById("stl-f-paymethod").value,
+    payDate: document.getElementById("stl-f-paydate").value,
+    acctNo: document.getElementById("stl-f-acctno").value.trim(),
+    payStatus: document.getElementById("stl-f-paystatus").value,
+    note: document.getElementById("stl-f-note").value.trim(),
+    createdAt: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if(_stlEditId) {
+    _pstlData = _pstlData.map(x => x.id === _stlEditId ? data : x);
+  } else {
+    _pstlData.push(data);
+  }
+  
+  closeSettleModal();
+  if(typeof renderPSTL === "function") renderPSTL();
+  const r = await savePSTL();
+  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+}
+
+function renderPSTL() {
+  const tbody = document.getElementById("stlTableBody");
+  if(!tbody) return;
+  
+  if(!_pstlData.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div></div></td></tr>`;
+    ["stl-kpi-total","stl-kpi-amount","stl-kpi-paid","stl-kpi-unpaid"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
+    return;
+  }
+  
+  const search = (document.getElementById("stlSearch")?.value || "").toLowerCase().trim();
+  const payF = document.getElementById("stlPayFilter")?.value || "";
+  
+  let filtered = _pstlData.filter(d => {
+    if(payF && d.payStatus !== payF) return false;
+    if(search) {
+      const blob = [d.stCode, d.prCode, d.poCode, d.vendor].join(" ").toLowerCase();
+      if(!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => (b.stlDate||"").localeCompare(a.stlDate||""));
+  
+  const setKpi = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
+  setKpi("stl-kpi-total", _pstlData.length);
+  setKpi("stl-kpi-amount", _pstlData.reduce((s,d)=>s+(d.amount||0),0).toLocaleString());
+  setKpi("stl-kpi-paid", _pstlData.filter(d=>d.payStatus==="paid").length);
+  setKpi("stl-kpi-unpaid", _pstlData.filter(d=>d.payStatus==="unpaid").length);
+  const badge = document.getElementById("badge-stl"); if(badge) badge.textContent = _pstlData.length;
+  
+  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+    const payBadge = d.payStatus === "paid"
+      ? `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 결제완료</span>`
+      : `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⏳ 미결제</span>`;
+    
+    return `<tr style="cursor:pointer" onclick="openSettleModal('${d.id}')">
+      <td style="font-family:var(--m);color:var(--p);font-weight:700">${escapeHtml(d.stCode||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.prCode||"")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.stlDate||"")}</td>
+      <td style="font-weight:600">${escapeHtml(d.vendor||"")}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.amount||0).toLocaleString()}</td>
+      <td style="text-align:center;font-size:12px">${escapeHtml(d.payMethod||"-")}</td>
+      <td style="color:var(--t2)">${escapeHtml(d.payDate||"-")}</td>
+      <td style="font-family:var(--m);font-size:12px;color:var(--t2)">${escapeHtml(d.acctNo||"-")}</td>
+      <td style="text-align:center">${payBadge}</td>
+      <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+    </tr>`;
+  }).join("");
+  
+  const cnt = document.getElementById("stlTableCnt");
+  if(cnt) cnt.textContent = `${filtered.length}/${_pstlData.length}건 표시`;
+}
+
+// 회계전표 필터 이벤트
+window.addEventListener("DOMContentLoaded", () => {
+  const ss = document.getElementById("stlSearch");
+  const sf = document.getElementById("stlPayFilter");
+  if(ss) ss.addEventListener("input", () => {
+    clearTimeout(window._stlSearchTimer);
+    window._stlSearchTimer = setTimeout(renderPSTL, 200);
+  });
+  if(sf) sf.addEventListener("change", renderPSTL);
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // ━━ 데이터 ━━
 let SD=[], PD=[], CD=[], coMap={}, selCo=null, cfF={type:"all"};
@@ -16221,7 +17716,8 @@ function renderQDB(data) {
 }
 
 // 검색/필터
-function filterQDB() {
+// 영업 filterQDB (비활성화 - 구매에서는 renderPQDB 사용)
+function filterQDB_unused_sales() {
   const q = (document.getElementById("qdbSrch")?.value||"").toLowerCase();
   const st = document.getElementById("qdbStatusFilter")?.value||"";
   const co = document.getElementById("qdbCoFilter")?.value||"";
@@ -18992,9 +20488,37 @@ function go(id, el) {
   if(id==="purchase-todo") {
     loadTodoFromPlanner();
   }
-  // 견적서 DB
+  // 견적서 DB (매입 견적서)
   if(id==="quote-db") {
-    loadQuoteDB().then(()=>autoLinkDBsToActivities(true));
+    if(typeof loadPQDB === "function") loadPQDB();
+  }
+  // 발주서 DB (매입 발주서) - 다음 세션 구현
+  if(id==="order-db") {
+    if(typeof loadPORD === "function") loadPORD();
+  }
+  // 거래명세서 DB (입고)
+  if(id==="delivery-db") {
+    if(typeof loadPDLV === "function") loadPDLV();
+  }
+  // 세금계산서 DB (매입세금)
+  if(id==="tax-db") {
+    if(typeof loadPTAX === "function") loadPTAX();
+  }
+  // PR DB (구매요청서)
+  if(id==="pr-db") {
+    if(typeof loadPRMaster === "function") loadPRMaster();
+  }
+  // BOM DB
+  if(id==="bom-db") {
+    if(typeof loadBOMDB === "function") loadBOMDB();
+  }
+  // 회계전표 DB
+  if(id==="settle-db") {
+    if(typeof loadPSTL === "function") loadPSTL();
+  }
+  // 거래처 DB
+  if(id==="vendor") {
+    if(typeof loadVendorDB === "function") loadVendorDB();
   }
   // 구매활동 Log
   if(id==="purchase-log") {
@@ -19040,14 +20564,7 @@ function go(id, el) {
       } catch(e) { console.warn("프로젝트코드 요청 로드 실패:", e); }
     })();
   }
-  if(id==="delivery-db") { loadDeliveryDB().then(()=>autoLinkDBsToActivities(true)); }
-  if(id==="tax-db") { loadTaxDB().then(()=>autoLinkDBsToActivities(true)); }
-  if(id==="order-db") { loadOrderDB().then(()=>autoLinkDBsToActivities(true)); }
-  // 거래처 DB 탭 (다음 세션에서 loadVendorDB 함수 구현 예정)
-  if(id==="vendor") {
-    if(typeof loadVendorDB === "function") loadVendorDB();
-  }
-  // 구매요청서 DB / BOM DB / 회계전표 DB는 다음 세션 구현
+  // 구매요청서 DB / BOM DB / 회계전표 DB는 위 분기에서 처리됨
 }
 // ─── 모바일 탭바 헬퍼 ───
 // ━━ 뒤로가기 두 번 눌러야 앱 나가기 (모바일 UX) ━━
@@ -22262,6 +23779,720 @@ function deleteTax(id){
             <button onclick="saveTaxEntry()" style="padding:9px 22px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
           </div><!-- /우측 폼 칼럼 -->
         </div><!-- /grid 2단 -->
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📄 매입 견적서 모달 (Purchase Quote, 거래처 수신) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseQuoteModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closePurchaseQuoteModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="pqModalTitle">📄 매입 견적서 수신</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">거래처에서 받은 견적서를 등록합니다 (PDF 업로드 → AI 파싱)</div>
+
+        <!-- PR 코드 + 영업코드 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="pq-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">관련 구매요청서 코드</div>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">영업 프로젝트코드 <span style="font-weight:400;color:var(--t3)">(선택)</span></label>
+            <input class="si" type="text" id="pq-f-salescode" placeholder="SL/SP 코드" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 거래처 + 견적유형 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="pq-f-vendor" list="pq-vendor-list" placeholder="거래처명" style="width:100%">
+            <datalist id="pq-vendor-list"></datalist>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">견적 유형</label>
+            <select class="ss" id="pq-f-type" style="width:100%">
+              <option value="일반견적">일반견적</option>
+              <option value="납기단가확인">납기·단가확인용</option>
+              <option value="긴급">긴급</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 견적번호 + 견적일 + 유효기간 + 납기일 -->
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">견적 번호 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="pq-f-quoteno" placeholder="거래처 견적번호" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">견적일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="pq-f-date" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">유효기간</label>
+            <input class="si" type="date" id="pq-f-valid" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">납기일</label>
+            <input class="si" type="date" id="pq-f-delivery" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 품목 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목 (요약)</label>
+          <textarea class="si" id="pq-f-items" placeholder="제품명/수량/단가 등 (AI 파싱 시 자동 입력)" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
+        </div>
+
+        <!-- 금액 (공급가/VAT/총합) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
+            <input class="si" type="number" id="pq-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="pqCalcTotal()">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">VAT (10%)</label>
+            <input class="si" type="number" id="pq-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="pqCalcTotal()">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
+            <input class="si" type="number" id="pq-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
+          </div>
+        </div>
+
+        <!-- 상태 + 비고 -->
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">상태 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="pq-f-status" style="width:100%">
+              <option value="검토중">검토중</option>
+              <option value="발주확정">✅ 발주확정</option>
+              <option value="보류">⏸ 보류</option>
+              <option value="반려">❌ 반려</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
+            <input class="si" type="text" id="pq-f-note" placeholder="특이사항, 조건 등" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 파일 업로드 -->
+        <div style="margin-bottom:14px;padding:12px;background:#fff7ed;border-radius:8px;border:1.5px solid var(--a)">
+          <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">📎 견적서 PDF 첨부 <span style="color:var(--r)">*</span></label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="file" id="pq-f-file" accept="application/pdf,.pdf,image/*"
+              style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
+            <button type="button" onclick="alert('🤖 AI 견적서 파싱은 다음 세션 구현 예정\\n현재는 파일만 첨부됩니다.')"
+              style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
+          </div>
+          <div id="pq-f-file-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
+        </div>
+
+        <!-- 액션 -->
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closePurchaseQuoteModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseQuote()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📦 매입 발주서 모달 (Purchase Order, ENJET → 거래처 발행) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseOrderModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closePurchaseOrderModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="poModalTitle">📦 매입 발주서 작성</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">ENJET가 거래처에 발행하는 발주서 (PO코드 자동채번)</div>
+
+        <!-- PO 코드 (자동) + PR 코드 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PO 코드 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
+            <input class="si" type="text" id="po-f-pocode" placeholder="자동 생성" style="width:100%;font-family:var(--m);background:var(--bg3);color:var(--p);font-weight:700" readonly>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="po-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 거래처 + 발주일 + 납기일 -->
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="po-f-vendor" list="po-vendor-list" placeholder="거래처명" style="width:100%">
+            <datalist id="po-vendor-list"></datalist>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">발주일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="po-f-date" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">납기일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="po-f-delivery" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 품목 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목 (요약)</label>
+          <textarea class="si" id="po-f-items" placeholder="제품명/수량/단가" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
+        </div>
+
+        <!-- 금액 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
+            <input class="si" type="number" id="po-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="poCalcTotal()">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">VAT (10%)</label>
+            <input class="si" type="number" id="po-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
+            <input class="si" type="number" id="po-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
+          </div>
+        </div>
+
+        <!-- 결제조건 + 상태 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 조건</label>
+            <select class="ss" id="po-f-payterm" style="width:100%">
+              <option value="현금">현금</option>
+              <option value="외상30일">외상 30일</option>
+              <option value="외상60일">외상 60일</option>
+              <option value="외상90일">외상 90일</option>
+              <option value="선결제">선결제</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">상태 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="po-f-status" style="width:100%">
+              <option value="발주완료">📦 발주완료</option>
+              <option value="입고대기">⏳ 입고대기</option>
+              <option value="입고완료">✅ 입고완료</option>
+              <option value="취소">❌ 취소</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 비고 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
+          <input class="si" type="text" id="po-f-note" placeholder="배송조건, 특이사항 등" style="width:100%">
+        </div>
+
+        <!-- 파일 -->
+        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 발주서 PDF (선택)</label>
+          <input type="file" id="po-f-file" accept="application/pdf,.pdf" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closePurchaseOrderModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseOrder()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 🚚 입고 거래명세서 모달 (Purchase Delivery, 거래처 → ENJET 수신) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseDeliveryModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closePurchaseDeliveryModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="pdlvModalTitle">🚚 입고 거래명세서</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">거래처로부터 받은 입고 거래명세서 + 검수 결과</div>
+
+        <!-- 거래명세번호 + PO 코드 + PR 코드 -->
+        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래명세 번호 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="pdlv-f-dlvno" placeholder="거래처 명세번호" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PO 코드</label>
+            <input class="si" type="text" id="pdlv-f-pocode" placeholder="PO-260519-01" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드</label>
+            <input class="si" type="text" id="pdlv-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 거래처 + 입고일 -->
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="pdlv-f-vendor" list="pdlv-vendor-list" placeholder="거래처명" style="width:100%">
+            <datalist id="pdlv-vendor-list"></datalist>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">입고일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="pdlv-f-date" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 품목 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목</label>
+          <textarea class="si" id="pdlv-f-items" placeholder="제품명/수량/단가" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
+        </div>
+
+        <!-- 금액 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
+            <input class="si" type="number" id="pdlv-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="pdlvCalcTotal()">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">VAT</label>
+            <input class="si" type="number" id="pdlv-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
+            <input class="si" type="number" id="pdlv-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
+          </div>
+        </div>
+
+        <!-- 검수 결과 -->
+        <div style="margin-bottom:12px;padding:14px;background:#f0fdf4;border-radius:8px;border:1.5px solid var(--g)">
+          <div style="font-size:14px;font-weight:700;color:var(--g);margin-bottom:10px">✅ 검수 결과</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">검수 상태 <span style="color:var(--r)">*</span></label>
+              <select class="ss" id="pdlv-f-status" style="width:100%">
+                <option value="미검수">⏳ 미검수</option>
+                <option value="검수완료">✅ 검수완료</option>
+                <option value="일부불량">⚠️ 일부불량</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">검수자</label>
+              <input class="si" type="text" id="pdlv-f-inspector" placeholder="검수 담당자" style="width:100%">
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">검수 비고 (불량 사항 등)</label>
+            <input class="si" type="text" id="pdlv-f-defectnote" placeholder="불량 발견 시 상세 내용" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 파일 -->
+        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 거래명세서 PDF (선택)</label>
+          <input type="file" id="pdlv-f-file" accept="application/pdf,.pdf,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closePurchaseDeliveryModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseDelivery()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 🧾 매입 세금계산서 모달 (Purchase Tax, 매입세금 수신, VAT 환급) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseTaxModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closePurchaseTaxModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="ptaxModalTitle">🧾 매입 세금계산서</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">거래처에서 받은 매입세금계산서 (부가세 환급 대상)</div>
+
+        <!-- 세금계산서 번호 + PR 코드 -->
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">세금계산서 번호 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="ptax-f-taxno" placeholder="20260519-12345678" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드</label>
+            <input class="si" type="text" id="ptax-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 거래처 + 사업자번호 -->
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="ptax-f-vendor" list="ptax-vendor-list" placeholder="거래처명" style="width:100%">
+            <datalist id="ptax-vendor-list"></datalist>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">사업자번호 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="ptax-f-bizno" placeholder="000-00-00000" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 발행일 + 결제예정일 + 전자세금 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">발행일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="ptax-f-date" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 예정일</label>
+            <input class="si" type="date" id="ptax-f-paydue" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">전자세금</label>
+            <select class="ss" id="ptax-f-etax" style="width:100%">
+              <option value="전자">📧 전자</option>
+              <option value="수기">📄 수기</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 금액 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:#fef3c7;border-radius:8px;border:1.5px solid #fcd34d">
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
+            <input class="si" type="number" id="ptax-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="ptaxCalcTotal()">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:5px">VAT (환급대상)</label>
+            <input class="si" type="number" id="ptax-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);background:#fff;font-weight:700">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
+            <input class="si" type="number" id="ptax-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
+          </div>
+        </div>
+
+        <!-- 결제 상태 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 상태 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="ptax-f-paystatus" style="width:100%">
+              <option value="unpaid">⏳ 결제대기</option>
+              <option value="paid">✅ 결제완료</option>
+              <option value="overdue">⚠️ 지연</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">실 결제일</label>
+            <input class="si" type="date" id="ptax-f-paydate" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 비고 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
+          <input class="si" type="text" id="ptax-f-note" placeholder="특이사항" style="width:100%">
+        </div>
+
+        <!-- 파일 -->
+        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 세금계산서 PDF (선택)</label>
+          <input type="file" id="ptax-f-file" accept="application/pdf,.pdf,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closePurchaseTaxModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseTax()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📝 구매요청서 (PR Master) 모달 -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="prModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closePRModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="prModalTitle">📝 구매요청서 (PR)</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">PR 코드 자동채번 (PR-YYMMDD-NN) · 영업프로젝트(SL/SP)별 다수 PR 가능</div>
+
+        <!-- PR 코드 자동 + 영업코드 + 요청부서 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
+            <input class="si" type="text" id="pr-f-prcode" placeholder="자동 생성" style="width:100%;font-family:var(--m);background:var(--bg3);color:var(--p);font-weight:700" readonly>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">영업 프로젝트코드 <span style="font-weight:400;color:var(--t3)">(선택)</span></label>
+            <input class="si" type="text" id="pr-f-salescode" placeholder="SL/SP 코드" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">요청부서 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="pr-f-reqdept" style="width:100%">
+              <option value="">선택...</option>
+              <option value="ES사업부">ES사업부 (장비사업부)</option>
+              <option value="기술연구소">기술연구소 (연구소)</option>
+              <option value="경영전략본부">경영전략본부</option>
+              <option value="미래성장전략팀">미래성장전략팀</option>
+              <option value="구매팀">구매팀 (자체구매)</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 요청일 + 납기희망 + 요청자 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">요청일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="pr-f-date" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">납기 희망일</label>
+            <input class="si" type="date" id="pr-f-duedate" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">요청자</label>
+            <input class="si" type="text" id="pr-f-requester" placeholder="요청 담당자" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 품목 요약 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목 요약 <span style="color:var(--r)">*</span></label>
+          <textarea class="si" id="pr-f-items" placeholder="제품명/수량/사양 등 (구매요청서 AI파싱 시 자동 입력)" style="width:100%;height:80px;resize:vertical;font-size:13px"></textarea>
+        </div>
+
+        <!-- BOM 연결 + 총금액 + 거래처 후보 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:8px;border:1.5px solid var(--g)">
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--g);display:block;margin-bottom:5px">🧩 관련 BOM</label>
+            <input class="si" type="text" id="pr-f-bom" placeholder="제품명 입력 시 BOM 자동매칭" style="width:100%;background:#fff">
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">※ 신규 제품명이면 BOM 자동 생성</div>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--g);display:block;margin-bottom:5px">💰 총 추정금액</label>
+            <input class="si" type="number" id="pr-f-amount" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);background:#fff">
+          </div>
+        </div>
+
+        <!-- 거래처 후보 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 후보 (선택, 쉼표 구분)</label>
+          <input class="si" type="text" id="pr-f-vendor-candidates" placeholder="거래처1, 거래처2, 거래처3" style="width:100%">
+        </div>
+
+        <!-- 상태 + 우선순위 + 비고 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">진행상태 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="pr-f-status" style="width:100%">
+              <option value="구매요청접수">📥 구매요청접수</option>
+              <option value="납기확인중">📊 납기확인중</option>
+              <option value="발주완료">📦 발주완료</option>
+              <option value="입고확인">🚚 입고확인</option>
+              <option value="완료예정">🧾 완료예정</option>
+              <option value="매입완료">✅ 매입완료</option>
+              <option value="보류">⏸ 보류</option>
+              <option value="취소">❌ 취소</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">우선순위</label>
+            <select class="ss" id="pr-f-priority" style="width:100%">
+              <option value="일반">일반</option>
+              <option value="긴급">🔴 긴급</option>
+              <option value="낮음">낮음</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
+            <input class="si" type="text" id="pr-f-note" placeholder="요청 사유, 특이사항" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 파일 -->
+        <div style="margin-bottom:14px;padding:12px;background:#fff7ed;border-radius:8px;border:1.5px solid var(--a)">
+          <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">📎 구매요청서 PDF (선택)</label>
+          <input type="file" id="pr-f-file" accept="application/pdf,.pdf,.docx,.xlsx,.hwp,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closePRModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="savePR()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 (BOM 자동매칭)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 🧩 BOM 모달 -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="bomModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closeBOMModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="bomModalTitle">🧩 BOM 등록</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">BOM 마스터 (제품명 = 매칭 키 · PR과 자동연결)</div>
+
+        <!-- BOM 코드 + 유형 + 버전 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">BOM 코드 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
+            <input class="si" type="text" id="bom-f-code" placeholder="자동 생성" style="width:100%;font-family:var(--m);background:var(--bg3);color:var(--p);font-weight:700" readonly>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">유형 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="bom-f-type" style="width:100%">
+              <option value="완제품">📦 완제품</option>
+              <option value="조립품">🔧 조립품</option>
+              <option value="반제품">⚙️ 반제품</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">버전</label>
+            <input class="si" type="text" id="bom-f-version" placeholder="v1.0" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 제품명 (매칭 키) -->
+        <div style="margin-bottom:12px;padding:12px;background:#fff7ed;border-radius:8px;border:1.5px solid var(--a)">
+          <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:5px">📋 제품명 <span style="color:var(--r)">*</span> <span style="font-weight:400;color:var(--t3);font-size:12px">(BOM 매칭 키)</span></label>
+          <input class="si" type="text" id="bom-f-name" placeholder="예: EHD 프린터 헤드 어셈블리" style="width:100%;background:#fff;font-weight:600">
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">※ PR/견적/발주에서 이 제품명으로 자동매칭됩니다 (대소문자 무관)</div>
+        </div>
+
+        <!-- 품번 + 품목수 + 추정원가 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품번</label>
+            <input class="si" type="text" id="bom-f-partno" placeholder="ENJ-XXX-XXX" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">구성 품목 수</label>
+            <input class="si" type="number" id="bom-f-itemcount" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">추정 원가</label>
+            <input class="si" type="number" id="bom-f-cost" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 구성 품목 (자유 텍스트, 다음 세션에 상세화) -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">구성 품목 상세</label>
+          <textarea class="si" id="bom-f-components" placeholder="품목명 / 수량 / 단가 (한 줄 한 품목)" style="width:100%;height:80px;resize:vertical;font-size:13px;font-family:var(--m)"></textarea>
+        </div>
+
+        <!-- 출처 + 비고 -->
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">등록 경로</label>
+            <select class="ss" id="bom-f-source" style="width:100%">
+              <option value="수동등록">수동등록</option>
+              <option value="구매요청서 자동생성">구매요청서 자동생성</option>
+              <option value="견적서 자동생성">견적서 자동생성</option>
+              <option value="발주서 자동생성">발주서 자동생성</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
+            <input class="si" type="text" id="bom-f-note" placeholder="특이사항" style="width:100%">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closeBOMModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="saveBOMItem()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 💼 회계전표 (구매입고정산) 모달 -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="settleModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <button onclick="closeSettleModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="stlModalTitle">💼 회계전표 / 구매입고정산</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">정산번호 자동채번 (ST-YYMMDD-NN) · 매입완료 단계</div>
+
+        <!-- 정산번호 + PR + PO -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">정산번호 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
+            <input class="si" type="text" id="stl-f-stcode" placeholder="자동 생성" style="width:100%;font-family:var(--m);background:var(--bg3);color:var(--p);font-weight:700" readonly>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="stl-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PO 코드</label>
+            <input class="si" type="text" id="stl-f-pocode" placeholder="PO-260519-01" style="width:100%;font-family:var(--m)">
+          </div>
+        </div>
+
+        <!-- 거래처 + 정산일 -->
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="text" id="stl-f-vendor" list="stl-vendor-list" placeholder="거래처명" style="width:100%">
+            <datalist id="stl-vendor-list"></datalist>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">정산일 <span style="color:var(--r)">*</span></label>
+            <input class="si" type="date" id="stl-f-date" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 매입금액 + 결제수단 + 결제일 -->
+        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">매입금액 (합계) <span style="color:var(--r)">*</span></label>
+            <input class="si" type="number" id="stl-f-amount" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 수단</label>
+            <select class="ss" id="stl-f-paymethod" style="width:100%">
+              <option value="계좌이체">계좌이체</option>
+              <option value="카드">카드</option>
+              <option value="현금">현금</option>
+              <option value="어음">어음</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제일</label>
+            <input class="si" type="date" id="stl-f-paydate" style="width:100%">
+          </div>
+        </div>
+
+        <!-- 회계전표 + 결제상태 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">회계전표 번호</label>
+            <input class="si" type="text" id="stl-f-acctno" placeholder="회계 시스템 전표번호" style="width:100%;font-family:var(--m)">
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">※ 회계시스템 연동 시 자동입력</div>
+          </div>
+          <div>
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 상태 <span style="color:var(--r)">*</span></label>
+            <select class="ss" id="stl-f-paystatus" style="width:100%">
+              <option value="unpaid">⏳ 미결제</option>
+              <option value="paid">✅ 결제완료</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 비고 -->
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
+          <input class="si" type="text" id="stl-f-note" placeholder="특이사항" style="width:100%">
+        </div>
+
+        <!-- 파일 -->
+        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
+          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 정산 증빙 PDF (선택)</label>
+          <input type="file" id="stl-f-file" accept="application/pdf,.pdf,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closeSettleModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="saveSettle()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        </div>
       </div>
     </div>
 
