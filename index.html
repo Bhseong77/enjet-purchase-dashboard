@@ -1100,6 +1100,112 @@
         </div>
       </div>
 
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- 📋 PR 품목 검토 모달 (AI 파싱 결과 편집) -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div id="prReviewModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10010;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+        <div class="modal-inner" style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;position:relative;display:flex;flex-direction:column;overflow:hidden">
+          <!-- 헤더 -->
+          <div style="padding:16px 24px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#eff6ff">
+            <div>
+              <div style="font-size:18px;font-weight:900;color:#1e40af">📋 PR 품목 검토 — AI 파싱 결과</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:2px">각 셀 클릭하여 직접 편집 가능 · [✅ PR 생성] 클릭 시 표시된 품목 수만큼 PR 자동 등록</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="prReviewCount" style="font-size:14px;color:#1e40af;font-weight:700;padding:5px 12px;background:#fff;border-radius:6px;border:1.5px solid #3b82f6">0건</span>
+              <button onclick="closePRReviewModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+            </div>
+          </div>
+
+          <!-- 2단 그리드 -->
+          <div style="flex:1;display:grid;grid-template-columns:1fr 1.4fr;gap:0;overflow:hidden;min-height:0">
+
+            <!-- ╔═════ 좌측: PDF 미리보기 큰 화면 ═════╗ -->
+            <div style="background:#f8fafc;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-height:0">
+              <div style="padding:9px 14px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+                <div style="font-size:13px;font-weight:700;color:var(--t)">📄 구매요청서 PDF</div>
+                <div style="display:flex;gap:5px;align-items:center">
+                  <span id="prReview-zoom-label" style="font-size:11px;color:var(--t3);font-family:var(--m)">100%</span>
+                  <button type="button" onclick="zoomPRReview(-0.2)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:12px;font-family:var(--m)">−</button>
+                  <button type="button" onclick="zoomPRReview(0.2)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:12px;font-family:var(--m)">+</button>
+                  <button type="button" onclick="zoomPRReview(0)" style="padding:3px 9px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:11px;font-family:var(--s)">초기화</button>
+                </div>
+              </div>
+              <div id="prReview-preview-pane" style="flex:1;overflow:auto;padding:12px;background:#f1f5f9;min-height:0">
+                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">PDF 미리보기 영역</div>
+              </div>
+            </div>
+
+            <!-- ╔═════ 우측: 품목 리스트 (편집 가능) ═════╗ -->
+            <div style="display:flex;flex-direction:column;overflow:hidden;min-height:0">
+              <!-- AI 메타 정보 -->
+              <div style="padding:10px 16px;background:#fff7ed;border-bottom:1px solid var(--border);flex-shrink:0">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+                  <div>
+                    <label style="font-size:10px;font-weight:700;color:var(--t3);display:block">영업프로젝트</label>
+                    <input class="si" type="text" id="prReview-pjcode" style="width:100%;font-size:12px;padding:5px 8px;font-family:var(--m);background:#fff" placeholder="자동" readonly>
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:700;color:var(--t3);display:block">고객사</label>
+                    <input class="si" type="text" id="prReview-company" style="width:100%;font-size:12px;padding:5px 8px;background:#fff" placeholder="자동" readonly>
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:700;color:var(--t3);display:block">요청자</label>
+                    <input class="si" type="text" id="prReview-requester" style="width:100%;font-size:12px;padding:5px 8px">
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px;margin-top:6px">
+                  <div>
+                    <label style="font-size:10px;font-weight:700;color:var(--t3);display:block">문서번호</label>
+                    <input class="si" type="text" id="prReview-docno" style="width:100%;font-size:11px;padding:5px 8px;font-family:var(--m)">
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:700;color:var(--t3);display:block">요청번호</label>
+                    <input class="si" type="text" id="prReview-reqno" style="width:100%;font-size:11px;padding:5px 8px;font-family:var(--m)">
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:700;color:var(--t3);display:block">구매요청구분</label>
+                    <input class="si" type="text" id="prReview-purchasetype" style="width:100%;font-size:11px;padding:5px 8px">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 품목 테이블 헤더 -->
+              <div style="padding:7px 12px;background:#1e40af;color:#fff;font-size:11px;font-weight:700;display:grid;grid-template-columns:24px 1fr 1.2fr 0.9fr 0.5fr 0.6fr 1fr 0.9fr 30px;gap:4px;flex-shrink:0;border-bottom:2px solid #1e3a8a">
+                <div style="text-align:center">#</div>
+                <div>품명</div>
+                <div>품번</div>
+                <div>규격</div>
+                <div style="text-align:center">단위</div>
+                <div style="text-align:right">수량</div>
+                <div>거래처/제조사</div>
+                <div>납기요청일</div>
+                <div></div>
+              </div>
+
+              <!-- 품목 리스트 (스크롤) -->
+              <div id="prReview-items-body" style="flex:1;overflow-y:auto;background:#fff">
+                <div style="padding:40px;text-align:center;color:var(--t3);font-size:13px">AI 파싱 후 품목이 여기에 표시됩니다</div>
+              </div>
+
+              <!-- 풋터: 추가 + 통계 + 저장 -->
+              <div style="padding:12px 16px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:8px">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button type="button" onclick="addPRReviewItem()" style="padding:7px 12px;border-radius:6px;border:1.5px dashed var(--p);background:#fff;color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 품목 추가</button>
+                  <button type="button" onclick="clearPRReviewItems()" style="padding:7px 12px;border-radius:6px;border:1px solid var(--border2);background:#fff;color:var(--r);font-size:12px;cursor:pointer;font-family:var(--s)">🗑️ 비우기</button>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span id="prReview-summary" style="font-size:11px;color:var(--t3)"></span>
+                  <button type="button" onclick="closePRReviewModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:14px;cursor:pointer;font-family:var(--s)">취소</button>
+                  <button type="button" onclick="confirmPRReview()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">✅ PR 생성</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
 
       <!-- 자료 서브폴더 선택 모달 -->
       <div id="proposalPickerModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:10000;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
@@ -2458,28 +2564,31 @@
         </div>
         <div class="cb" style="padding:10px 14px">
           <div style="overflow-x:auto">
-            <table class="tbl" style="min-width:1100px">
+            <table class="tbl" style="min-width:1700px">
               <thead><tr>
                 <th style="min-width:120px">PR코드</th>
                 <th style="min-width:90px">영업코드</th>
                 <th style="min-width:80px">요청일</th>
-                <th style="min-width:80px">납기희망</th>
-                <th style="min-width:80px">요청부서</th>
+                <th style="min-width:80px">납기요청</th>
+                <th style="min-width:90px">요청부서</th>
                 <th style="min-width:70px">요청자</th>
-                <th style="min-width:200px">품목요약</th>
-                <th style="min-width:100px">총금액</th>
-                <th style="min-width:90px">거래처</th>
-                <th style="min-width:90px">진행상태</th>
+                <th style="min-width:200px">품명</th>
+                <th style="min-width:160px">품번</th>
+                <th style="min-width:110px">규격</th>
+                <th style="min-width:90px;text-align:right">수량</th>
+                <th style="min-width:100px">프로젝트번호</th>
+                <th style="min-width:140px">거래처</th>
+                <th style="min-width:80px">진행상태</th>
                 <th style="min-width:60px">파일</th>
               </tr></thead>
               <tbody id="prTableBody">
-                <tr><td colspan="11"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">우측 상단 + 버튼으로 구매요청서 추가</div></div></td></tr>
+                <tr><td colspan="14"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매활동에서 구매요청서 PDF 업로드 → AI 파싱 → 품목별 PR 자동 생성</div></div></td></tr>
               </tbody>
             </table>
           </div>
           <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="prTableCnt"></div>
         </div>
-        <div class="cn">※ PR코드 자동채번: PR-YYMMDD-NN · 영업프로젝트(SL/SP)별로 PR 여러개 가능</div>
+        <div class="cn">※ PR코드 자동채번: PR-{프로젝트번호}-{NN} 형식 (예: PR-BM26005-001) · 구매요청서 PDF 1장당 품목별로 PR 1건씩 자동 생성 · 엔젯(재고)는 자체 재고 표시</div>
       </div>
     </div>
 
@@ -3012,6 +3121,298 @@ async function _purchaseCallAI(base64, prompt, engine) {
 }
 
 // 📝 구매요청서 AI 파싱
+// 🔧 AI 파싱 결과 임시 저장 (저장 버튼 클릭 시 품목별 PR 생성에 사용)
+let _slAIParseResult = null;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📋 PR 품목 검토 모달 (AI 파싱 결과 편집)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 검토 모달 상태
+let _prReviewItems = [];      // 편집 중인 품목 배열
+let _prReviewMeta = {};       // 메타 정보 (docNo, reqNo, etc)
+let _prReviewFile = null;     // 원본 PDF 파일 객체 (미리보기용)
+let _prReviewSLContext = null; // 구매활동 컨텍스트 (pjcode, company, etc)
+
+function openPRReviewModal(aiResult, file, slContext) {
+  _prReviewItems = (aiResult?.items || []).map((it, i) => ({
+    no: it.no || (i + 1),
+    name: it.name || "",
+    partNo: it.partNo || "",
+    spec: it.spec || "",
+    unit: it.unit || "EA",
+    qty: Number(it.qty) || 0,
+    dueDate: it.dueDate || "",
+    projectName: it.projectName || "",
+    projectNo: it.projectNo || "",
+    vendor: it.vendor || "",
+  }));
+  _prReviewMeta = {
+    docNo: aiResult?.docNo || "",
+    reqNo: aiResult?.requestNo || "",
+    purchaseType: aiResult?.purchaseType || "",
+    requester: aiResult?.requester || "",
+    reqDate: aiResult?.reqDate || "",
+    specialNote: aiResult?.specialNote || "",
+  };
+  _prReviewFile = file || null;
+  _prReviewSLContext = slContext || {};
+  
+  // 모달 표시
+  const modal = document.getElementById("prReviewModal");
+  if(!modal) { alert("PR 검토 모달 DOM 없음"); return; }
+  modal.style.display = "flex";
+  
+  // 🆕 영업프로젝트 자동 매칭: PDF의 projectNo로 영업 슬데이터에서 검색
+  let matchedPjcode = slContext?.pjcode || "";
+  let matchedCompany = slContext?.company || "";
+  const aiProjectNo = (_prReviewItems[0]?.projectNo || "").trim();
+  
+  if(!matchedPjcode && aiProjectNo) {
+    // 영업 슬데이터에서 projectNo와 일치하는 SL/SP 코드 검색
+    try {
+      const sd = Array.isArray(slData) ? slData : [];
+      // 1순위: pjcode에 projectNo 포함된 활동 (예: BR25006-P001 안에 BM26005)
+      let match = sd.find(s => 
+        (s.pjcode||"").toUpperCase().includes(aiProjectNo.toUpperCase()) ||
+        (s.salesPjName||"").toUpperCase().includes(aiProjectNo.toUpperCase()) ||
+        (s.projectNo||"").toUpperCase() === aiProjectNo.toUpperCase()
+      );
+      if(match) {
+        matchedPjcode = match.pjcode || "";
+        matchedCompany = match.company || "";
+        console.log(`🎯 영업프로젝트 자동 매칭: PDF projectNo(${aiProjectNo}) → SL ${matchedPjcode} (${matchedCompany})`);
+      } else {
+        console.log(`⚠️ 영업프로젝트 자동 매칭 실패: PDF projectNo(${aiProjectNo})와 일치하는 SL/SP 없음`);
+      }
+    } catch(e) { console.warn("프로젝트 매칭 검색 에러:", e); }
+  }
+  
+  // 메타 정보 채우기 (자동 매칭된 값 또는 컨텍스트 값)
+  const setVal = (id, val, readonly) => { 
+    const el = document.getElementById(id); 
+    if(el) {
+      el.value = val || "";
+      if(readonly === false) el.removeAttribute("readonly");
+    }
+  };
+  setVal("prReview-pjcode", matchedPjcode);
+  setVal("prReview-company", matchedCompany);
+  setVal("prReview-requester", _prReviewMeta.requester);
+  setVal("prReview-docno", _prReviewMeta.docNo);
+  setVal("prReview-reqno", _prReviewMeta.reqNo);
+  setVal("prReview-purchasetype", _prReviewMeta.purchaseType);
+  
+  // 매칭 실패 시 영업프로젝트 input은 편집 가능하게 + 시각적 표시
+  if(!matchedPjcode && aiProjectNo) {
+    const pjEl = document.getElementById("prReview-pjcode");
+    if(pjEl) {
+      pjEl.removeAttribute("readonly");
+      pjEl.style.background = "#fef3c7";
+      pjEl.style.color = "#92400e";
+      pjEl.value = aiProjectNo; // PDF의 projectNo를 그대로 일단 표시
+      pjEl.title = `⚠️ 영업프로젝트 미매칭 (PDF: ${aiProjectNo}) - 직접 입력해주세요`;
+    }
+  }
+  
+  // PDF 미리보기
+  if(file && typeof renderFilePreview === "function") {
+    renderFilePreview(file, "prReview-preview-pane").catch(e => console.warn("미리보기:", e));
+  }
+  
+  // 품목 리스트 렌더
+  renderPRReviewItems();
+}
+
+function closePRReviewModal() {
+  const modal = document.getElementById("prReviewModal");
+  if(modal) modal.style.display = "none";
+  // 데이터는 유지 (재오픈 시 보존). confirmPRReview 또는 clearPRReviewItems에서 클리어
+}
+
+function renderPRReviewItems() {
+  const body = document.getElementById("prReview-items-body");
+  if(!body) return;
+  
+  if(!_prReviewItems.length) {
+    body.innerHTML = `<div style="padding:50px 30px;text-align:center;color:var(--t3);font-size:13px;line-height:1.7">
+      <div style="font-size:42px;margin-bottom:10px;opacity:0.5">📦</div>
+      <b style="color:var(--t2);font-size:14px">품목이 없습니다</b><br>
+      <span style="font-size:12px">[+ 품목 추가] 버튼으로 직접 입력하거나, 이 모달을 닫고 AI 파싱을 다시 시도하세요.</span>
+    </div>`;
+    updatePRReviewSummary();
+    return;
+  }
+  
+  body.innerHTML = _prReviewItems.map((it, i) => {
+    const isInhouse = (it.vendor||"").trim() === "엔젯(재고)";
+    const vendorBg = isInhouse ? "background:#dcfce7;color:#15803d;font-weight:700" : "";
+    const safeName = (it.name||"").replace(/"/g,"&quot;");
+    const safePartNo = (it.partNo||"").replace(/"/g,"&quot;");
+    const safeSpec = (it.spec||"").replace(/"/g,"&quot;");
+    const safeUnit = (it.unit||"EA").replace(/"/g,"&quot;");
+    const safeVendor = (it.vendor||"").replace(/"/g,"&quot;");
+    return `<div style="display:grid;grid-template-columns:24px 1fr 1.2fr 0.9fr 0.5fr 0.6fr 1fr 0.9fr 30px;gap:4px;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border);${i%2?"background:#fafbfc":""}">
+      <div style="font-size:10px;color:var(--t3);text-align:center;font-weight:700">${i+1}</div>
+      <input type="text" value="${safeName}" oninput="updatePRReviewItem(${i},'name',this.value)"
+        placeholder="품명" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;font-weight:600">
+      <input type="text" value="${safePartNo}" oninput="updatePRReviewItem(${i},'partNo',this.value)"
+        placeholder="품번" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:10px;width:100%;box-sizing:border-box;font-family:var(--m)">
+      <input type="text" value="${safeSpec}" oninput="updatePRReviewItem(${i},'spec',this.value)"
+        placeholder="규격" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:10px;width:100%;box-sizing:border-box">
+      <input type="text" value="${safeUnit}" oninput="updatePRReviewItem(${i},'unit',this.value)"
+        style="padding:5px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:center;box-sizing:border-box;font-family:var(--m)">
+      <input type="number" value="${it.qty||0}" min="0" step="0.01"
+        oninput="updatePRReviewItem(${i},'qty',this.value)"
+        style="padding:5px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);font-weight:700">
+      <input type="text" value="${safeVendor}" oninput="updatePRReviewItem(${i},'vendor',this.value)" onblur="normalizePRReviewVendor(${i})"
+        placeholder="거래처" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;${vendorBg}">
+      <input type="date" value="${(it.dueDate||"").substring(0,10)}" oninput="updatePRReviewItem(${i},'dueDate',this.value)"
+        style="padding:5px 4px;border:1px solid var(--border2);border-radius:4px;font-size:10px;width:100%;box-sizing:border-box;font-family:var(--m)">
+      <button type="button" onclick="removePRReviewItem(${i})" title="이 행 삭제"
+        style="border:none;background:transparent;color:var(--r);cursor:pointer;font-size:15px;padding:0;font-weight:700">×</button>
+    </div>`;
+  }).join("");
+  
+  updatePRReviewSummary();
+}
+
+function updatePRReviewItem(idx, field, value) {
+  if(!_prReviewItems[idx]) return;
+  _prReviewItems[idx][field] = field === "qty" ? (Number(value) || 0) : value;
+  // qty 변경 시에만 summary 갱신 (퍼포먼스)
+  if(field === "qty" || field === "vendor") updatePRReviewSummary();
+}
+
+function normalizePRReviewVendor(idx) {
+  if(!_prReviewItems[idx]) return;
+  const v = (_prReviewItems[idx].vendor||"").trim();
+  // "엔젯" 또는 "ENJET" 입력 시 자동으로 "엔젯(재고)"로 변환
+  if(v === "엔젯" || v.toLowerCase() === "enjet") {
+    _prReviewItems[idx].vendor = "엔젯(재고)";
+    renderPRReviewItems();
+  }
+}
+
+function addPRReviewItem() {
+  _prReviewItems.push({
+    no: _prReviewItems.length + 1,
+    name: "", partNo: "", spec: "", unit: "EA", qty: 0,
+    dueDate: "", projectName: _prReviewItems[0]?.projectName || "",
+    projectNo: _prReviewItems[0]?.projectNo || "",
+    vendor: "",
+  });
+  renderPRReviewItems();
+}
+
+function removePRReviewItem(idx) {
+  _prReviewItems.splice(idx, 1);
+  renderPRReviewItems();
+}
+
+function clearPRReviewItems() {
+  if(!_prReviewItems.length) return;
+  if(!confirm(`⚠️ 표시된 ${_prReviewItems.length}개 품목을 모두 삭제하시겠어요?`)) return;
+  _prReviewItems = [];
+  renderPRReviewItems();
+}
+
+function updatePRReviewSummary() {
+  const cnt = document.getElementById("prReviewCount");
+  const summary = document.getElementById("prReview-summary");
+  if(cnt) cnt.textContent = `${_prReviewItems.length}건`;
+  if(summary) {
+    const totalQty = _prReviewItems.reduce((s, it) => s + Number(it.qty||0), 0);
+    const vendors = [...new Set(_prReviewItems.map(it => it.vendor).filter(Boolean))];
+    summary.textContent = `총수량 ${totalQty} · 거래처 ${vendors.length}곳`;
+  }
+}
+
+// 줌 함수 (영업 패턴 활용)
+function zoomPRReview(delta) {
+  const containerId = "prReview-preview-pane";
+  const cur = (window._previewZoom||{})[containerId] || 1;
+  const newZoom = delta === 0 ? 1 : Math.max(0.3, Math.min(5, cur + delta));
+  window._previewZoom = window._previewZoom || {};
+  window._previewZoom[containerId] = newZoom;
+  if(typeof _previewZoomApply === "function") _previewZoomApply(containerId);
+  const lbl = document.getElementById("prReview-zoom-label");
+  if(lbl) lbl.textContent = Math.round(newZoom*100) + "%";
+}
+
+// 확인 → 실제 PR 생성
+async function confirmPRReview() {
+  if(!_prReviewItems.length) {
+    alert("⚠️ 품목이 없습니다. 최소 1개 이상의 품목을 추가하세요.");
+    return;
+  }
+  
+  // 빈 품명 체크
+  const emptyName = _prReviewItems.findIndex(it => !it.name?.trim());
+  if(emptyName >= 0) {
+    if(!confirm(`⚠️ ${emptyName+1}번 행의 품명이 비어있습니다.\n그래도 PR 생성하시겠어요?`)) return;
+  }
+  
+  // 메타 정보 다시 수집 (편집된 값 반영)
+  const getVal = (id) => document.getElementById(id)?.value?.trim() || "";
+  const meta = {
+    docNo: getVal("prReview-docno"),
+    requestNo: getVal("prReview-reqno"),
+    purchaseType: getVal("prReview-purchasetype"),
+    requester: getVal("prReview-requester"),
+    reqDate: _prReviewMeta.reqDate,
+    specialNote: _prReviewMeta.specialNote,
+  };
+  
+  // _slAIParseResult를 검토된 결과로 업데이트 → saveSLActivity의 PR 생성 로직이 사용
+  _slAIParseResult = {
+    ...meta,
+    items: _prReviewItems.map((it, i) => ({
+      no: i+1,
+      name: it.name?.trim() || "",
+      partNo: it.partNo?.trim() || "",
+      spec: it.spec?.trim() || "",
+      unit: it.unit?.trim() || "EA",
+      qty: Number(it.qty) || 0,
+      dueDate: it.dueDate || "",
+      projectName: it.projectName || "",
+      projectNo: it.projectNo || "",
+      vendor: it.vendor?.trim() || "",
+    })),
+    _reviewed: true,
+    _fileName: _prReviewFile?.name || "",
+  };
+  
+  console.log("✅ PR 검토 완료, 저장 시 자동 생성 대기:", _slAIParseResult);
+  
+  // slModal 비고/메모도 갱신
+  const noteEl = document.getElementById("sl-f-note");
+  if(noteEl) {
+    const totalQty = _prReviewItems.reduce((s,it) => s + Number(it.qty||0), 0);
+    const vendors = [...new Set(_prReviewItems.map(it => it.vendor).filter(Boolean))];
+    noteEl.value = `[AI 파싱 + 검토 완료]
+문서번호: ${meta.docNo||"-"}
+요청번호: ${meta.requestNo||"-"}
+품목 수: ${_prReviewItems.length}개 / 총수량: ${totalQty}
+거래처(${vendors.length}곳): ${vendors.slice(0,5).join(", ")}${vendors.length>5?` 외 ${vendors.length-5}곳`:""}
+
+✅ 저장 시 PR ${_prReviewItems.length}건 자동 생성됩니다`;
+  }
+  
+  // slModal PR 파일 정보 갱신
+  const info = document.getElementById("sl-f-prfile-info");
+  if(info && _prReviewFile) {
+    info.style.display = "block";
+    info.textContent = `✅ ${_prReviewFile.name} · 품목 ${_prReviewItems.length}개 검토 완료 (저장 시 PR ${_prReviewItems.length}건 생성)`;
+    info.style.color = "var(--g)";
+  }
+  
+  closePRReviewModal();
+  alert(`✅ PR ${_prReviewItems.length}건 검토 완료\n\n구매활동 모달의 [💾 저장 + PR 생성] 버튼을 클릭하면 자동 등록됩니다.`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 async function aiParsePR() {
   const fileInput = document.getElementById("sl-f-prfile");
   const file = fileInput?.files?.[0];
@@ -3031,61 +3432,109 @@ async function aiParsePR() {
   try {
     const base64 = await pdfToBase64(file);
     
-    const prompt = `이 구매요청서 PDF에서 다음 항목을 JSON으로 추출해줘. 반드시 JSON만 출력 (설명/마크다운 없이):
+    // 🔧 강화된 프롬프트 - 실제 PDF 컬럼 (품명/품번/규격/단위/납기요청일/프로젝트명/프로젝트번호/구매거래처/수량) 모두 추출
+    const prompt = `이 구매요청서(PR) PDF에서 다음 정보를 JSON으로 추출해줘. 반드시 JSON만 출력 (설명/마크다운 없이):
+
 {
-  "requester": "요청자 이름",
-  "reqDept": "요청부서 (ES사업부/기술연구소/경영전략본부/미래성장전략팀/구매팀 중 가장 가까운 것)",
-  "reqDate": "요청일 YYYY-MM-DD",
-  "dueDate": "납기 희망일 YYYY-MM-DD (있으면)",
-  "items": "품목 요약 (제품명/규격/수량/단가)",
-  "bomName": "주요 제품명 (BOM 매칭 키 - 가장 큰 단위 제품명)",
-  "amount": 총 추정금액 숫자(쉼표없이),
-  "vendorCandidates": "거래처 후보 (쉼표 구분, 있으면)",
-  "priority": "긴급/일반/낮음 중 하나",
-  "note": "특이사항"
+  "docNo": "문서번호 (예: 엔젯-(PMS)구매요청-2605-00004)",
+  "requestNo": "요청번호 (예: 20260506-0003)",
+  "requester": "요청담당자/기안자 이름",
+  "reqDept": "요청부서 (시스템엔지니어링팀 → ES사업부, 기술연구소, 경영전략본부, 미래성장전략팀, 구매팀 중 가까운 것)",
+  "reqDate": "요청일/기안일 YYYY-MM-DD",
+  "purchaseType": "구매요청구분 (예: 기타요청)",
+  "totalQty": 총수량숫자,
+  "specialNote": "특이사항",
+  "items": [
+    {
+      "no": 1,
+      "name": "품명 (예: Harness)",
+      "partNo": "품번 (예: BM26005_Sol V/V Cable)",
+      "spec": "규격/제조사 (예: (주)위앤)",
+      "unit": "단위 (EA, SET 등)",
+      "dueDate": "납기요청일 YYYY-MM-DD",
+      "projectName": "프로젝트명 (예: 세종산업 #2 모듈코어)",
+      "projectNo": "프로젝트번호 (예: BM26005)",
+      "vendor": "구매거래처/제조사 (예: ULTRAVOLT, SMC 등 - 엔젯이면 '엔젯(재고)'로)",
+      "qty": 수량숫자
+    }
+  ]
 }
-※ 정보가 없는 필드는 빈 문자열("") 또는 0으로`;
+
+※ 중요:
+- items 배열에 PDF의 모든 품목을 빠짐없이 추출 (33개면 33개 모두)
+- 제조사가 "엔젯"이면 "엔젯(재고)"로 표기
+- 수량은 쉼표 없는 숫자
+- 정보 없는 필드는 빈 문자열("") 또는 0
+- 납기요청일이 품목마다 같으면 그대로 반복`;
     
-    if(info) info.textContent = "✨ Copilot이 구매요청서 분석 중...";
+    if(info) info.textContent = "✨ Copilot이 구매요청서 분석 중... (33개 품목 분석에 시간이 걸릴 수 있음)";
     
     const result = await _purchaseCallAI(base64, prompt, "copilot");
     if(!result) throw new Error("AI 응답에서 JSON 추출 실패");
     
     console.log("✅ 구매요청서 AI 파싱 결과:", result);
+    console.log(`   - 품목 개수: ${(result.items||[]).length}개`);
     
-    // 모달 필드 채우기 - 비어있는 필드만
+    // 결과 저장 (저장 버튼 클릭 시 사용)
+    _slAIParseResult = result;
+    
+    // ━━ 모달 필드 자동 채우기 (구매활동 헤더 정보) ━━
     const fill = (id, val) => {
       const el = document.getElementById(id);
-      if(el && !el.value && val) el.value = val;
+      if(el && !el.value && val !== undefined && val !== "") el.value = val;
     };
     
-    // 비고/메모에 품목 요약 채움 (PR 모달이 아닌 구매활동 모달이므로)
-    if(result.items) {
-      const noteEl = document.getElementById("sl-f-note");
-      if(noteEl && !noteEl.value) {
-        noteEl.value = `[AI 파싱]\n품목: ${result.items}${result.bomName?`\nBOM: ${result.bomName}`:""}${result.amount?`\n추정금액: ${Number(result.amount).toLocaleString()}원`:""}`;
-      }
-    }
-    
+    // 요청부서 매칭
     if(result.reqDept) {
       const deptEl = document.getElementById("sl-f-reqdept");
       if(deptEl && !deptEl.value) {
-        // dept option과 매칭 시도
         const options = Array.from(deptEl.options).map(o => o.value);
-        const matched = options.find(o => result.reqDept.includes(o) || o.includes(result.reqDept));
+        const matched = options.find(o => o && (result.reqDept.includes(o) || o.includes(result.reqDept)));
         if(matched) deptEl.value = matched;
       }
     }
     
-    if(result.dueDate) fill("sl-f-end", result.dueDate);
     if(result.reqDate) fill("sl-f-start", result.reqDate);
+    // 납기는 첫 품목의 dueDate 사용 (대표 납기)
+    const firstDueDate = (result.items||[])[0]?.dueDate;
+    if(firstDueDate) fill("sl-f-end", firstDueDate);
+    if(result.requester) fill("sl-f-salesmgr", result.requester);
+    
+    // 비고에 품목 요약 + 메타
+    const itemCount = (result.items||[]).length;
+    const totalQty = (result.items||[]).reduce((s,it) => s + Number(it.qty||0), 0);
+    const vendorList = [...new Set((result.items||[]).map(i => i.vendor).filter(Boolean))];
+    
+    const noteEl = document.getElementById("sl-f-note");
+    if(noteEl) {
+      noteEl.value = `[AI 파싱 완료]
+문서번호: ${result.docNo||"-"}
+요청번호: ${result.requestNo||"-"}
+구매요청구분: ${result.purchaseType||"-"}
+품목 수: ${itemCount}개 / 총수량: ${totalQty}
+거래처(${vendorList.length}곳): ${vendorList.slice(0,8).join(", ")}${vendorList.length>8?` 외 ${vendorList.length-8}곳`:""}
+특이사항: ${result.specialNote||"-"}
+
+⚠️ 저장 시 ${itemCount}건의 PR이 자동 생성됩니다 (품목 1개당 PR-XXXXXX-NN 1개)`;
+    }
     
     if(info) {
-      info.textContent = `✅ AI 파싱 완료: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+      info.textContent = `✅ AI 파싱 완료: ${file.name} · 품목 ${itemCount}개 추출됨 → 검토 모달 자동 표시`;
       info.style.color = "var(--g)";
     }
     
-    alert(`🤖 AI 파싱 완료!\n\n비어있던 필드들이 자동 채워졌습니다.\n저장 시 PR 마스터에도 등록됩니다.\n\n추출 항목: 요청자/부서/품목/BOM/금액 등`);
+    // 🆕 PR 검토 모달 자동 오픈 (좌:큰 PDF / 우:33개 품목 편집 가능)
+    // slContext: 현재 구매활동 모달의 영업프로젝트 정보
+    const slContext = {
+      pjcode: document.getElementById("sl-f-pjcode")?.value || "",
+      company: document.getElementById("sl-f-company")?.value || "",
+      salesPjName: document.getElementById("sl-f-salesname")?.value || "",
+    };
+    // 파일명도 result에 보존
+    result._fileName = file.name;
+    
+    // 검토 모달 열기 (slModal과 동시에 띄움 - z-index 10010이 더 높음)
+    openPRReviewModal(result, file, slContext);
     
   } catch(e) {
     console.error("AI 파싱 실패:", e);
@@ -4714,6 +5163,7 @@ function openPRModal(id) {
   if(!modal) { alert("모달 DOM 없음"); return; }
   
   const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  const setCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = !!val; };
   
   if(id) {
     const d = _prMaster.find(x => x.id === id);
@@ -4732,6 +5182,17 @@ function openPRModal(id) {
     setField("pr-f-status", d.status || "구매요청접수");
     setField("pr-f-priority", d.priority || "일반");
     setField("pr-f-note", d.note);
+    // 🆕 품목 상세 필드들
+    setField("pr-f-itemname", d.itemName);
+    setField("pr-f-partno", d.partNo);
+    setField("pr-f-spec", d.spec);
+    setField("pr-f-unit", d.unit || "EA");
+    setField("pr-f-qty", d.qty || "");
+    setField("pr-f-projectno", d.projectNo);
+    setField("pr-f-projectname", d.projectName);
+    setField("pr-f-vendor", d.vendor || "");
+    setCheck("pr-f-inhouse", d.isInhouse);
+    if(d.isInhouse) togglePRInhouse();
   } else {
     document.getElementById("prModalTitle").textContent = "📝 구매요청서 (PR)";
     const today = new Date().toISOString().slice(0,10);
@@ -4743,9 +5204,31 @@ function openPRModal(id) {
     setField("pr-f-amount", "");
     setField("pr-f-status", "구매요청접수");
     setField("pr-f-priority", "일반");
+    // 🆕 품목 상세 초기화
+    ["pr-f-itemname","pr-f-partno","pr-f-spec","pr-f-projectno","pr-f-projectname","pr-f-vendor","pr-f-qty"].forEach(id => setField(id, ""));
+    setField("pr-f-unit", "EA");
+    setCheck("pr-f-inhouse", false);
   }
   
   modal.style.display = "flex";
+}
+
+// 🏭 엔젯(재고) 토글 - 체크하면 거래처 입력란에 "엔젯(재고)" 자동 설정
+function togglePRInhouse() {
+  const checked = document.getElementById("pr-f-inhouse")?.checked;
+  const vendorEl = document.getElementById("pr-f-vendor");
+  if(!vendorEl) return;
+  if(checked) {
+    vendorEl.value = "엔젯(재고)";
+    vendorEl.style.background = "#dcfce7";
+    vendorEl.style.color = "#15803d";
+    vendorEl.style.fontWeight = "700";
+  } else {
+    if(vendorEl.value === "엔젯(재고)") vendorEl.value = "";
+    vendorEl.style.background = "";
+    vendorEl.style.color = "";
+    vendorEl.style.fontWeight = "";
+  }
 }
 
 function closePRModal() {
@@ -4761,25 +5244,39 @@ async function savePR() {
   const items = document.getElementById("pr-f-items").value.trim();
   const bomName = document.getElementById("pr-f-bom").value.trim();
   
+  // 🆕 품목 상세 (PDF 컬럼들)
+  const itemName = document.getElementById("pr-f-itemname")?.value.trim() || "";
+  const partNo = document.getElementById("pr-f-partno")?.value.trim() || "";
+  const spec = document.getElementById("pr-f-spec")?.value.trim() || "";
+  const unit = document.getElementById("pr-f-unit")?.value.trim() || "EA";
+  const qty = Number(document.getElementById("pr-f-qty")?.value || 0);
+  const projectNo = document.getElementById("pr-f-projectno")?.value.trim() || "";
+  const projectName = document.getElementById("pr-f-projectname")?.value.trim() || "";
+  let vendor = document.getElementById("pr-f-vendor")?.value.trim() || "";
+  const isInhouse = !!document.getElementById("pr-f-inhouse")?.checked;
+  if(isInhouse && vendor !== "엔젯(재고)") vendor = "엔젯(재고)";
+  // "엔젯" 입력 시 자동 변환
+  if(vendor === "엔젯" || vendor.toLowerCase() === "enjet") vendor = "엔젯(재고)";
+  
   if(!reqDept) { alert("요청부서를 선택해주세요."); return; }
   if(!reqDate) { alert("요청일을 선택해주세요."); return; }
-  if(!items) { alert("품목 요약을 입력해주세요."); return; }
+  if(!items && !itemName) { alert("품목 요약 또는 품명을 입력해주세요."); return; }
   
-  // BOM 자동매칭/생성
+  // BOM 자동매칭/생성 - 품명 우선, 없으면 bomName
+  const bomKey = bomName || itemName;
   let bomCode = "";
-  if(bomName) {
-    const bom = matchOrCreateBOM(bomName, {
-      type: "조립품",
-      source: `구매요청서 자동생성 (${prCode})`,
+  if(bomKey) {
+    const bom = matchOrCreateBOM(bomKey, {
+      type: itemName ? "부품" : "조립품",
+      source: `구매요청서 ${_prEditId ? "수정" : "등록"} (${prCode})`,
       relatedPR: prCode,
     });
     if(bom) {
       bomCode = bom.bomCode;
-      // 기존 BOM에 PR 추가
       if(bom.relatedPRs && !bom.relatedPRs.includes(prCode)) {
         bom.relatedPRs.push(prCode);
       }
-      console.log(`🧩 BOM 매칭: ${bomName} → ${bomCode}`);
+      console.log(`🧩 BOM 매칭: ${bomKey} → ${bomCode}`);
     }
   }
   
@@ -4791,14 +5288,16 @@ async function savePR() {
     reqDate,
     dueDate: document.getElementById("pr-f-duedate").value,
     requester: document.getElementById("pr-f-requester").value.trim(),
-    items,
-    bomName,
+    items: items || `${itemName} ${partNo?`(${partNo})`:""} · ${qty}${unit}`,
+    bomName: bomName || itemName,
     bomCode,
     amount: Number(document.getElementById("pr-f-amount").value || 0),
     vendorCandidates: document.getElementById("pr-f-vendor-candidates").value.trim(),
     status: document.getElementById("pr-f-status").value,
     priority: document.getElementById("pr-f-priority").value,
     note: document.getElementById("pr-f-note").value.trim(),
+    // 🆕 품목 상세 필드들
+    itemName, partNo, spec, unit, qty, projectNo, projectName, vendor, isInhouse,
     createdAt: _prEditId ? (_prMaster.find(x=>x.id===_prEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -4811,6 +5310,7 @@ async function savePR() {
   
   closePRModal();
   if(typeof renderPRDB === "function") renderPRDB();
+  if(typeof updateAllBadges === "function") updateAllBadges();
   const r = await savePRMaster();
   if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
   else if(bomCode) console.log(`✅ PR 저장 완료 + BOM 자동매칭: ${bomCode}`);
@@ -4821,7 +5321,7 @@ function renderPRDB() {
   if(!tbody) return;
   
   if(!_prMaster.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 구매요청서 추가] 버튼으로 추가</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 구매요청서 추가] 또는 구매활동에서 구매요청서 PDF 업로드 → AI 파싱 → 자동 생성</div></div></td></tr>`;
     for(let i=1;i<=6;i++) { const el = document.getElementById(`pr-kpi-${i}`); if(el) el.textContent="0"; }
     return;
   }
@@ -4832,12 +5332,12 @@ function renderPRDB() {
   let filtered = _prMaster.filter(d => {
     if(statusF && d.status !== statusF) return false;
     if(search) {
-      const blob = [d.prCode, d.salesCode, d.items, d.bomName, d.vendorCandidates].join(" ").toLowerCase();
+      const blob = [d.prCode, d.salesCode, d.itemName, d.partNo, d.spec, d.projectNo, d.projectName, d.vendor, d.items, d.bomName].join(" ").toLowerCase();
       if(!blob.includes(search)) return false;
     }
     return true;
   });
-  filtered.sort((a,b) => (b.reqDate||"").localeCompare(a.reqDate||""));
+  filtered.sort((a,b) => (b.reqDate||"").localeCompare(a.reqDate||"") || (a.prCode||"").localeCompare(b.prCode||""));
   
   // 6단계 KPI
   const stages = ["구매요청접수","납기확인중","발주완료","입고확인","완료예정","매입완료"];
@@ -4847,29 +5347,36 @@ function renderPRDB() {
   });
   const badge = document.getElementById("badge-pr"); if(badge) badge.textContent = _prMaster.length;
   
-  tbody.innerHTML = filtered.slice(0, 300).map(d => {
+  tbody.innerHTML = filtered.slice(0, 500).map(d => {
     const statusBadge = {
-      "구매요청접수": `<span style="padding:2px 8px;border-radius:5px;background:var(--pd);color:var(--p);font-size:12px;font-weight:700">📥 접수</span>`,
-      "납기확인중":   `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">📊 납기확인</span>`,
-      "발주완료":     `<span style="padding:2px 8px;border-radius:5px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700">📦 발주완료</span>`,
-      "입고확인":     `<span style="padding:2px 8px;border-radius:5px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700">🚚 입고확인</span>`,
-      "완료예정":     `<span style="padding:2px 8px;border-radius:5px;background:#e0e7ff;color:#4338ca;font-size:12px;font-weight:700">🧾 완료예정</span>`,
-      "매입완료":     `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 매입완료</span>`,
-      "보류":         `<span style="padding:2px 8px;border-radius:5px;background:var(--bg3);color:var(--t3);font-size:12px;font-weight:700">⏸ 보류</span>`,
-      "취소":         `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">❌ 취소</span>`,
+      "구매요청접수": `<span style="padding:2px 6px;border-radius:5px;background:var(--pd);color:var(--p);font-size:11px;font-weight:700">📥 접수</span>`,
+      "납기확인중":   `<span style="padding:2px 6px;border-radius:5px;background:var(--ad);color:var(--a);font-size:11px;font-weight:700">📊 확인</span>`,
+      "발주완료":     `<span style="padding:2px 6px;border-radius:5px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700">📦 발주</span>`,
+      "입고확인":     `<span style="padding:2px 6px;border-radius:5px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700">🚚 입고</span>`,
+      "완료예정":     `<span style="padding:2px 6px;border-radius:5px;background:#e0e7ff;color:#4338ca;font-size:11px;font-weight:700">🧾 예정</span>`,
+      "매입완료":     `<span style="padding:2px 6px;border-radius:5px;background:var(--gd);color:var(--g);font-size:11px;font-weight:700">✅ 완료</span>`,
+      "보류":         `<span style="padding:2px 6px;border-radius:5px;background:var(--bg3);color:var(--t3);font-size:11px;font-weight:700">⏸ 보류</span>`,
+      "취소":         `<span style="padding:2px 6px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:11px;font-weight:700">❌ 취소</span>`,
     }[d.status] || d.status;
-    const priorityIcon = d.priority === "긴급" ? "🔴 " : (d.priority === "낮음" ? "" : "");
+    const priorityIcon = d.priority === "긴급" ? "🔴 " : "";
+    // 엔젯(재고)는 녹색 강조
+    const vendorDisplay = d.isInhouse 
+      ? `<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-weight:700;font-size:11px">🏭 ${escapeHtml(d.vendor||"엔젯(재고)")}</span>`
+      : `<span style="font-size:12px">${escapeHtml(d.vendor||d.vendorCandidates||"-")}</span>`;
     
     return `<tr style="cursor:pointer" onclick="openPRModal('${d.id}')">
-      <td style="font-family:var(--m);color:var(--p);font-weight:700">${priorityIcon}${escapeHtml(d.prCode||"")}</td>
-      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.salesCode||"-")}</td>
-      <td style="color:var(--t2)">${escapeHtml(d.reqDate||"")}</td>
-      <td style="color:var(--t2)">${escapeHtml(d.dueDate||"-")}</td>
+      <td style="font-family:var(--m);color:var(--p);font-weight:700;font-size:12px">${priorityIcon}${escapeHtml(d.prCode||"")}</td>
+      <td style="font-family:var(--m);color:var(--t2);font-size:12px">${escapeHtml(d.salesCode||"-")}</td>
+      <td style="color:var(--t2);font-size:12px">${escapeHtml(d.reqDate||"")}</td>
+      <td style="color:var(--t2);font-size:12px">${escapeHtml(d.dueDate||"-")}</td>
       <td style="font-size:12px">${escapeHtml(d.reqDept||"")}</td>
       <td style="font-size:12px">${escapeHtml(d.requester||"-")}</td>
-      <td style="font-size:12px;color:var(--t2);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.items||"")}">${escapeHtml(d.items||"-")}</td>
-      <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.amount||0).toLocaleString()}</td>
-      <td style="font-size:12px;color:var(--t2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.vendorCandidates||"")}">${escapeHtml(d.vendorCandidates||"-")}</td>
+      <td style="font-size:12px;font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.itemName||d.items||"")}">${escapeHtml(d.itemName||d.items||"-")}</td>
+      <td style="font-family:var(--m);font-size:11px;color:var(--t2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.partNo||"")}">${escapeHtml(d.partNo||"-")}</td>
+      <td style="font-size:11px;color:var(--t3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.spec||"")}">${escapeHtml(d.spec||"-")}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:600">${d.qty||0}<span style="color:var(--t3);font-weight:400;font-size:11px"> ${escapeHtml(d.unit||"")}</span></td>
+      <td style="font-family:var(--m);font-size:11px;color:var(--p);font-weight:600">${escapeHtml(d.projectNo||"-")}</td>
+      <td>${vendorDisplay}</td>
       <td style="text-align:center">${statusBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
     </tr>`;
@@ -10079,16 +10586,40 @@ const SL_ADMIN_EMAIL = "baekhoon@enjet.co.kr";
 const PLANNER_URL    = "https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.planner/_djb2_msteams_prefix_271436294?context=%7B%22channelId%22%3A%2219%3Ab1e966aa118749a885eb61d3325aa05c%40thread.tacv2%22%7D&tenantId=58b310e1-9278-47ab-8e49-792728818c9e";
 let _plannerPlanId   = null; // 캐시
 
-// 🔧 구매 대시보드: 페이지 로드 시 영업 Planner 캐시 무효화
-// (이전에 영업 대시보드로 동기화한 흔적 제거)
+// 🔧 구매 대시보드: 페이지 로드 시 영업 캐시 강제 무효화
+// (이전 영업 대시보드 동기화 흔적, 영업 그룹 ID 등 완전 제거)
 (function _clearStaleSalesCache() {
   try {
-    const kind = sessionStorage.getItem("enjet_planner_kind") || "";
-    if(kind !== "purchase") {
-      // sessionStorage 클리어
+    const dashboardKind = sessionStorage.getItem("enjet_dashboard_kind") || "";
+    
+    if(dashboardKind !== "purchase") {
+      console.log("🧹 영업/미지정 캐시 감지 - 전체 무효화 시작");
+      
+      // Planner 관련 캐시
       sessionStorage.removeItem("enjet_planner_plan_id");
       sessionStorage.removeItem("enjet_planner_kind");
-      console.log("🧹 영업 Planner 캐시 무효화 (구매 대시보드 진입)");
+      
+      // Teams 그룹 관련 캐시 (영업 그룹 ID가 캐시되었을 수 있음)
+      const cachedEmail = (sessionStorage.getItem("enjet_teams_group_email") || "").toLowerCase();
+      if(cachedEmail !== "pr@enjet.co.kr") {
+        sessionStorage.removeItem("enjet_teams_group_id");
+        sessionStorage.removeItem("enjet_teams_group_name");
+        sessionStorage.removeItem("enjet_teams_group_email");
+        console.log("🧹 Teams 그룹 캐시 무효화 (영업 그룹 추정):", cachedEmail);
+      }
+      
+      // localStorage Todo 캐시도 무효화 (영업 todo 잔재)
+      try {
+        const cachedTodo = localStorage.getItem("purchase_todo_cache");
+        if(cachedTodo) {
+          localStorage.removeItem("purchase_todo_cache");
+          console.log("🧹 Todo localStorage 캐시 무효화");
+        }
+      } catch(_){}
+      
+      // 마커 설정 - 다음 로드 시 재무효화 안 함
+      sessionStorage.setItem("enjet_dashboard_kind", "purchase");
+      console.log("✅ 구매 대시보드 캐시 초기화 완료");
     }
   } catch(_){}
 })();
@@ -10144,6 +10675,8 @@ async function loadSLFromSP() {
         if(Array.isArray(parsed.data) && parsed.data.length > data.length) {
           console.log(`🛡️ 구매활동 로컬 우선 (${parsed.data.length} > ${data.length})`);
           slData = parsed.data.filter(item => isSLEvent(item));
+          // 🆕 영업 잔재 감지 시 경고
+          _detectAndWarnSalesLeftover(parsed.data, slData);
           safeSaveDB("pa_data", SL_SP_JSON, slData).catch(()=>{});
           renderSLAll();
           $("slUpd","🛡️ 로컬 복원: "+new Date().toLocaleTimeString("ko-KR"));
@@ -10157,7 +10690,9 @@ async function loadSLFromSP() {
     slData = data.filter(item => isSLEvent(item));
     const removed = before - slData.length;
     if(removed > 0) {
-      console.log(`전시회 항목 ${removed}개 제거됨`);
+      console.log(`🧹 비구매 항목 ${removed}개 자동 제거됨 (전시회/영업 데이터)`);
+      // 🆕 영업 잔재 감지 시 경고
+      _detectAndWarnSalesLeftover(data, slData);
       await saveSLToSP();
     }
     renderSLAll();
@@ -10181,6 +10716,21 @@ async function loadSLFromSP() {
     if(!slData || !slData.length) slData = [];
     renderSLAll();
   }
+}
+
+// 🚨 영업 데이터 잔재 감지 - _kind 마커 없는 항목들 경고
+function _detectAndWarnSalesLeftover(allData, filteredData) {
+  try {
+    const noKind = (allData||[]).filter(item => !item._kind && !item.kind);
+    if(noKind.length > 0 && !window._salesLeftoverWarned) {
+      window._salesLeftoverWarned = true;  // 한 번만 경고
+      console.warn(`⚠️ 구매 JSON에 _kind 마커 없는 항목 ${noKind.length}건 발견 (영업 데이터 잔재 가능성)`);
+      console.warn("샘플:", noKind.slice(0,3).map(x => ({
+        id: x.id, company: x.company, pjcode: x.pjcode, status: x.status
+      })));
+      console.warn("정리 명령: cleanupSalesDataFromPurchase() 또는 resetPurchaseRequestsJson()");
+    }
+  } catch(_){}
 }
 
 
@@ -11409,18 +11959,64 @@ async function getPlannerPlanId() {
   if(!r.ok) { const e=await r.json(); throw new Error("Planner 플랜 조회 실패: "+(e.error?.message||r.status)); }
   const data = await r.json();
   const plans = data.value||[];
-  console.log("📋 구매 그룹의 Planner 플랜 목록:", plans.map(p=>p.title+"("+p.id+")"));
+  console.log("📋 구매 그룹의 Planner 플랜 목록:", plans.length, "개");
+  plans.forEach(p => console.log("  -", p.title, "(id:", p.id, ")"));
 
-  if(!plans.length) throw new Error("Planner 플랜 없음 - Teams 구매 채널에 Planner 탭 추가 필요");
+  // 🆕 플랜이 비어있으면 자동 생성 시도
+  if(!plans.length) {
+    console.log("⚠️ Planner 플랜 없음 - 자동 생성 시도");
+    try {
+      const createRes = await fetch("https://graph.microsoft.com/v1.0/planner/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+        body: JSON.stringify({
+          owner: gid,
+          title: "구매 Todo",
+        }),
+      });
+      if(createRes.ok) {
+        const newPlan = await createRes.json();
+        _plannerPlanId = newPlan.id;
+        sessionStorage.setItem("enjet_planner_kind", "purchase");
+        sessionStorage.setItem("enjet_planner_plan_id", newPlan.id);
+        console.log("✅ 구매 Planner 자동 생성 완료:", newPlan.title, newPlan.id);
+        return newPlan.id;
+      } else {
+        const errBody = await createRes.text().catch(()=>"");
+        console.error("Plan 자동 생성 실패:", createRes.status, errBody.substring(0,200));
+        throw new Error(
+          "Planner 플랜 자동 생성 실패 (상태: " + createRes.status + ")\n\n" +
+          "📋 해결 방법:\n" +
+          "1. Teams 구매 채널(pr@enjet.co.kr)에 들어가서\n" +
+          "2. 채널 상단의 [+] → Planner 또는 Tasks 추가\n" +
+          "3. '새 플랜 만들기' 선택 → 이름: 구매 Todo\n" +
+          "4. 만들기 클릭 후 1~2분 기다린 다음 [🔄 동기화] 클릭\n\n" +
+          "또는 콘솔에서: " + JSON.stringify({status: createRes.status, hint: errBody.substring(0,150)})
+        );
+      }
+    } catch(e) {
+      if(e.message.startsWith("Planner 플랜 자동 생성 실패")) throw e;
+      console.error("Plan 자동 생성 에러:", e);
+      throw new Error(
+        "Planner 플랜 없음 - Teams 구매 채널에 Planner 탭 추가 필요\n\n" +
+        "📋 해결 방법:\n" +
+        "1. Teams → 06.Back Office → 🏭 구매 채널\n" +
+        "2. 채널 상단 [+] → Planner 또는 Tasks 추가\n" +
+        "3. '새 플랜 만들기' → 이름: 구매 Todo\n" +
+        "4. 만든 후 1~2분 후 [🔄 동기화] 클릭"
+      );
+    }
+  }
   
   // 🔧 구매 관련 플랜 우선 (영업 키워드 절대 매칭하지 않음)
   const purchasePlan = plans.find(p => {
     const title = (p.title||"").toLowerCase();
-    return title.includes("구매") || title.includes("purchase") || title.includes("pr") || title.includes("procure");
+    return title.includes("구매") || title.includes("purchase") || title.includes("pr") || title.includes("procure") || title.includes("todo");
   });
   // 구매 키워드 없어도 첫 번째 플랜 사용 (구매 그룹 내에 있으니 안전)
   _plannerPlanId = (purchasePlan||plans[0]).id;
   sessionStorage.setItem("enjet_planner_kind", "purchase");
+  sessionStorage.setItem("enjet_planner_plan_id", _plannerPlanId);
   console.log("✅ 사용할 구매 Planner 플랜:", (purchasePlan||plans[0]).title, _plannerPlanId);
   return _plannerPlanId;
 }
@@ -12517,8 +13113,62 @@ function isSLEvent(item) {
   const title = item.company || item.title || "";
   // [전시회] prefix면 구매활동 아님
   if(isExhEvent(item)) return false;
+  // 🆕 영업 데이터 필터: 영업 마커 명시적으로 있으면 배제
+  if(item._kind === "sales" || item.kind === "sales") return false;
+  // 🆕 구매가 아닌 영업 활동 패턴: 영업 status값 (제안/견적/잔금/완료/유지보수 등)
+  const SALES_ONLY_STATUS = ["제안", "견적", "잔금", "유지보수(무상)", "납품완료", "세금계산서미발행", "세금계산서완료"];
+  if(item.status && SALES_ONLY_STATUS.includes(item.status)) return false;
   return true;
 }
+
+// 🧹 콘솔에서 호출: 영업 데이터 잔재 강제 제거
+// 사용법: console.log → cleanupSalesDataFromPurchase()
+window.cleanupSalesDataFromPurchase = async function() {
+  if(!confirm("⚠️ 구매 JSON에 섞인 영업 데이터를 정리합니다.\n\n다음 항목들을 삭제 시도:\n- _kind=sales 마커 있는 항목\n- 영업 전용 상태값 (제안/견적/잔금 등) 항목\n\n계속하시겠어요?")) return;
+  
+  if(!Array.isArray(slData)) { alert("slData 없음 - 먼저 페이지 로드 완료 후 다시 시도"); return; }
+  
+  const before = slData.length;
+  const SALES_ONLY_STATUS = ["제안", "견적", "잔금", "유지보수(무상)", "납품완료", "세금계산서미발행", "세금계산서완료"];
+  const purchaseOnly = slData.filter(item => {
+    if(item._kind === "sales" || item.kind === "sales") return false;
+    if(item.status && SALES_ONLY_STATUS.includes(item.status)) return false;
+    return true;
+  });
+  const removed = before - purchaseOnly.length;
+  
+  if(removed === 0) {
+    alert(`✅ 영업 데이터 잔재 없음. 현재 ${before}건 모두 정상 구매 데이터입니다.`);
+    return;
+  }
+  
+  slData = purchaseOnly;
+  // SP에도 즉시 반영
+  try {
+    await safeSaveDB("pa_data", SL_SP_JSON, slData);
+    if(typeof renderSLAll === "function") renderSLAll();
+    if(typeof updateAllBadges === "function") updateAllBadges();
+    alert(`✅ 영업 데이터 ${removed}건 정리 완료\n남은 구매활동: ${slData.length}건\n\nSharePoint에도 반영되었습니다.`);
+  } catch(e) {
+    alert(`⚠️ SP 저장 실패: ${e.message}\n메모리에는 반영됨. 새로고침 시 복원될 수 있음.`);
+  }
+};
+
+// 🧹 콘솔에서 호출: 구매 데이터 완전 초기화 (위험!)
+window.resetPurchaseRequestsJson = async function() {
+  if(!confirm("⚠️ 구매활동 JSON을 완전히 비웁니다.\n\n모든 구매활동 데이터가 삭제됩니다.\n정말 진행하시겠어요?")) return;
+  if(!confirm("⚠️ 한 번 더 확인합니다. 정말 모두 삭제하시겠어요?")) return;
+  
+  slData = [];
+  try {
+    await safeSaveDB("pa_data", SL_SP_JSON, []);
+    localStorage.removeItem("pa_data");
+    if(typeof renderSLAll === "function") renderSLAll();
+    alert("✅ 구매활동 JSON 완전 초기화 완료. 새로고침하세요.");
+  } catch(e) {
+    alert("⚠️ 실패: " + e.message);
+  }
+};
 
 async function updateSLStatus(id, newStatus) {
   const act = slData.find(x=>x.id===id);
@@ -17511,6 +18161,7 @@ async function saveSLActivity() {
 
   const act = {
     id: slEditId || "sl_"+Date.now(),
+    _kind: "purchase",                                              // 🆕 구매 데이터 마커 (영업과 격리)
     company, pjcode, status,
     // 🆕 구매 전용 필드
     salesPjName: document.getElementById("sl-f-salesname")?.value.trim() || "",
@@ -17539,6 +18190,130 @@ async function saveSLActivity() {
   else slData.push(act);
   renderSLAll();
   await saveSLToSP();
+
+  // 🆕 AI 파싱 결과가 있고 신규 생성인 경우 → 품목별 PR 자동 생성
+  if(!slEditId && _slAIParseResult && Array.isArray(_slAIParseResult.items) && _slAIParseResult.items.length > 0) {
+    try {
+      console.log(`🔄 AI 파싱 결과로 PR ${_slAIParseResult.items.length}건 자동 생성 시작...`);
+      const aiData = _slAIParseResult;
+      const items = aiData.items;
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth()+1).padStart(2,"0");
+      const dd = String(now.getDate()).padStart(2,"0");
+      const datePart = yy + mm + dd;
+      
+      // 프로젝트번호 결정 (첫 품목의 projectNo 사용, 없으면 날짜)
+      const projectNo = (items[0]?.projectNo || "").trim() || datePart;
+      const projectName = (items[0]?.projectName || "").trim();
+      
+      // 시작 NN 결정 (기존 prCode 중 같은 prefix의 최대값 + 1)
+      const codePrefix = `PR-${projectNo}-`;
+      const existingMax = (_prMaster || [])
+        .filter(p => (p.prCode||"").startsWith(codePrefix))
+        .map(p => {
+          const m = (p.prCode||"").match(/-(\d+)$/);
+          return m ? parseInt(m[1],10) : 0;
+        })
+        .reduce((a,b) => Math.max(a,b), 0);
+      
+      // 품목마다 PR 행 생성
+      const newPRs = items.map((it, idx) => {
+        const nn = String(existingMax + idx + 1).padStart(3, "0");
+        const prCode = `${codePrefix}${nn}`;
+        const vendor = (it.vendor||"").trim();
+        const isInhouse = vendor === "엔젯" || vendor === "엔젯(재고)" || vendor === "ENJET";
+        
+        // BOM 자동매칭/생성 (제품명 = 품명)
+        let bomCode = "";
+        if(it.name && typeof matchOrCreateBOM === "function") {
+          const bom = matchOrCreateBOM(it.name, {
+            type: "부품",
+            source: `구매요청서 자동생성 (${prCode})`,
+            relatedPR: prCode,
+          });
+          if(bom) {
+            bomCode = bom.bomCode;
+            if(bom.relatedPRs && !bom.relatedPRs.includes(prCode)) {
+              bom.relatedPRs.push(prCode);
+            }
+          }
+        }
+        
+        return {
+          id: `pr_seed_${Date.now()}_${idx}`,
+          prCode,
+          salesCode: pjcode,                          // 영업 프로젝트 코드 (현재 구매활동의 pjcode)
+          reqDept: act.reqDept || "",
+          reqDate: act.start || new Date().toISOString().slice(0,10),
+          dueDate: it.dueDate || act.end || "",
+          requester: aiData.requester || act.salesMgr || "",
+          // 품목 정보 (PDF 컬럼 그대로)
+          itemNo: it.no || (idx + 1),
+          itemName: it.name || "",                    // 품명
+          partNo: it.partNo || "",                    // 품번
+          spec: it.spec || "",                        // 규격/제조사
+          unit: it.unit || "EA",                      // 단위
+          qty: Number(it.qty) || 0,                   // 수량
+          // 프로젝트 정보
+          projectName: it.projectName || projectName, // 프로젝트명 (BM26005 세종산업 #2...)
+          projectNo: it.projectNo || projectNo,       // 프로젝트번호 (BM26005)
+          // 거래처
+          vendor: isInhouse ? "엔젯(재고)" : vendor,  // 엔젯 → 엔젯(재고) 표시
+          isInhouse,                                  // 자체 재고 여부
+          // 호환 필드 (기존 PR 모달과)
+          items: `${it.name||""} ${it.partNo?`(${it.partNo})`:""} · ${it.qty||0}${it.unit||""}`,
+          bomName: it.name || "",
+          bomCode,
+          amount: 0,                                  // 견적 받기 전엔 0
+          vendorCandidates: vendor,
+          // 진행상태
+          status: "구매요청접수",
+          priority: act.priority || "일반",
+          // 문서 메타
+          docNo: aiData.docNo || "",
+          requestNo: aiData.requestNo || "",
+          purchaseType: aiData.purchaseType || "",
+          specialNote: aiData.specialNote || "",
+          note: "",
+          // 부모 참조
+          parentSLId: act.id,                         // 어느 구매활동에서 생성됐는지
+          parentPRFile: aiData._fileName || "",       // 원본 PDF 파일명
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      
+      _prMaster = (_prMaster || []).concat(newPRs);
+      
+      // SharePoint 저장 (병렬)
+      Promise.all([
+        savePRMaster(),
+        typeof saveBOMDB === "function" ? saveBOMDB() : Promise.resolve(),
+      ]).then(() => {
+        console.log(`✅ PR ${newPRs.length}건 자동 생성 완료`);
+        if(typeof renderPRDB === "function") renderPRDB();
+        if(typeof updateAllBadges === "function") updateAllBadges();
+      });
+      
+      // AI 파싱 결과 클리어
+      _slAIParseResult = null;
+      
+      // 사용자에게 알림 (5초 후 안 보이게)
+      setTimeout(() => {
+        const summary = `✅ AI 파싱 결과로 PR ${newPRs.length}건 자동 등록 완료\n\n` +
+                       `프로젝트: ${projectName} (${projectNo})\n` +
+                       `시작 코드: ${newPRs[0].prCode}\n` +
+                       `종료 코드: ${newPRs[newPRs.length-1].prCode}\n\n` +
+                       `구매요청서DB 탭에서 확인하세요.`;
+        console.log(summary);
+      }, 100);
+      
+    } catch(e) {
+      console.error("PR 자동 생성 실패:", e);
+      alert("⚠️ PR 자동 생성 실패\n" + e.message + "\n\n구매활동은 저장됐지만 PR은 수동으로 추가하세요.");
+    }
+  }
 
   // 🆕 구매활동 신규생성 시 → SP 엑셀(프로젝트현황) + 파이프라인 동기화
   if(!slEditId) {
@@ -25077,10 +25852,10 @@ function deleteTax(id){
     <!-- 📝 구매요청서 (PR Master) 모달 -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <div id="prModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:920px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
         <button onclick="closePRModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
         <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="prModalTitle">📝 구매요청서 (PR)</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">PR 코드 자동채번 (PR-YYMMDD-NN) · 영업프로젝트(SL/SP)별 다수 PR 가능</div>
+        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">PR 코드 자동채번 (PR-{프로젝트번호}-{NN}) · 품목별로 1행씩 등록 · 엔젯(재고)는 자체 재고 표시</div>
 
         <!-- PR 코드 자동 + 영업코드 + 요청부서 -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
@@ -25125,10 +25900,64 @@ function deleteTax(id){
         <!-- 품목 요약 -->
         <div style="margin-bottom:12px">
           <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목 요약 <span style="color:var(--r)">*</span></label>
-          <textarea class="si" id="pr-f-items" placeholder="제품명/수량/사양 등 (구매요청서 AI파싱 시 자동 입력)" style="width:100%;height:80px;resize:vertical;font-size:13px"></textarea>
+          <textarea class="si" id="pr-f-items" placeholder="제품명/수량/사양 등 (구매요청서 AI파싱 시 자동 입력)" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
         </div>
 
-        <!-- BOM 연결 + 총금액 + 거래처 후보 -->
+        <!-- ━━ 🆕 품목 상세 (PDF에서 추출되는 컬럼들) ━━ -->
+        <div style="margin-bottom:12px;padding:14px;background:#eff6ff;border-radius:8px;border:1.5px solid #3b82f6">
+          <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px">📦 품목 상세정보 <span style="font-weight:400;color:var(--t3)">(구매요청서 PDF 컬럼)</span></div>
+          <!-- 품명 + 품번 -->
+          <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품명</label>
+              <input class="si" type="text" id="pr-f-itemname" placeholder="예: Harness, HV Connector" style="width:100%;font-size:13px">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품번</label>
+              <input class="si" type="text" id="pr-f-partno" placeholder="예: BM26005_Sol V/V Cable" style="width:100%;font-family:var(--m);font-size:12px">
+            </div>
+          </div>
+          <!-- 규격 + 단위 + 수량 -->
+          <div style="display:grid;grid-template-columns:1.5fr 0.6fr 0.7fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">규격/사양</label>
+              <input class="si" type="text" id="pr-f-spec" placeholder="예: (주)위앤, AL6061, SUS304" style="width:100%;font-size:13px">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">단위</label>
+              <input class="si" type="text" id="pr-f-unit" value="EA" style="width:100%;font-family:var(--m);font-size:13px">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">수량 <span style="color:var(--r)">*</span></label>
+              <input class="si" type="number" id="pr-f-qty" placeholder="0" min="0" style="width:100%;text-align:right;font-family:var(--m);font-size:13px">
+            </div>
+          </div>
+          <!-- 프로젝트번호 + 프로젝트명 -->
+          <div style="display:grid;grid-template-columns:0.8fr 1.5fr;gap:8px;margin-bottom:8px">
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">프로젝트번호</label>
+              <input class="si" type="text" id="pr-f-projectno" placeholder="예: BM26005" style="width:100%;font-family:var(--m);font-size:13px;color:var(--p);font-weight:700">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">프로젝트명</label>
+              <input class="si" type="text" id="pr-f-projectname" placeholder="예: 세종산업 #2 모듈코어" style="width:100%;font-size:13px">
+            </div>
+          </div>
+          <!-- 거래처(제조사) + 자체재고 토글 -->
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처/제조사</label>
+              <input class="si" type="text" id="pr-f-vendor" placeholder="예: ULTRAVOLT, SMC, HVP코리아" style="width:100%;font-size:13px">
+            </div>
+            <div>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:6px 12px;background:#dcfce7;border-radius:6px;border:1.5px solid #15803d;color:#15803d;font-weight:700;white-space:nowrap">
+                <input type="checkbox" id="pr-f-inhouse" onchange="togglePRInhouse()"> 🏭 엔젯(재고)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOM 연결 + 총금액 -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:8px;border:1.5px solid var(--g)">
           <div>
             <label style="font-size:13px;font-weight:700;color:var(--g);display:block;margin-bottom:5px">🧩 관련 BOM</label>
