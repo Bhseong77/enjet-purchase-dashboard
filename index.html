@@ -957,7 +957,7 @@
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <input type="file" id="sl-f-prfile" accept="application/pdf,.pdf,.docx,.xlsx,.hwp,image/*"
                 style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px;font-family:var(--s)">
-              <button type="button" onclick="if(typeof aiParsePR==='function'){aiParsePR()}else{alert('AI 파싱은 다음 세션 구현 예정 - 일단 파일만 첨부됩니다')}" 
+              <button type="button" onclick="aiParsePR()" 
                 style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
             </div>
             <div style="font-size:11px;color:var(--t3);margin-top:6px">※ 구매요청서 PDF 업로드 시 AI가 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
@@ -2780,20 +2780,329 @@ async function readSP(prefix, opts) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // 🤖 구매요청서 AI 파싱 (placeholder - 다음 세션 구현)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🤖 구매 AI 파싱 - 구매요청서 / 매입견적서 / 매입세금계산서
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 공용 헬퍼: PDF → base64
+async function pdfToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// 공용 헬퍼: AI 응답에서 JSON 추출 (재사용)
+function _purchaseExtractJson(text) {
+  if(typeof extractJsonFromAIResponse === "function") {
+    return extractJsonFromAIResponse(text);
+  }
+  // 폴백 - 직접 파싱
+  try {
+    let t = (text||"").trim();
+    t = t.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/, "");
+    const m = t.match(/\{[\s\S]*\}/);
+    if(m) return JSON.parse(m[0]);
+    return JSON.parse(t);
+  } catch(e) {
+    console.error("JSON 파싱 실패:", e, text);
+    return null;
+  }
+}
+
+// 공용 헬퍼: Copilot 또는 OpenAI로 PDF 분석
+// 우선순위: Copilot (기본, 회사 라이선스) → OpenAI (백업, GPT-4o vision)
+async function _purchaseCallAI(base64, prompt, engine) {
+  // 명시적 OpenAI 지정 시
+  if(engine === "openai") {
+    const key = localStorage.getItem("oai_key") || "";
+    if(!key) throw new Error("OpenAI API Key가 없습니다.\nlocalStorage에 'oai_key'로 저장하세요.");
+    if(typeof pdfToImageBase64 !== "function") throw new Error("pdfToImageBase64 함수 없음 (영업 코드 의존)");
+    const imgBase64 = await pdfToImageBase64(base64);
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: `data:image/png;base64,${imgBase64}` } }
+        ]}],
+        max_tokens: 800,
+      })
+    });
+    if(!res.ok) {
+      const e = await res.json().catch(()=>({}));
+      throw new Error("OpenAI 오류: " + (e.error?.message || res.status));
+    }
+    const data = await res.json();
+    return _purchaseExtractJson(data.choices?.[0]?.message?.content || "");
+  }
+  
+  // 기본: Copilot (회사 라이선스 활용)
+  // 1) PDF 텍스트 추출
+  if(typeof extractPdfText !== "function") {
+    throw new Error("extractPdfText 함수 없음. OpenAI 엔진을 사용하세요.");
+  }
+  const pdfText = await extractPdfText(base64);
+  const hasText = pdfText && pdfText.length > 30 && !pdfText.includes("추출 실패");
+  
+  if(!hasText) {
+    // 텍스트 추출 실패 → OpenAI로 자동 폴백
+    const oaiKey = localStorage.getItem("oai_key") || "";
+    if(!oaiKey) {
+      throw new Error("Copilot은 이 PDF에서 텍스트를 추출하지 못했습니다 (이미지 PDF로 추정).\n\n해결: OpenAI API Key를 등록하면 GPT-4o vision으로 자동 전환됩니다.");
+    }
+    console.log("⚠️ PDF 텍스트 추출 실패 → OpenAI로 자동 폴백");
+    return await _purchaseCallAI(base64, prompt, "openai");
+  }
+  
+  // 2) Copilot 호출
+  if(typeof getToken !== "function") throw new Error("Microsoft Graph 토큰 없음 (로그인 필요)");
+  const t = await getToken();
+  const convRes = await fetch("https://graph.microsoft.com/beta/copilot/conversations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+    body: "{}",
+  });
+  if(!convRes.ok) {
+    const e = await convRes.text().catch(()=>"");
+    throw new Error("Copilot 연결 실패 (M365 Copilot 라이선스 필요)\n" + e.substring(0,200));
+  }
+  const { id: convId } = await convRes.json();
+  
+  const fullPrompt = `${prompt}\n\n=== PDF 내용 ===\n${pdfText.substring(0, 8000)}`;
+  
+  const chatRes = await fetch(`https://graph.microsoft.com/beta/copilot/conversations/${convId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+    body: JSON.stringify({ message: { text: fullPrompt } }),
+  });
+  if(!chatRes.ok) {
+    const e = await chatRes.text().catch(()=>"");
+    throw new Error("Copilot 응답 실패: " + e.substring(0,200));
+  }
+  const chatData = await chatRes.json();
+  // Copilot 응답 형식: chatData.text 또는 chatData.message?.text
+  const text = chatData.text || chatData.message?.text || chatData.response || "";
+  return _purchaseExtractJson(text);
+}
+
+// 📝 구매요청서 AI 파싱
 async function aiParsePR() {
   const fileInput = document.getElementById("sl-f-prfile");
   const file = fileInput?.files?.[0];
   if(!file) { alert("먼저 구매요청서 PDF를 선택해주세요."); return; }
   
+  if(file.size > 10 * 1024 * 1024) {
+    if(!confirm("⚠️ 파일이 10MB를 초과합니다. 진행하시겠어요?")) return;
+  }
+  
   const info = document.getElementById("sl-f-prfile-info");
   if(info) {
     info.style.display = "block";
     info.textContent = `🤖 AI 파싱 진행중... ${file.name}`;
+    info.style.color = "var(--p)";
   }
   
-  alert(`🤖 AI 파싱은 다음 세션에서 구현 예정입니다.\n\n파일: ${file.name}\n크기: ${(file.size/1024).toFixed(1)} KB\n\n현재는 파일만 첨부됩니다. 저장 시 SP 폴더에 업로드됩니다.`);
+  try {
+    const base64 = await pdfToBase64(file);
+    
+    const prompt = `이 구매요청서 PDF에서 다음 항목을 JSON으로 추출해줘. 반드시 JSON만 출력 (설명/마크다운 없이):
+{
+  "requester": "요청자 이름",
+  "reqDept": "요청부서 (ES사업부/기술연구소/경영전략본부/미래성장전략팀/구매팀 중 가장 가까운 것)",
+  "reqDate": "요청일 YYYY-MM-DD",
+  "dueDate": "납기 희망일 YYYY-MM-DD (있으면)",
+  "items": "품목 요약 (제품명/규격/수량/단가)",
+  "bomName": "주요 제품명 (BOM 매칭 키 - 가장 큰 단위 제품명)",
+  "amount": 총 추정금액 숫자(쉼표없이),
+  "vendorCandidates": "거래처 후보 (쉼표 구분, 있으면)",
+  "priority": "긴급/일반/낮음 중 하나",
+  "note": "특이사항"
+}
+※ 정보가 없는 필드는 빈 문자열("") 또는 0으로`;
+    
+    if(info) info.textContent = "✨ Copilot이 구매요청서 분석 중...";
+    
+    const result = await _purchaseCallAI(base64, prompt, "copilot");
+    if(!result) throw new Error("AI 응답에서 JSON 추출 실패");
+    
+    console.log("✅ 구매요청서 AI 파싱 결과:", result);
+    
+    // 모달 필드 채우기 - 비어있는 필드만
+    const fill = (id, val) => {
+      const el = document.getElementById(id);
+      if(el && !el.value && val) el.value = val;
+    };
+    
+    // 비고/메모에 품목 요약 채움 (PR 모달이 아닌 구매활동 모달이므로)
+    if(result.items) {
+      const noteEl = document.getElementById("sl-f-note");
+      if(noteEl && !noteEl.value) {
+        noteEl.value = `[AI 파싱]\n품목: ${result.items}${result.bomName?`\nBOM: ${result.bomName}`:""}${result.amount?`\n추정금액: ${Number(result.amount).toLocaleString()}원`:""}`;
+      }
+    }
+    
+    if(result.reqDept) {
+      const deptEl = document.getElementById("sl-f-reqdept");
+      if(deptEl && !deptEl.value) {
+        // dept option과 매칭 시도
+        const options = Array.from(deptEl.options).map(o => o.value);
+        const matched = options.find(o => result.reqDept.includes(o) || o.includes(result.reqDept));
+        if(matched) deptEl.value = matched;
+      }
+    }
+    
+    if(result.dueDate) fill("sl-f-end", result.dueDate);
+    if(result.reqDate) fill("sl-f-start", result.reqDate);
+    
+    if(info) {
+      info.textContent = `✅ AI 파싱 완료: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+      info.style.color = "var(--g)";
+    }
+    
+    alert(`🤖 AI 파싱 완료!\n\n비어있던 필드들이 자동 채워졌습니다.\n저장 시 PR 마스터에도 등록됩니다.\n\n추출 항목: 요청자/부서/품목/BOM/금액 등`);
+    
+  } catch(e) {
+    console.error("AI 파싱 실패:", e);
+    if(info) {
+      info.textContent = `⚠️ AI 파싱 실패: ${e.message}`;
+      info.style.color = "var(--r)";
+    }
+    alert("⚠️ AI 파싱 실패\n\n" + e.message + "\n\n파일은 그대로 첨부됩니다. 수동으로 입력 후 저장하세요.");
+  }
+}
+
+// 📄 매입 견적서 AI 파싱 (purchaseQuoteModal에서 호출)
+async function aiParsePurchaseQuote() {
+  const fileInput = document.getElementById("pq-f-file");
+  const file = fileInput?.files?.[0];
+  if(!file) { alert("먼저 견적서 PDF를 선택해주세요."); return; }
   
-  if(info) info.textContent = `📎 ${file.name} (${(file.size/1024).toFixed(1)} KB) — AI 파싱은 다음 세션 구현 예정`;
+  if(file.size > 10 * 1024 * 1024) {
+    if(!confirm("⚠️ 파일이 10MB를 초과합니다. 진행하시겠어요?")) return;
+  }
+  
+  const info = document.getElementById("pq-f-file-info");
+  if(info) {
+    info.style.display = "block";
+    info.textContent = `🤖 AI 견적서 파싱 진행중... ${file.name}`;
+    info.style.color = "var(--p)";
+  }
+  
+  try {
+    const base64 = await pdfToBase64(file);
+    
+    const prompt = `이 매입 견적서 PDF에서 다음 항목을 JSON으로 추출해줘. 거래처가 ENJET에 보낸 견적서입니다. 반드시 JSON만 출력:
+{
+  "vendor": "공급자(거래처) 회사명",
+  "quoteNo": "견적 번호",
+  "quoteDate": "견적일 YYYY-MM-DD",
+  "validUntil": "유효기간 YYYY-MM-DD (있으면)",
+  "deliveryDate": "납기일 YYYY-MM-DD (있으면)",
+  "items": "품목 요약 (제품명/규격/수량/단가)",
+  "supplyAmount": 공급가액숫자(쉼표없이),
+  "vatAmount": VAT숫자(보통 공급가의10%),
+  "totalAmount": 총금액숫자(공급가+VAT)
+}
+※ 숫자 필드는 쉼표 없는 순수 숫자, 없으면 0. 단가가 안 보이면 공급가÷수량으로 계산.`;
+    
+    if(info) info.textContent = "✨ Copilot이 견적서 분석 중...";
+    
+    const result = await _purchaseCallAI(base64, prompt, "copilot");
+    if(!result) throw new Error("AI 응답에서 JSON 추출 실패");
+    
+    console.log("✅ 매입견적 AI 파싱 결과:", result);
+    
+    const fill = (id, val) => {
+      const el = document.getElementById(id);
+      if(el && !el.value && val !== undefined && val !== "") el.value = val;
+    };
+    
+    fill("pq-f-vendor", result.vendor);
+    fill("pq-f-quoteno", result.quoteNo);
+    fill("pq-f-date", result.quoteDate);
+    fill("pq-f-valid", result.validUntil);
+    fill("pq-f-delivery", result.deliveryDate);
+    fill("pq-f-items", result.items);
+    fill("pq-f-supply", result.supplyAmount);
+    fill("pq-f-vat", result.vatAmount);
+    fill("pq-f-total", result.totalAmount);
+    
+    // 총금액 비어있고 공급+VAT 있으면 자동 계산
+    const totalEl = document.getElementById("pq-f-total");
+    if(totalEl && !totalEl.value) {
+      const supply = Number(result.supplyAmount||0);
+      const vat = Number(result.vatAmount||0);
+      if(supply || vat) totalEl.value = supply + vat;
+    }
+    
+    if(info) {
+      info.textContent = `✅ AI 파싱 완료: ${file.name}`;
+      info.style.color = "var(--g)";
+    }
+    
+    alert(`✅ 매입견적서 AI 파싱 완료!\n\n거래처: ${result.vendor||"-"}\n견적번호: ${result.quoteNo||"-"}\n공급가: ${(result.supplyAmount||0).toLocaleString()}원\n총금액: ${(result.totalAmount||0).toLocaleString()}원\n\n확인 후 저장하세요.`);
+    
+  } catch(e) {
+    console.error("AI 파싱 실패:", e);
+    if(info) {
+      info.textContent = `⚠️ AI 파싱 실패: ${e.message}`;
+      info.style.color = "var(--r)";
+    }
+    alert("⚠️ AI 파싱 실패\n\n" + e.message);
+  }
+}
+
+// 🧾 매입 세금계산서 AI 파싱
+async function aiParsePurchaseTax() {
+  const fileInput = document.getElementById("ptax-f-file");
+  const file = fileInput?.files?.[0];
+  if(!file) { alert("먼저 세금계산서 PDF를 선택해주세요."); return; }
+  
+  try {
+    const base64 = await pdfToBase64(file);
+    
+    const prompt = `이 매입 세금계산서 PDF에서 다음 항목을 JSON으로 추출해줘. 반드시 JSON만 출력:
+{
+  "taxNo": "세금계산서 번호 (승인번호 또는 일련번호)",
+  "vendor": "공급자(거래처) 회사명",
+  "bizNo": "공급자 사업자번호 (000-00-00000 형식)",
+  "taxDate": "작성일 YYYY-MM-DD",
+  "supplyAmount": 공급가액숫자(쉼표없이),
+  "vatAmount": 세액숫자,
+  "totalAmount": 합계금액숫자,
+  "eTaxType": "전자 또는 수기"
+}`;
+    
+    const result = await _purchaseCallAI(base64, prompt, "copilot");
+    if(!result) throw new Error("AI 응답에서 JSON 추출 실패");
+    
+    console.log("✅ 매입세금 AI 파싱 결과:", result);
+    
+    const fill = (id, val) => {
+      const el = document.getElementById(id);
+      if(el && !el.value && val !== undefined && val !== "") el.value = val;
+    };
+    
+    fill("ptax-f-taxno", result.taxNo);
+    fill("ptax-f-vendor", result.vendor);
+    fill("ptax-f-bizno", result.bizNo);
+    fill("ptax-f-date", result.taxDate);
+    fill("ptax-f-supply", result.supplyAmount);
+    fill("ptax-f-vat", result.vatAmount);
+    fill("ptax-f-total", result.totalAmount);
+    fill("ptax-f-etax", result.eTaxType);
+    
+    alert(`✅ 매입세금계산서 AI 파싱 완료!\n\n거래처: ${result.vendor||"-"}\n사업자번호: ${result.bizNo||"-"}\n총금액: ${(result.totalAmount||0).toLocaleString()}원`);
+    
+  } catch(e) {
+    console.error("AI 파싱 실패:", e);
+    alert("⚠️ AI 파싱 실패\n\n" + e.message);
+  }
 }
 
 // 파일 선택 시 정보 표시
@@ -2806,7 +3115,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if(info) {
         if(f) {
           info.style.display = "block";
-          info.textContent = `📎 선택됨: ${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+          info.textContent = `📎 선택됨: ${f.name} (${(f.size/1024).toFixed(1)} KB) - AI 파싱 버튼으로 자동 추출 가능`;
           info.style.color = "var(--g)";
         } else {
           info.style.display = "none";
@@ -4127,6 +4436,84 @@ function updateAllBadges() {
 
 // 데이터 변경 후 자동 호출 (loadAllPurchaseDB 끝에 연결)
 // 그리고 구매현황 탭 진입 시도 호출
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🌱 테스트 데이터 시드 (콘솔에서 호출: seedPurchaseTestData())
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function seedPurchaseTestData() {
+  if(!confirm("⚠️ 테스트 샘플 데이터를 SharePoint에 저장합니다.\n\n각 DB에 5건씩 추가됩니다 (BOM/PR/견적/발주/입고/세금/회계).\n\n계속하시겠어요?")) return;
+  
+  const today = new Date().toISOString().slice(0,10);
+  const yymm = today.slice(2,4)+today.slice(5,7)+today.slice(8,10);
+  const samples = {
+    bom: [
+      { bomCode:"BOM-0001", productName:"EHD 프린터 헤드 어셈블리", type:"조립품", version:"v2.1", partNo:"ENJ-HEAD-A01", itemCount:12, estCost:8500000, source:"수동등록", components:"노즐 모듈, 토출 회로, 정렬 센서, 케이블 등", relatedPRs:[`PR-${yymm}-01`] },
+      { bomCode:"BOM-0002", productName:"코터 챔버 모듈", type:"조립품", version:"v1.5", partNo:"ENJ-CHAMBER-C01", itemCount:8, estCost:3200000, source:"구매요청서 자동생성", components:"챔버 본체, 진공 펌프, 필터, 게이지 등", relatedPRs:[`PR-${yymm}-02`] },
+      { bomCode:"BOM-0003", productName:"정렬 스테이지 (XY)", type:"완제품", version:"v3.0", partNo:"ENJ-STAGE-XY", itemCount:6, estCost:5400000, source:"수동등록", components:"리니어 모터, 인코더, 컨트롤러", relatedPRs:[] },
+      { bomCode:"BOM-0004", productName:"잉크 카트리지 (1L)", type:"반제품", version:"v1.0", partNo:"ENJ-INK-1L", itemCount:3, estCost:180000, source:"수동등록", components:"카트리지, 필터, 라벨", relatedPRs:[`PR-${yymm}-04`] },
+      { bomCode:"BOM-0005", productName:"GUI 시스템 보드", type:"조립품", version:"v2.0", partNo:"ENJ-GUI-A02", itemCount:15, estCost:1850000, source:"수동등록", components:"메인보드, 디스플레이, IO 보드", relatedPRs:[] },
+    ],
+    pr: [
+      { prCode:`PR-${yymm}-01`, reqDept:"ES사업부", reqDate:today, dueDate:today, requester:"성백훈", items:"EHD 프린터 헤드 어셈블리 2조 (납기 2주)", bomName:"EHD 프린터 헤드 어셈블리", bomCode:"BOM-0001", amount:17000000, vendorCandidates:"에이치비솔루션㈜, 아이마켓코리아", status:"발주완료", priority:"일반", note:"삼성디스플레이 향" },
+      { prCode:`PR-${yymm}-02`, reqDept:"기술연구소", reqDate:today, dueDate:today, requester:"김연구", items:"코터 챔버 모듈 1세트 (시급)", bomName:"코터 챔버 모듈", bomCode:"BOM-0002", amount:3500000, vendorCandidates:"DuPont Taiwan", status:"납기확인중", priority:"긴급", note:"AUO 프로젝트" },
+      { prCode:`PR-${yymm}-03`, reqDept:"ES사업부", reqDate:today, dueDate:"", requester:"이영업", items:"진공 펌프 (소형) 3대", bomName:"", bomCode:"", amount:1500000, vendorCandidates:"한국유리공업, 영동제약", status:"구매요청접수", priority:"일반", note:"" },
+      { prCode:`PR-${yymm}-04`, reqDept:"미래성장전략팀", reqDate:today, dueDate:today, requester:"박미래", items:"잉크 카트리지 (1L) 20개", bomName:"잉크 카트리지 (1L)", bomCode:"BOM-0004", amount:3600000, vendorCandidates:"디엔에프신소재", status:"매입완료", priority:"낮음", note:"정기 보충" },
+      { prCode:`PR-${yymm}-05`, reqDept:"경영전략본부", reqDate:today, dueDate:"", requester:"성백훈", items:"카드결제 노트북 1대 (재무팀용)", bomName:"", bomCode:"", amount:2200000, vendorCandidates:"신한카드", status:"입고확인", priority:"일반", note:"카드결제 / IT자산" },
+    ],
+    pord: [
+      { poCode:`PO-${yymm}-01`, prCode:`PR-${yymm}-01`, vendor:"에이치비솔루션㈜", poDate:today, deliveryDate:today, items:"EHD 프린터 헤드 어셈블리 2조", supplyAmount:15454545, vatAmount:1545455, totalAmount:17000000, payTerm:"외상30일", status:"발주완료", note:"" },
+      { poCode:`PO-${yymm}-02`, prCode:`PR-${yymm}-04`, vendor:"㈜디엔에프신소재", poDate:today, deliveryDate:today, items:"잉크 카트리지 (1L) 20개", supplyAmount:3272727, vatAmount:327273, totalAmount:3600000, payTerm:"현금", status:"입고완료", note:"" },
+      { poCode:`PO-${yymm}-03`, prCode:`PR-${yymm}-05`, vendor:"한국유리공업㈜", poDate:today, deliveryDate:today, items:"카드결제 노트북 1대", supplyAmount:2000000, vatAmount:200000, totalAmount:2200000, payTerm:"카드결제", status:"입고대기", note:"법인카드" },
+    ],
+    pdlv: [
+      { dlvNo:"DLV-260519-001", poCode:`PO-${yymm}-02`, prCode:`PR-${yymm}-04`, vendor:"㈜디엔에프신소재", dlvDate:today, items:"잉크 카트리지 (1L) 20개", supplyAmount:3272727, vatAmount:327273, totalAmount:3600000, inspectStatus:"검수완료", inspector:"성백훈", defectNote:"" },
+      { dlvNo:"DLV-260519-002", poCode:`PO-${yymm}-01`, prCode:`PR-${yymm}-01`, vendor:"에이치비솔루션㈜", dlvDate:today, items:"EHD 프린터 헤드 어셈블리 2조", supplyAmount:15454545, vatAmount:1545455, totalAmount:17000000, inspectStatus:"일부불량", inspector:"김검수", defectNote:"1조 노즐 정렬 불량 - 교환 요청" },
+    ],
+    ptax: [
+      { taxNo:"20260519-12345678", prCode:`PR-${yymm}-04`, vendor:"㈜디엔에프신소재", bizNo:"123-45-67890", taxDate:today, payDue:today, eTaxType:"전자", supplyAmount:3272727, vatAmount:327273, totalAmount:3600000, payStatus:"paid", actualPayDate:today, note:"" },
+      { taxNo:"20260519-87654321", prCode:`PR-${yymm}-01`, vendor:"에이치비솔루션㈜", bizNo:"234-56-78901", taxDate:today, payDue:today, eTaxType:"전자", supplyAmount:15454545, vatAmount:1545455, totalAmount:17000000, payStatus:"unpaid", actualPayDate:"", note:"외상 30일" },
+    ],
+    pstl: [
+      { stCode:`ST-${yymm}-01`, prCode:`PR-${yymm}-04`, poCode:`PO-${yymm}-02`, vendor:"㈜디엔에프신소재", stlDate:today, amount:3600000, payMethod:"계좌이체", payDate:today, acctNo:"AP-260519-001", payStatus:"paid", note:"잉크 카트리지 정산 완료" },
+    ],
+  };
+  
+  // 메모리에 추가 + id, createdAt 부여
+  const addId = (arr, prefix) => arr.map((d,i) => ({
+    ...d,
+    id: `${prefix}_seed_${Date.now()}_${i}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }));
+  
+  _bomData    = (_bomData||[]).concat(addId(samples.bom, "bom"));
+  _prMaster   = (_prMaster||[]).concat(addId(samples.pr, "pr"));
+  _pordData   = (_pordData||[]).concat(addId(samples.pord, "po"));
+  _pdlvData   = (_pdlvData||[]).concat(addId(samples.pdlv, "pdlv"));
+  _ptaxData   = (_ptaxData||[]).concat(addId(samples.ptax, "ptax"));
+  _pstlData   = (_pstlData||[]).concat(addId(samples.pstl, "stl"));
+  
+  // SharePoint 저장
+  console.log("🌱 테스트 데이터 SharePoint 저장 중...");
+  const results = await Promise.allSettled([
+    saveBOMDB(), savePRMaster(), savePORD(), savePDLV(), savePTAX(), savePSTL()
+  ]);
+  
+  // 화면 갱신
+  if(typeof renderBOMDB === "function") renderBOMDB();
+  if(typeof renderPRDB === "function") renderPRDB();
+  if(typeof renderPORD === "function") renderPORD();
+  if(typeof renderPDLV === "function") renderPDLV();
+  if(typeof renderPTAX === "function") renderPTAX();
+  if(typeof renderPSTL === "function") renderPSTL();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  
+  const success = results.filter(r => r.status === "fulfilled" && r.value?.sp).length;
+  alert(`✅ 테스트 데이터 시드 완료!\n\n각 DB 추가:\n- BOM 5건\n- PR 5건\n- 발주서 3건\n- 입고 거래명세서 2건\n- 매입세금계산서 2건\n- 회계전표 1건\n\nSharePoint 저장 성공: ${success}/6`);
+  console.log(`✅ 시드 완료 (SP 저장: ${success}/6)`);
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -24110,7 +24497,7 @@ function deleteTax(id){
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="file" id="pq-f-file" accept="application/pdf,.pdf,image/*"
               style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
-            <button type="button" onclick="alert('🤖 AI 견적서 파싱은 다음 세션 구현 예정\\n현재는 파일만 첨부됩니다.')"
+            <button type="button" onclick="aiParsePurchaseQuote()"
               style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
           </div>
           <div id="pq-f-file-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
@@ -24414,10 +24801,15 @@ function deleteTax(id){
           <input class="si" type="text" id="ptax-f-note" placeholder="특이사항" style="width:100%">
         </div>
 
-        <!-- 파일 -->
-        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 세금계산서 PDF (선택)</label>
-          <input type="file" id="ptax-f-file" accept="application/pdf,.pdf,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
+        <!-- 파일 + AI 파싱 -->
+        <div style="margin-bottom:14px;padding:12px;background:#fff7ed;border-radius:8px;border:1.5px solid var(--a)">
+          <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">📎 세금계산서 PDF + 🤖 AI 자동입력</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="file" id="ptax-f-file" accept="application/pdf,.pdf,image/*" style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
+            <button type="button" onclick="aiParsePurchaseTax()"
+              style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:6px">※ 세금계산서 PDF 업로드 후 AI파싱 → 번호/거래처/사업자번호/금액 자동 추출</div>
         </div>
 
         <div style="display:flex;gap:8px;justify-content:flex-end">
