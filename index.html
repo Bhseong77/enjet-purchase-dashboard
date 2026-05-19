@@ -851,68 +851,57 @@
 
       <!-- 추가/수정 모달 -->
       <div id="slModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-        <div class="modal-inner" style="background:#fff;border-radius:16px;padding:28px;width:620px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
+        <div class="modal-inner" style="background:#fff;border-radius:16px;padding:28px;width:680px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
           <button onclick="closeSLModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-          <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:20px" id="slModalTitle">구매활동 추가</div>
+          <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="slModalTitle">📋 구매활동 추가</div>
+          <div style="font-size:13px;color:var(--t3);margin-bottom:18px">영업프로젝트 선택 → 구매요청서 업로드 → AI파싱 → 등록 완료</div>
 
-          <!-- 고객사명 -->
-          <div style="margin-bottom:12px">
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">고객사명 *</label>
-            <input class="si" type="text" id="sl-f-company" placeholder="예: 삼성전자㈜" style="width:100%">
+          <!-- 1단계: 영업프로젝트코드 선택 -->
+          <div style="margin-bottom:14px;padding:12px;background:var(--pd);border-radius:8px;border:1px solid var(--p)">
+            <label style="font-size:14px;font-weight:700;color:var(--p);display:block;margin-bottom:6px">① 영업프로젝트 코드 <span style="color:var(--r)">*</span></label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div id="sl-f-pjcode-display"
+                style="flex:1;padding:10px 12px;border:1.5px solid var(--p);border-radius:7px;font-size:15px;font-family:var(--m);min-height:42px;color:var(--t3);background:#fff;cursor:pointer"
+                onclick="openPjCodePickerForModal()"
+                title="영업 SL/SP 코드 검색">
+                미선택 — 클릭해서 영업프로젝트 선택
+              </div>
+              <button type="button" onclick="openPjCodePickerForModal()"
+                style="padding:10px 12px;border-radius:7px;border:1.5px solid var(--p);background:var(--p);color:#fff;font-size:18px;cursor:pointer;flex-shrink:0" title="영업프로젝트 검색">🔍</button>
+            </div>
+            <input type="hidden" id="sl-f-pjcode" value="">
+            <div style="font-size:11px;color:var(--t3);margin-top:5px">※ 영업 대시보드에서 등록된 프로젝트 코드 (SL/SP) 자동 매칭 → 고객사명 자동 입력</div>
           </div>
 
-          <!-- 프로젝트코드 + 진행상태 -->
+          <!-- 고객사 (영업프로젝트에서 자동) + 영업프로젝트명 -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
             <div>
-              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">프로젝트코드 <span style="font-weight:400;color:var(--t3)">(신규=차수 입력)</span></label>
-              <!-- 선택 결과 표시 + 피커 버튼 -->
-              <div style="display:flex;gap:6px;align-items:center">
-                <div id="sl-f-pjcode-display"
-                  style="flex:1;padding:8px 11px;border:1.5px solid var(--border2);border-radius:7px;font-size:15px;font-family:var(--m);min-height:40px;color:var(--t3);background:var(--bg3);cursor:pointer"
-                  onclick="openPjCodePickerForModal()"
-                  title="클릭해서 검색/선택">
-                  미선택
-                </div>
-                <button type="button" onclick="openPjCodePickerForModal()"
-                  style="padding:8px 10px;border-radius:7px;border:1.5px solid var(--p);background:var(--pd);color:var(--p);font-size:18px;cursor:pointer;flex-shrink:0" title="검색 또는 신규등록">🔍</button>
-              </div>
-              <input type="hidden" id="sl-f-pjcode" value="">
-              <div style="font-size:11px;color:var(--t3);margin-top:3px">Teams 제목: [영업] 고객사-코드</div>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">고객사 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
+              <input class="si" type="text" id="sl-f-company" placeholder="영업프로젝트 선택 시 자동 입력" style="width:100%;background:var(--bg3);color:var(--t2)" readonly>
             </div>
             <div>
-              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">진행상태 *</label>
-              <select class="ss" id="sl-f-status" style="width:100%">
-                <option value="신규">🆕 신규</option><option value="제안">💡 제안</option>
-                <option value="견적">📋 견적</option><option value="발주">📦 발주</option>
-                <option value="진행">▶️ 진행</option><option value="납품완료">✅ 납품완료</option>
-                <option value="세금계산서미발행">🧾 세금계산서미발행</option>
-                <option value="세금계산서완료">✅ 세금계산서완료</option>
-                <option value="잔금">💰 잔금</option>
-                <option value="유지보수(무상)">🔧 유지보수(무상)</option>
-                <option value="종료">⛔ 종료</option>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">영업프로젝트명 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
+              <input class="si" type="text" id="sl-f-salesname" placeholder="자동 입력" style="width:100%;background:var(--bg3);color:var(--t2)" readonly>
+            </div>
+          </div>
+
+          <!-- 현업부서 + 구매담당자 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">현업 요청부서 <span style="color:var(--r)">*</span></label>
+              <select class="ss" id="sl-f-reqdept" style="width:100%">
+                <option value="">선택...</option>
+                <option value="ES사업부">ES사업부 (장비사업부)</option>
+                <option value="기술연구소">기술연구소 (연구소)</option>
+                <option value="경영전략본부">경영전략본부</option>
+                <option value="미래성장전략팀">미래성장전략팀</option>
+                <option value="구매팀">구매팀 (자체구매)</option>
+                <option value="기타">기타</option>
               </select>
-            </div>
-          </div>
-
-          <!-- 고객담당자 + 구매담당자 -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-            <div>
-              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">고객담당자</label>
-              <!-- 선택 결과 표시 + 피커 버튼 -->
-              <div style="display:flex;gap:6px;align-items:center">
-                <div id="sl-f-custmgr-display"
-                  style="flex:1;padding:8px 11px;border:1.5px solid var(--border2);border-radius:7px;font-size:14px;font-family:var(--s);min-height:40px;color:var(--t3);background:var(--bg3);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
-                  onclick="openCustMgrPickerForModal()"
-                  title="클릭해서 검색/선택">
-                  미선택
-                </div>
-                <button type="button" onclick="openCustMgrPickerForModal()"
-                  style="padding:8px 10px;border-radius:7px;border:1.5px solid var(--g);background:var(--gd);color:var(--g);font-size:18px;cursor:pointer;flex-shrink:0" title="담당자 검색">👤</button>
-              </div>
-              <input type="hidden" id="sl-f-custmgr" value="">
+              <div style="font-size:11px;color:var(--t3);margin-top:3px">※ 구매요청서를 발의한 부서</div>
             </div>
             <div>
-              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">구매담당자</label>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">구매담당자 <span style="color:var(--r)">*</span></label>
               <div style="display:flex;gap:5px">
                 <input class="si" type="text" id="sl-f-salesmgr" placeholder="성백훈" style="flex:1">
                 <button onclick="openHRPicker('sl-f-salesmgr')" type="button"
@@ -923,50 +912,87 @@
             </div>
           </div>
 
-          <!-- 일정 시작/종료 + 시간 -->
+          <!-- 진행상태 (구매 6단계) + 우선순위 -->
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">진행상태 <span style="color:var(--r)">*</span></label>
+              <select class="ss" id="sl-f-status" style="width:100%">
+                <option value="구매요청접수">📥 구매요청접수</option>
+                <option value="납기확인중">📊 납기확인중</option>
+                <option value="발주완료">📦 발주완료</option>
+                <option value="입고확인">🚚 입고확인</option>
+                <option value="완료예정">🧾 완료예정</option>
+                <option value="매입완료">✅ 매입완료</option>
+                <option value="보류">⏸ 보류</option>
+                <option value="취소">❌ 취소</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">우선순위</label>
+              <select class="ss" id="sl-f-priority" style="width:100%">
+                <option value="일반">일반</option>
+                <option value="긴급">🔴 긴급</option>
+                <option value="낮음">낮음</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 요청일 + 납기희망일 -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
             <div>
-              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">일정 시작</label>
-              <div style="display:flex;gap:6px">
-                <input class="si" type="date" id="sl-f-start" style="flex:1.5">
-                <input class="si" type="time" id="sl-f-stime" value="09:00" style="flex:1">
-              </div>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">요청일 <span style="color:var(--r)">*</span></label>
+              <input class="si" type="date" id="sl-f-start" style="width:100%">
             </div>
             <div>
-              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">일정 종료</label>
-              <div style="display:flex;gap:6px">
-                <input class="si" type="date" id="sl-f-end" style="flex:1.5">
-                <input class="si" type="time" id="sl-f-etime" value="18:00" style="flex:1">
-              </div>
+              <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">납기 희망일</label>
+              <input class="si" type="date" id="sl-f-end" style="width:100%">
             </div>
           </div>
 
-          <!-- 비고 -->
+          <!-- 숨김: 영업 모달 호환용 시간 필드 -->
+          <input type="hidden" id="sl-f-stime" value="09:00">
+          <input type="hidden" id="sl-f-etime" value="18:00">
+          <input type="hidden" id="sl-f-custmgr" value="">
+
+          <!-- 비고/메모 -->
           <div style="margin-bottom:14px">
             <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고/메모</label>
-            <textarea class="si" id="sl-f-note" placeholder="제품, 수량, 특이사항 등" style="width:100%;height:70px;resize:vertical"></textarea>
+            <textarea class="si" id="sl-f-note" placeholder="요청 사유, 특이사항, 거래처 후보 등" style="width:100%;height:60px;resize:vertical"></textarea>
           </div>
 
-          <!-- 참석자 (이메일) -->
+          <!-- ② 구매요청서 업로드 (필수) -->
+          <div style="margin-bottom:14px;padding:14px;background:#fff7ed;border-radius:8px;border:2px solid var(--a)">
+            <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">② 구매요청서 PDF 업로드 <span style="color:var(--r)">*</span></label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input type="file" id="sl-f-prfile" accept="application/pdf,.pdf,.docx,.xlsx,.hwp,image/*"
+                style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px;font-family:var(--s)">
+              <button type="button" onclick="if(typeof aiParsePR==='function'){aiParsePR()}else{alert('AI 파싱은 다음 세션 구현 예정 - 일단 파일만 첨부됩니다')}" 
+                style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-top:6px">※ 구매요청서 PDF 업로드 시 AI가 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
+            <div id="sl-f-prfile-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
+          </div>
+
+          <!-- 참석자 (DM 발송용) -->
           <div style="margin-bottom:14px">
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">참석자 이메일 <span style="color:var(--t3);font-weight:400">(쉼표로 구분, 채널 메시지 + DM 발송용)</span></label>
-            <input class="si" type="text" id="sl-f-attendees" placeholder="예: hnkim@enjet.co.kr, dybyun@enjet.co.kr" style="width:100%;font-size:14px">
+            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">참조자 이메일 <span style="color:var(--t3);font-weight:400">(쉼표 구분, 채널·DM 알림용)</span></label>
+            <input class="si" type="text" id="sl-f-attendees" placeholder="예: 현업담당자, 영업담당자 메일" style="width:100%;font-size:14px">
           </div>
 
           <!-- 자동 실행 옵션 -->
           <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
             <div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:8px">저장 시 자동 실행</div>
             <div style="display:flex;gap:14px;flex-wrap:wrap">
-              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-folder" checked> 📁 SP 폴더 생성</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-teams" checked> 📅 그룹 캘린더 등록</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-msg" checked> 💬 채널 일정 알림</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-dm" checked> 📨 참석자 DM (수락/거부)</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-folder" checked> 📁 SP 폴더 생성 (영업코드 하위)</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-teams" checked> 📅 구매팀 그룹 캘린더</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-msg" checked> 💬 구매 채널 알림</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:14px;cursor:pointer"><input type="checkbox" id="sl-opt-dm" checked> 📨 참조자 DM</label>
             </div>
           </div>
 
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button onclick="closeSLModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-            <button onclick="saveSLActivity()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 + 폴더생성</button>
+            <button onclick="saveSLActivity()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 + PR 생성</button>
           </div>
         </div>
       </div>
@@ -2761,6 +2787,44 @@ async function readSP(prefix, opts) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🏪 거래처DB 로딩 (별도 폴더 - 🏭 구매/2.거래처DB/거래처DB_v1.xlsx)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 🤖 구매요청서 AI 파싱 (placeholder - 다음 세션 구현)
+async function aiParsePR() {
+  const fileInput = document.getElementById("sl-f-prfile");
+  const file = fileInput?.files?.[0];
+  if(!file) { alert("먼저 구매요청서 PDF를 선택해주세요."); return; }
+  
+  const info = document.getElementById("sl-f-prfile-info");
+  if(info) {
+    info.style.display = "block";
+    info.textContent = `🤖 AI 파싱 진행중... ${file.name}`;
+  }
+  
+  alert(`🤖 AI 파싱은 다음 세션에서 구현 예정입니다.\n\n파일: ${file.name}\n크기: ${(file.size/1024).toFixed(1)} KB\n\n현재는 파일만 첨부됩니다. 저장 시 SP 폴더에 업로드됩니다.`);
+  
+  if(info) info.textContent = `📎 ${file.name} (${(file.size/1024).toFixed(1)} KB) — AI 파싱은 다음 세션 구현 예정`;
+}
+
+// 파일 선택 시 정보 표시
+window.addEventListener("DOMContentLoaded", () => {
+  const prInput = document.getElementById("sl-f-prfile");
+  if(prInput) {
+    prInput.addEventListener("change", () => {
+      const f = prInput.files?.[0];
+      const info = document.getElementById("sl-f-prfile-info");
+      if(info) {
+        if(f) {
+          info.style.display = "block";
+          info.textContent = `📎 선택됨: ${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+          info.style.color = "var(--g)";
+        } else {
+          info.style.display = "none";
+        }
+      }
+    });
+  }
+});
+
 let vendorData = [];
 
 async function loadVendorDB() {
@@ -14182,6 +14246,11 @@ async function uploadQuoteFile() {
 }
 
 function openQuoteModal(actId) {
+  // 🚫 구매 대시보드: 영업 견적서 발행 모달은 사용하지 않음
+  // 매입 견적서는 거래처에서 수신하는 것이므로 별도 모달 필요 (다음 세션 구현)
+  alert("📄 매입 견적서 입력 기능은 다음 세션에서 구현 예정입니다.\n\n구매 견적서는 거래처에서 수신한 견적서를 PDF로 업로드 후 AI파싱하는 방식으로 동작합니다.\n(영업의 견적서 발행과는 흐름이 정반대)");
+  return;
+  // ↓ 영업 견적서 발행 코드 (구매 대시보드에서는 사용 안 함)
   console.log("📄 openQuoteModal 호출, actId =", actId);
   try {
     _quoteActId = actId;  // null이면 DB 독립 모드
@@ -14904,11 +14973,50 @@ function slModalSetPjcode(code, label) {
       display.style.fontWeight = "700";
       display.style.background = "var(--pd)";
     } else {
-      display.textContent = "미선택";
+      display.textContent = "미선택 — 클릭해서 영업프로젝트 선택";
       display.style.color = "var(--t3)";
       display.style.fontWeight = "400";
-      display.style.background = "var(--bg3)";
+      display.style.background = "#fff";
     }
+  }
+  
+  // 🆕 구매 대시보드: 영업프로젝트 선택 시 고객사명·영업프로젝트명 자동 채움
+  const companyInput = document.getElementById("sl-f-company");
+  const salesnameInput = document.getElementById("sl-f-salesname");
+  if(!code) {
+    if(companyInput) companyInput.value = "";
+    if(salesnameInput) salesnameInput.value = "";
+    return;
+  }
+  // PD (영업 프로젝트 List) 또는 PD_STATIC에서 검색
+  let proj = null;
+  const allProjects = (typeof PD !== "undefined" && Array.isArray(PD)) ? PD : [];
+  proj = allProjects.find(p => 
+    (p["프로젝트번호"]||"").trim() === code.trim() ||
+    (p.pjcode||"").trim() === code.trim()
+  );
+  if(!proj && typeof PD_STATIC !== "undefined") {
+    proj = PD_STATIC.find(p => (p["프로젝트번호"]||"").trim() === code.trim());
+  }
+  // 영업 대시보드의 sales-activities.json 데이터에서도 찾기 (dashProjects)
+  if(!proj && typeof dashProjects !== "undefined" && Array.isArray(dashProjects)) {
+    const dp = dashProjects.find(d => (d.pjcode||"").trim() === code.trim());
+    if(dp) proj = { 거래처: dp.company, 프로젝트명: dp.title || dp.salesPjName };
+  }
+  
+  if(proj) {
+    if(companyInput) companyInput.value = proj["거래처"] || proj.company || "";
+    if(salesnameInput) salesnameInput.value = proj["프로젝트명"] || proj.title || proj.salesPjName || label || "";
+    console.log("✅ 영업프로젝트 자동매칭:", code, "→", proj["거래처"] || proj.company);
+  } else {
+    // 매칭 실패 - label만 표시 (수동 입력 가능)
+    if(companyInput && !companyInput.value) {
+      companyInput.placeholder = "영업프로젝트에서 자동 매칭 실패 - 수동 입력 가능";
+      companyInput.readOnly = false;
+      companyInput.style.background = "#fff";
+    }
+    if(salesnameInput) salesnameInput.value = label || code;
+    console.warn("⚠️ 영업프로젝트 매칭 실패:", code);
   }
 }
 
@@ -15008,8 +15116,29 @@ function findExistingNewActivity(company) {
 
 // ─── 저장 (폴더 생성 + Teams 등록 + 채널 카드 + DM) ───
 async function saveSLActivity() {
+  // 🆕 구매 대시보드 전용 검증
+  const pjcodeVal = document.getElementById("sl-f-pjcode").value.trim();
+  if(!pjcodeVal) {
+    alert("영업프로젝트 코드를 선택해주세요.\n🔍 버튼으로 SL/SP 코드를 검색하세요.");
+    return;
+  }
+  const reqdeptVal = document.getElementById("sl-f-reqdept")?.value || "";
+  if(!reqdeptVal && !slEditId) {
+    alert("현업 요청부서를 선택해주세요.");
+    return;
+  }
+  // 신규 추가 시 구매요청서 PDF 필수
+  if(!slEditId) {
+    const prFile = document.getElementById("sl-f-prfile")?.files?.[0];
+    if(!prFile) {
+      alert("⚠️ 구매요청서 PDF를 업로드해주세요.\n구매활동의 시작은 구매요청서 업로드입니다.");
+      return;
+    }
+    console.log("📎 구매요청서 파일:", prFile.name, prFile.size + "bytes");
+  }
+  
   const company = document.getElementById("sl-f-company").value.trim();
-  if(!company){alert("고객사명을 입력해주세요.");return;}
+  if(!company){alert("고객사명이 자동 채워지지 않았습니다.\n영업프로젝트 코드를 다시 확인하거나 수동으로 입력해주세요.");return;}
   let pjcode  = document.getElementById("sl-f-pjcode").value.trim();
   const status  = document.getElementById("sl-f-status").value;
 
@@ -15045,7 +15174,12 @@ async function saveSLActivity() {
   const act = {
     id: slEditId || "sl_"+Date.now(),
     company, pjcode, status,
-    custMgr:   document.getElementById("sl-f-custmgr").value.trim(),
+    // 🆕 구매 전용 필드
+    salesPjName: document.getElementById("sl-f-salesname")?.value.trim() || "",
+    reqDept:     reqdeptVal,                                      // 현업 요청부서
+    priority:    document.getElementById("sl-f-priority")?.value || "일반",
+    // 영업 모달 호환 필드 (영업 코드 호환 위해 유지)
+    custMgr:   reqdeptVal,  // 구매에서는 custMgr 자리에 reqDept 저장 (영업 코드와 호환)
     salesMgr:  document.getElementById("sl-f-salesmgr").value.trim(),
     start:     document.getElementById("sl-f-start").value,
     end:       document.getElementById("sl-f-end").value,
@@ -19236,6 +19370,11 @@ function renderOrderDB() {
 }
 
 function openOrderModal(id) {
+  // 🚫 구매 대시보드: 영업 발주서 모달은 사용하지 않음
+  // 매입 발주서는 ENJET가 거래처에 발행하는 것이므로 별도 모달 필요 (다음 세션 구현)
+  alert("📦 매입 발주서 입력 기능은 다음 세션에서 구현 예정입니다.\n\n구매 발주서는 ENJET가 거래처에 발행 (PO-YYMMDD-NN 자동채번)하는 방식으로 동작합니다.\n(영업의 발주서 수신과는 흐름이 정반대)");
+  return;
+  // ↓ 영업 발주서 모달 코드 (구매 대시보드에서는 사용 안 함)
   const modal = document.getElementById("orderModal"); if(!modal) return;
   const gk = localStorage.getItem("gemini_key")||""; if(gk){const el=document.getElementById("orderGeminiKey");if(el)el.value=gk;}
   const ok = localStorage.getItem("oai_key")||""; if(ok){const el=document.getElementById("orderOpenAIKey");if(el)el.value=ok;}
@@ -19804,6 +19943,11 @@ function calcTaxTotal() {
 }
 
 function openDeliveryModal(id) {
+  // 🚫 구매 대시보드: 영업 거래명세서(출고, 발행) 모달은 사용하지 않음
+  // 매입 거래명세서는 거래처에서 수신(입고)하는 것이므로 별도 모달 필요 (다음 세션 구현)
+  alert("🚚 매입 거래명세서(입고 확인) 입력 기능은 다음 세션에서 구현 예정입니다.\n\n매입 거래명세서는 거래처에서 받은 입고 거래명세서를 업로드하고 검수상태(검수완료/일부불량/미검수)를 기록하는 방식으로 동작합니다.\n(영업의 출고 거래명세서 발행과는 흐름이 정반대)");
+  return;
+  // ↓ 영업 거래명세서 모달 코드 (구매 대시보드에서는 사용 안 함)
   const modal=document.getElementById("dlvModal"); if(!modal) return;
   const gk=localStorage.getItem("gemini_key")||""; if(gk) { const el=document.getElementById("dlvGeminiKey"); if(el) el.value=gk; }
   const ok=localStorage.getItem("oai_key")||""; if(ok) { const el=document.getElementById("dlvOpenAIKey"); if(el) el.value=ok; }
@@ -19859,6 +20003,11 @@ function openDeliveryModal(id) {
   bindModalAutosave("dlvModal", _FIELDS_dlvModal);
 }
 function openTaxModal(id) {
+  // 🚫 구매 대시보드: 영업 세금계산서(매출세금 발행) 모달은 사용하지 않음
+  // 매입세금계산서는 거래처에서 수신하는 것이므로 별도 모달 필요 (다음 세션 구현)
+  alert("🧾 매입 세금계산서 입력 기능은 다음 세션에서 구현 예정입니다.\n\n매입세금계산서는 거래처에서 발행받은 PDF를 업로드 후 AI파싱하는 방식으로 동작합니다.\n부가세 환급 대상이며, 영업 매출세금계산서(발행)와는 흐름이 정반대입니다.");
+  return;
+  // ↓ 영업 세금계산서 모달 코드 (구매 대시보드에서는 사용 안 함)
   const modal=document.getElementById("taxModal"); if(!modal) return;
   const gk=localStorage.getItem("gemini_key")||""; if(gk) { const el=document.getElementById("taxGeminiKey"); if(el) el.value=gk; }
   const ok=localStorage.getItem("oai_key")||""; if(ok) { const el=document.getElementById("taxOpenAIKey"); if(el) el.value=ok; }
