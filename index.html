@@ -1182,13 +1182,15 @@
               </div>
 
               <!-- 품목 테이블 헤더 -->
-              <div style="padding:7px 12px;background:#1e40af;color:#fff;font-size:11px;font-weight:700;display:grid;grid-template-columns:24px 1fr 1.2fr 0.9fr 0.5fr 0.6fr 1fr 0.9fr 30px;gap:4px;flex-shrink:0;border-bottom:2px solid #1e3a8a">
+              <div style="padding:7px 12px;background:#1e40af;color:#fff;font-size:11px;font-weight:700;display:grid;grid-template-columns:24px 1fr 1.1fr 0.8fr 0.4fr 0.5fr 0.8fr 0.8fr 0.9fr 0.8fr 30px;gap:3px;flex-shrink:0;border-bottom:2px solid #1e3a8a">
                 <div style="text-align:center">#</div>
                 <div>품명</div>
                 <div>품번</div>
                 <div>규격</div>
                 <div style="text-align:center">단위</div>
                 <div style="text-align:right">수량</div>
+                <div style="text-align:right" title="EA당 단가">단가(₩)</div>
+                <div style="text-align:right" title="단가×수량 자동">금액(₩)</div>
                 <div>거래처/제조사</div>
                 <div>납기요청일</div>
                 <div></div>
@@ -2701,26 +2703,28 @@
         </div>
         <div class="cb" style="padding:10px 14px">
           <div style="overflow-x:auto">
-            <table class="tbl" style="min-width:900px">
+            <table class="tbl" style="min-width:1300px">
               <thead><tr>
                 <th style="min-width:100px">BOM코드</th>
                 <th style="min-width:200px">제품명</th>
                 <th style="min-width:80px">유형</th>
                 <th style="min-width:70px">버전</th>
-                <th style="min-width:70px">품목수</th>
-                <th style="min-width:120px">추정원가</th>
-                <th style="min-width:90px">등록경로</th>
-                <th style="min-width:100px">관련 PR</th>
-                <th style="min-width:90px">등록일</th>
+                <th style="min-width:90px;text-align:right">현재 단가</th>
+                <th style="min-width:140px">현재 거래처</th>
+                <th style="min-width:80px;text-align:center">네고율</th>
+                <th style="min-width:90px;text-align:center" title="견적 이력 (네고 횟수)">📋 견적이력</th>
+                <th style="min-width:85px">최종견적일</th>
+                <th style="min-width:90px">관련 PR</th>
+                <th style="min-width:60px;text-align:center">관리</th>
               </tr></thead>
               <tbody id="bomTableBody">
-                <tr><td colspan="9"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>
+                <tr><td colspan="11"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>
               </tbody>
             </table>
           </div>
           <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="bomTableCnt"></div>
         </div>
-        <div class="cn">※ 구매요청서 AI파싱 시 productName 일치하면 매칭, 없으면 신규 생성</div>
+        <div class="cn">※ 견적서 등록 시 BOM에 가격 이력 자동 누적 · 네고율 = (최초 견적 단가 - 현재 단가) / 최초 견적 단가 × 100% · 견적이력 클릭 시 네고 추이 확인</div>
       </div>
     </div>
 
@@ -3441,7 +3445,10 @@ function renderPRReviewItems() {
     const safeSpec = (it.spec||"").replace(/"/g,"&quot;");
     const safeUnit = (it.unit||"EA").replace(/"/g,"&quot;");
     const safeVendor = (it.vendor||"").replace(/"/g,"&quot;");
-    return `<div style="display:grid;grid-template-columns:24px 1fr 1.2fr 0.9fr 0.5fr 0.6fr 1fr 0.9fr 30px;gap:4px;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border);${i%2?"background:#fafbfc":""}">
+    const unitPrice = Number(it.unitPrice||0);
+    const qty = Number(it.qty||0);
+    const totalAmt = unitPrice * qty;
+    return `<div style="display:grid;grid-template-columns:24px 1fr 1.1fr 0.8fr 0.4fr 0.5fr 0.8fr 0.8fr 0.9fr 0.8fr 30px;gap:3px;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border);${i%2?"background:#fafbfc":""}">
       <div style="font-size:10px;color:var(--t3);text-align:center;font-weight:700">${i+1}</div>
       <input type="text" value="${safeName}" oninput="updatePRReviewItem(${i},'name',this.value)"
         placeholder="품명" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;font-weight:600">
@@ -3451,9 +3458,14 @@ function renderPRReviewItems() {
         placeholder="규격" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:10px;width:100%;box-sizing:border-box">
       <input type="text" value="${safeUnit}" oninput="updatePRReviewItem(${i},'unit',this.value)"
         style="padding:5px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:center;box-sizing:border-box;font-family:var(--m)">
-      <input type="number" value="${it.qty||0}" min="0" step="0.01"
+      <input type="number" value="${qty}" min="0" step="0.01"
         oninput="updatePRReviewItem(${i},'qty',this.value)"
         style="padding:5px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);font-weight:700">
+      <input type="number" value="${unitPrice||""}" min="0" step="1" placeholder="단가"
+        oninput="updatePRReviewItem(${i},'unitPrice',this.value)"
+        title="EA당 단가 (원)"
+        style="padding:5px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);background:${unitPrice>0?'#fef9c3':'#fff'}">
+      <div style="padding:5px 6px;text-align:right;font-family:var(--m);font-size:11px;font-weight:700;color:${totalAmt>0?'var(--p)':'var(--t3)'};background:#f8fafc;border-radius:4px" title="단가 × 수량 자동 계산">${totalAmt > 0 ? totalAmt.toLocaleString() : "-"}</div>
       <input type="text" value="${safeVendor}" oninput="updatePRReviewItem(${i},'vendor',this.value)" onblur="normalizePRReviewVendor(${i})"
         placeholder="거래처" style="padding:5px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;${vendorBg}">
       <input type="date" value="${(it.dueDate||"").substring(0,10)}" oninput="updatePRReviewItem(${i},'dueDate',this.value)"
@@ -3468,9 +3480,20 @@ function renderPRReviewItems() {
 
 function updatePRReviewItem(idx, field, value) {
   if(!_prReviewItems[idx]) return;
-  _prReviewItems[idx][field] = field === "qty" ? (Number(value) || 0) : value;
-  // qty 변경 시에만 summary 갱신 (퍼포먼스)
-  if(field === "qty" || field === "vendor") updatePRReviewSummary();
+  if(field === "qty" || field === "unitPrice") {
+    _prReviewItems[idx][field] = Number(value) || 0;
+  } else {
+    _prReviewItems[idx][field] = value;
+  }
+  // qty/unitPrice 변경 시에만 summary + 행 갱신 (금액 자동 계산 표시 위해)
+  if(field === "qty" || field === "unitPrice") {
+    // 해당 행만 부분 업데이트 (전체 렌더는 비용 큼)
+    updatePRReviewSummary();
+    // 금액 컬럼 새로 표시하기 위해 전체 행 다시 그림 (성능 손해 < 사용성)
+    renderPRReviewItems();
+  } else if(field === "vendor") {
+    updatePRReviewSummary();
+  }
 }
 
 function normalizePRReviewVendor(idx) {
@@ -3512,8 +3535,12 @@ function updatePRReviewSummary() {
   if(cnt) cnt.textContent = `${_prReviewItems.length}건`;
   if(summary) {
     const totalQty = _prReviewItems.reduce((s, it) => s + Number(it.qty||0), 0);
+    const totalAmt = _prReviewItems.reduce((s, it) => s + (Number(it.unitPrice||0) * Number(it.qty||0)), 0);
     const vendors = [...new Set(_prReviewItems.map(it => it.vendor).filter(Boolean))];
-    summary.textContent = `총수량 ${totalQty} · 거래처 ${vendors.length}곳`;
+    const amtPart = totalAmt > 0 
+      ? ` · <b style="color:var(--p)">${totalAmt.toLocaleString()}원</b>`
+      : "";
+    summary.innerHTML = `총수량 ${totalQty} · 거래처 ${vendors.length}곳${amtPart}`;
   }
 }
 
@@ -3586,6 +3613,8 @@ async function confirmPRReview() {
       spec: it.spec?.trim() || "",
       unit: it.unit?.trim() || "EA",
       qty: Number(it.qty) || 0,
+      unitPrice: Number(it.unitPrice) || 0,                         // 🆕 단가
+      totalAmount: (Number(it.unitPrice)||0) * (Number(it.qty)||0), // 🆕 금액 (단가×수량)
       dueDate: it.dueDate || "",
       projectName: it.projectName || "",
       projectNo: it.projectNo || "",
@@ -3677,30 +3706,49 @@ function parseENJETPRTextLocally(pdfText) {
   let inItemSection = false;
   let currentItem = null;
   let foundHeader = false;
+  let lastNo = 0;
   
   for(let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // 🆕 합계 라인 만나도 break 안 함 (다음 페이지에서도 품목 계속 나올 수 있음)
+    // 진짜 끝은 "총수량" 또는 "특이사항" 같은 패턴이거나 파일 끝
     if(/^합계\s*\d+/.test(line)) { 
-      console.log(`📋 합계 라인 만남 (${i}번째): ${line.substring(0,50)}`);
-      inItemSection = false; 
-      break; 
+      console.log(`📋 합계 라인 (${i}번째): ${line.substring(0,50)} - 무시하고 계속`);
+      continue;
     }
-    // 헤더 패턴 더 유연하게 (No 품명, No 품번, No|품명, 등)
+    // 헤더 재발견 시 (페이지 사이) - 그냥 계속
     if(/^No\s*[\|\s]*품[명번]/.test(line) || /No\s+품명\s+품번/.test(line)) { 
-      inItemSection = true; 
-      foundHeader = true;
-      console.log(`📋 품목 헤더 발견 (${i}번째): ${line.substring(0,80)}`);
+      if(!foundHeader) {
+        inItemSection = true; 
+        foundHeader = true;
+        console.log(`📋 품목 헤더 발견 (${i}번째): ${line.substring(0,80)}`);
+      } else {
+        console.log(`📋 헤더 재발견 (페이지 경계, ${i}번째) - 무시`);
+      }
       continue; 
     }
     if(!inItemSection) continue;
     
+    // 🆕 페이지 헤더/푸터 패턴 스킵 (전자결재, ENJET Groupware, 페이지번호 등)
+    if(/전자결재|ENJET Groupware|^\d+\s*\/\s*\d+\s*$|^\d{1,2}\s*\.?\s*\d{1,2}\s*\.\s*\d{1,2}/.test(line)) continue;
+    
     // 라인이 숫자로 시작하면 새 품목 (No)
     const noMatch = line.match(/^(\d+)\s+(.+)/);
     if(noMatch) {
-      if(currentItem && currentItem.name) result.items.push(currentItem);
       const no = parseInt(noMatch[1], 10);
+      // 🆕 No가 비정상적으로 작거나 커지면 의심 (페이지 번호 같은 거 방지)
+      // 1~150 범위 + 직전 No+1 또는 비슷한 값이어야 정상
+      if(no < 1 || no > 200) continue;
+      if(lastNo > 0 && (no - lastNo > 5 || no < lastNo - 2)) {
+        // 큰 갭이면 페이지 번호일 수 있음 - 다음 단어가 품명같은 한글이어야 진짜 품목
+        const restCheck = noMatch[2].trim();
+        if(!/^[가-힣A-Za-z]/.test(restCheck)) continue;
+      }
+      
+      if(currentItem && currentItem.name) result.items.push(currentItem);
       const rest = noMatch[2];
       currentItem = { no, name: "", partNo: "", spec: "", unit: "EA", dueDate: "", projectName: "", projectNo: "", vendor: "", qty: 0 };
+      lastNo = no;
       
       // 날짜 패턴
       const dateMatch = rest.match(/(\d{4}-\d{2}-\d{2})/);
@@ -4604,6 +4652,92 @@ async function savePurchaseQuote() {
   } else {
     alert("⚠️ SP 저장 실패 (localStorage에 백업됨)\n" + (r.error || ""));
   }
+  
+  // 🆕 BOM 가격 이력 자동 누적 (PR을 통해 BOM 추적)
+  if(!_pqEditId && typeof addBOMPriceHistory === "function") {
+    addBOMPriceHistory(data).catch(e => console.warn("BOM 가격 이력 추가 실패:", e));
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 💰 견적 → BOM 가격 이력 자동 누적
+// 견적의 PR 코드 → PR의 bomCode → BOM에 이력 추가
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function addBOMPriceHistory(quoteData) {
+  if(!quoteData || !quoteData.prCode) return;
+  
+  // PR 찾기
+  const pr = (_prMaster||[]).find(p => p.prCode === quoteData.prCode);
+  if(!pr) {
+    console.log(`📋 BOM 가격 이력 스킵: PR ${quoteData.prCode} 없음`);
+    return;
+  }
+  
+  const bomCode = pr.bomCode;
+  if(!bomCode) {
+    console.log(`📋 BOM 가격 이력 스킵: PR ${quoteData.prCode}에 bomCode 없음`);
+    return;
+  }
+  
+  // BOM 찾기
+  const bom = (_bomData||[]).find(b => b.bomCode === bomCode);
+  if(!bom) {
+    console.log(`📋 BOM 가격 이력 스킵: BOM ${bomCode} 없음`);
+    return;
+  }
+  
+  // 단가 계산: 공급가 / 수량 (수량은 PR의 qty 사용, 견적의 items에 수량 표기 없으면 1)
+  const qty = pr.qty || 1;
+  const unitPrice = qty > 0 ? Math.round((quoteData.supplyAmount || 0) / qty) : (quoteData.supplyAmount || 0);
+  
+  // 이력 항목
+  const historyItem = {
+    quoteId: quoteData.id,
+    quoteNo: quoteData.quoteNo,
+    quoteDate: quoteData.quoteDate,
+    vendor: quoteData.vendor,
+    unitPrice: unitPrice,
+    qty: qty,
+    supplyAmount: quoteData.supplyAmount || 0,
+    totalAmount: quoteData.totalAmount || 0,
+    prCode: quoteData.prCode,
+    addedAt: new Date().toISOString(),
+  };
+  
+  // BOM에 이력 배열 추가 (없으면 새로 생성)
+  if(!Array.isArray(bom.priceHistory)) bom.priceHistory = [];
+  
+  // 중복 체크 (같은 quoteId 이미 있으면 업데이트)
+  const existingIdx = bom.priceHistory.findIndex(h => h.quoteId === quoteData.id);
+  if(existingIdx >= 0) {
+    bom.priceHistory[existingIdx] = historyItem;
+    console.log(`📋 BOM ${bomCode} 가격 이력 업데이트 (${quoteData.quoteNo})`);
+  } else {
+    bom.priceHistory.push(historyItem);
+    console.log(`📋 BOM ${bomCode} 가격 이력 추가 (${quoteData.quoteNo}): ${unitPrice.toLocaleString()}원/EA`);
+  }
+  
+  // 가격 이력 정렬 (날짜순)
+  bom.priceHistory.sort((a,b) => (a.quoteDate||"").localeCompare(b.quoteDate||""));
+  
+  // 네고율 정보 업데이트 (BOM 메타로 저장 - 빠른 조회용)
+  const first = bom.priceHistory[0];
+  const latest = bom.priceHistory[bom.priceHistory.length-1];
+  if(first && latest && first.unitPrice > 0) {
+    bom.currentPrice = latest.unitPrice;
+    bom.currentVendor = latest.vendor;
+    bom.lastQuoteDate = latest.quoteDate;
+    bom.negoRate = first === latest ? 0 : ((first.unitPrice - latest.unitPrice) / first.unitPrice * 100);
+    bom.estCost = latest.unitPrice * qty;
+  }
+  
+  bom.updatedAt = new Date().toISOString();
+  
+  // 저장
+  if(typeof saveBOMDB === "function") {
+    await saveBOMDB();
+  }
+  if(typeof renderBOMDB === "function") renderBOMDB();
 }
 
 // 매입 견적서 테이블 렌더
@@ -6288,7 +6422,7 @@ function renderBOMDB() {
   if(!tbody) return;
   
   if(!_bomData.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>`;
     ["bom-kpi-total","bom-kpi-finished","bom-kpi-assembly","bom-kpi-semi"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
   }
@@ -6316,21 +6450,244 @@ function renderBOMDB() {
   tbody.innerHTML = filtered.slice(0, 300).map(d => {
     const typeIcon = {"완제품":"📦","조립품":"🔧","반제품":"⚙️"}[d.type] || "";
     const prCount = Array.isArray(d.relatedPRs) ? d.relatedPRs.length : 0;
+    
+    // 🆕 가격 이력 계산
+    const priceHistory = Array.isArray(d.priceHistory) ? d.priceHistory : [];
+    const sortedHistory = [...priceHistory].sort((a,b) => (a.quoteDate||"").localeCompare(b.quoteDate||""));
+    const latest = sortedHistory[sortedHistory.length-1];
+    const first = sortedHistory[0];
+    
+    const currentPrice = latest?.unitPrice || d.estCost || 0;
+    const currentVendor = latest?.vendor || "-";
+    const lastQuoteDate = latest?.quoteDate || "";
+    
+    // 네고율 계산: (최초 단가 - 현재 단가) / 최초 단가 × 100
+    let negoRate = 0;
+    let negoBadge = '<span style="color:var(--t3);font-size:11px">-</span>';
+    if(first && latest && first !== latest && first.unitPrice > 0) {
+      negoRate = ((first.unitPrice - latest.unitPrice) / first.unitPrice * 100);
+      if(negoRate > 0) {
+        // 할인 (좋은 네고)
+        negoBadge = `<span style="background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:5px;font-weight:700;font-size:11px" title="최초 ${first.unitPrice.toLocaleString()} → 현재 ${latest.unitPrice.toLocaleString()}">↓ ${negoRate.toFixed(1)}%</span>`;
+      } else if(negoRate < 0) {
+        // 인상 (불리한 변동)
+        negoBadge = `<span style="background:#fee2e2;color:var(--r);padding:2px 7px;border-radius:5px;font-weight:700;font-size:11px" title="최초 ${first.unitPrice.toLocaleString()} → 현재 ${latest.unitPrice.toLocaleString()}">↑ ${Math.abs(negoRate).toFixed(1)}%</span>`;
+      } else {
+        negoBadge = `<span style="color:var(--t3);font-size:11px">변동없음</span>`;
+      }
+    }
+    
+    // 견적이력 버튼
+    const historyCount = priceHistory.length;
+    const historyBadge = historyCount > 0
+      ? `<button onclick="event.stopPropagation();openBOMPriceHistory('${d.bomCode}')" 
+          style="padding:3px 10px;border-radius:5px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-weight:700;font-size:11px;cursor:pointer;font-family:var(--s)" 
+          title="가격 이력 ${historyCount}건 보기">📋 ${historyCount}회</button>`
+      : `<span style="color:var(--t3);font-size:11px">견적없음</span>`;
+    
     return `<tr style="cursor:pointer" onclick="openBOMModal('${d.bomCode}')">
       <td style="font-family:var(--m);color:var(--p);font-weight:700">${escapeHtml(d.bomCode||"")}</td>
-      <td style="font-weight:600">${escapeHtml(d.productName||"")}</td>
+      <td style="font-weight:600">${escapeHtml(d.productName||"")}<div style="font-size:10px;color:var(--t3);margin-top:2px">${typeIcon} ${escapeHtml(d.type||"")} · ${escapeHtml(d.version||"v1.0")}</div></td>
       <td style="text-align:center">${typeIcon} ${escapeHtml(d.type||"")}</td>
-      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.version||"v1.0")}</td>
-      <td style="text-align:center;font-family:var(--m)">${d.itemCount||0}</td>
-      <td style="text-align:right;font-family:var(--m);color:var(--p)">${(d.estCost||0).toLocaleString()}</td>
-      <td style="font-size:12px;color:var(--t2)">${escapeHtml(d.source||"-")}</td>
+      <td style="font-family:var(--m);color:var(--t2);font-size:11px">${escapeHtml(d.version||"v1.0")}</td>
+      <td style="text-align:right;font-family:var(--m);color:var(--p);font-weight:700">${currentPrice ? currentPrice.toLocaleString()+"원" : "-"}</td>
+      <td style="font-size:12px;color:var(--t2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(currentVendor)}">${escapeHtml(currentVendor)}</td>
+      <td style="text-align:center">${negoBadge}</td>
+      <td style="text-align:center">${historyBadge}</td>
+      <td style="color:var(--t2);font-size:11px;font-family:var(--m)">${lastQuoteDate || "-"}</td>
       <td style="text-align:center;font-family:var(--m)">${prCount ? `<span style="background:var(--gd);color:var(--g);padding:2px 8px;border-radius:5px;font-weight:700;font-size:12px">${prCount}건</span>` : "-"}</td>
-      <td style="color:var(--t2);font-size:12px">${(d.createdAt||"").slice(0,10)}</td>
+      <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
+        <button onclick="openBOMModal('${d.bomCode}')" style="border:none;background:transparent;cursor:pointer;color:var(--p);font-size:14px" title="수정">✏️</button>
+        <button onclick="if(confirm('🗑️ BOM 삭제\\n\\n${escapeHtml(d.productName||d.bomCode||"")}\\n견적 이력도 함께 삭제됩니다.\\n\\n계속?')) deleteBOMItem('${d.bomCode}')" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:13px" title="삭제">🗑️</button>
+      </td>
     </tr>`;
   }).join("");
   
   const cnt = document.getElementById("bomTableCnt");
   if(cnt) cnt.textContent = `${filtered.length}/${_bomData.length}건 표시`;
+}
+
+// 🆕 BOM 단일 삭제
+async function deleteBOMItem(bomCode) {
+  _bomData = _bomData.filter(d => d.bomCode !== bomCode);
+  if(typeof saveBOMDB === "function") await saveBOMDB();
+  renderBOMDB();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  console.log(`🗑️ BOM 삭제: ${bomCode}`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📋 BOM 가격 이력 모달 (견적 회차별 네고 추이)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function openBOMPriceHistory(bomCode) {
+  const bom = _bomData.find(d => d.bomCode === bomCode);
+  if(!bom) { alert("BOM 정보 없음"); return; }
+  const history = Array.isArray(bom.priceHistory) ? [...bom.priceHistory] : [];
+  history.sort((a,b) => (a.quoteDate||"").localeCompare(b.quoteDate||""));
+  
+  const modal = document.getElementById("bomPriceHistoryModal");
+  if(!modal) {
+    // 모달 DOM이 없으면 동적 생성
+    const div = document.createElement("div");
+    div.id = "bomPriceHistoryModal";
+    div.style.cssText = "display:flex;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10010;align-items:center;justify-content:center;backdrop-filter:blur(4px)";
+    document.body.appendChild(div);
+  }
+  
+  const mDiv = document.getElementById("bomPriceHistoryModal");
+  mDiv.style.display = "flex";
+  
+  // 통계 계산
+  const first = history[0];
+  const latest = history[history.length-1];
+  const minPrice = history.length > 0 ? Math.min(...history.map(h => h.unitPrice||0)) : 0;
+  const maxPrice = history.length > 0 ? Math.max(...history.map(h => h.unitPrice||0)) : 0;
+  let totalNego = 0;
+  if(first && latest && first.unitPrice > 0) {
+    totalNego = ((first.unitPrice - latest.unitPrice) / first.unitPrice * 100);
+  }
+  
+  mDiv.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:90vw;max-width:1100px;height:88vh;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <!-- 헤더 -->
+      <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%)">
+        <div>
+          <div style="font-size:18px;font-weight:900;color:#1e40af">📋 가격 이력 - ${escapeHtml(bom.productName||"")}</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:3px">BOM코드: <b>${escapeHtml(bom.bomCode||"")}</b> · 견적 ${history.length}회 누적</div>
+        </div>
+        <button onclick="document.getElementById('bomPriceHistoryModal').style.display='none'" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+      </div>
+      
+      <!-- 통계 KPI -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 24px;background:#f8fafc;flex-shrink:0;border-bottom:1px solid var(--border)">
+        <div style="background:#fff;padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--t3);font-weight:700">최초 견적</div>
+          <div style="font-size:16px;font-weight:900;color:var(--t);font-family:var(--m);margin-top:3px">${first?.unitPrice ? first.unitPrice.toLocaleString()+"원" : "-"}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${first?.quoteDate || ""} · ${escapeHtml(first?.vendor||"-")}</div>
+        </div>
+        <div style="background:#fff;padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--t3);font-weight:700">현재 단가</div>
+          <div style="font-size:16px;font-weight:900;color:var(--p);font-family:var(--m);margin-top:3px">${latest?.unitPrice ? latest.unitPrice.toLocaleString()+"원" : "-"}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${latest?.quoteDate || ""} · ${escapeHtml(latest?.vendor||"-")}</div>
+        </div>
+        <div style="background:#fff;padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--t3);font-weight:700">최저 견적</div>
+          <div style="font-size:16px;font-weight:900;color:var(--g);font-family:var(--m);margin-top:3px">${minPrice ? minPrice.toLocaleString()+"원" : "-"}</div>
+        </div>
+        <div style="background:${totalNego > 0 ? '#dcfce7' : totalNego < 0 ? '#fee2e2' : '#fff'};padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--t3);font-weight:700">총 네고율</div>
+          <div style="font-size:20px;font-weight:900;color:${totalNego > 0 ? '#15803d' : totalNego < 0 ? 'var(--r)' : 'var(--t3)'};font-family:var(--m);margin-top:3px">
+            ${totalNego > 0 ? '↓ ' : totalNego < 0 ? '↑ ' : ''}${Math.abs(totalNego).toFixed(1)}%
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">최초 → 현재</div>
+        </div>
+      </div>
+      
+      <!-- 본문: 가격 추이 차트 + 이력 테이블 -->
+      <div style="flex:1;overflow-y:auto;padding:16px 24px;min-height:0">
+        ${history.length === 0 ? `
+          <div style="padding:60px 20px;text-align:center;color:var(--t3)">
+            <div style="font-size:48px;margin-bottom:12px">📋</div>
+            <div style="font-size:15px;font-weight:700">아직 견적 이력이 없습니다</div>
+            <div style="font-size:12px;margin-top:6px">견적서 DB에서 견적을 등록하면 자동으로 누적됩니다</div>
+          </div>
+        ` : `
+          <!-- 가격 추이 차트 (간단 SVG 라인) -->
+          <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid var(--border)">
+            <div style="font-weight:700;color:var(--t);margin-bottom:8px;font-size:13px">📈 견적 단가 추이</div>
+            ${renderBOMPriceChart(history)}
+          </div>
+          
+          <!-- 이력 테이블 -->
+          <div style="background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+            <div style="padding:8px 12px;background:#1e40af;color:#fff;font-size:12px;font-weight:700;display:grid;grid-template-columns:50px 90px 1fr 110px 70px 110px 90px;gap:6px">
+              <div style="text-align:center">회차</div>
+              <div>견적 No</div>
+              <div>거래처</div>
+              <div style="text-align:right">단가</div>
+              <div style="text-align:right">수량</div>
+              <div style="text-align:right">총액</div>
+              <div style="text-align:center">전회차 대비</div>
+            </div>
+            ${history.map((h, i) => {
+              const prev = i > 0 ? history[i-1] : null;
+              let stepNego = 0;
+              if(prev && prev.unitPrice > 0) {
+                stepNego = ((prev.unitPrice - h.unitPrice) / prev.unitPrice * 100);
+              }
+              const stepBadge = i === 0 
+                ? '<span style="color:var(--t3);font-size:11px;font-weight:700">최초</span>'
+                : stepNego > 0 
+                  ? `<span style="background:#dcfce7;color:#15803d;padding:2px 6px;border-radius:4px;font-weight:700;font-size:11px">↓ ${stepNego.toFixed(1)}%</span>`
+                  : stepNego < 0
+                    ? `<span style="background:#fee2e2;color:var(--r);padding:2px 6px;border-radius:4px;font-weight:700;font-size:11px">↑ ${Math.abs(stepNego).toFixed(1)}%</span>`
+                    : '<span style="color:var(--t3);font-size:11px">동일</span>';
+              const total = (h.unitPrice||0) * (h.qty||1);
+              return `<div style="display:grid;grid-template-columns:50px 90px 1fr 110px 70px 110px 90px;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);align-items:center;${i%2?'background:#fafbfc':''}">
+                <div style="text-align:center;font-weight:700;color:var(--p);font-size:13px">${i+1}회차</div>
+                <div style="font-family:var(--m);font-size:11px;color:var(--t2)">${escapeHtml(h.quoteNo||"-")}</div>
+                <div style="font-size:12px;font-weight:600">${escapeHtml(h.vendor||"-")}</div>
+                <div style="text-align:right;font-family:var(--m);font-size:13px;font-weight:700;color:var(--p)">${(h.unitPrice||0).toLocaleString()}원</div>
+                <div style="text-align:right;font-family:var(--m);font-size:12px">${h.qty || 1}</div>
+                <div style="text-align:right;font-family:var(--m);font-size:12px;color:var(--t2)">${total.toLocaleString()}원</div>
+                <div style="text-align:center">${stepBadge}</div>
+              </div>`;
+            }).join("")}
+          </div>
+        `}
+      </div>
+      
+      <!-- 풋터 -->
+      <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+        <div style="font-size:11px;color:var(--t3)">
+          💡 견적서 DB에서 새 견적 등록 시 자동 누적 · 같은 BOM에 여러 거래처 견적 비교 가능
+        </div>
+        <button onclick="document.getElementById('bomPriceHistoryModal').style.display='none'" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">닫기</button>
+      </div>
+    </div>
+  `;
+}
+
+// 가격 추이 SVG 차트 (간단한 라인 차트)
+function renderBOMPriceChart(history) {
+  if(!history.length) return "";
+  const w = 1000, h = 180, padL = 70, padR = 20, padT = 20, padB = 30;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const prices = history.map(p => p.unitPrice || 0);
+  const maxP = Math.max(...prices) * 1.1;
+  const minP = Math.min(...prices) * 0.9;
+  const rangeP = maxP - minP || 1;
+  
+  const points = history.map((p, i) => {
+    const x = padL + (history.length > 1 ? (i / (history.length-1)) * innerW : innerW/2);
+    const y = padT + innerH - ((p.unitPrice - minP) / rangeP * innerH);
+    return { x, y, p };
+  });
+  
+  const path = points.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(" ");
+  
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="max-width:100%;display:block">
+    <!-- Y축 그리드 -->
+    ${[0, 0.25, 0.5, 0.75, 1].map(r => {
+      const y = padT + innerH * r;
+      const v = maxP - rangeP * r;
+      return `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#e5e7eb" stroke-width="1"/>
+              <text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="10" fill="#94a3b8" font-family="monospace">${Math.round(v).toLocaleString()}</text>`;
+    }).join("")}
+    <!-- 라인 -->
+    <path d="${path}" stroke="#3b82f6" stroke-width="2.5" fill="none"/>
+    <!-- 영역 채우기 (옅게) -->
+    <path d="${path} L ${points[points.length-1].x} ${padT+innerH} L ${points[0].x} ${padT+innerH} Z" fill="#dbeafe" opacity="0.5"/>
+    <!-- 점 -->
+    ${points.map((pt, i) => `
+      <circle cx="${pt.x}" cy="${pt.y}" r="5" fill="#3b82f6" stroke="#fff" stroke-width="2"/>
+      <text x="${pt.x}" y="${pt.y-12}" text-anchor="middle" font-size="11" fill="#1e40af" font-weight="700" font-family="monospace">${(pt.p.unitPrice||0).toLocaleString()}</text>
+      <text x="${pt.x}" y="${h-10}" text-anchor="middle" font-size="10" fill="#64748b">${i+1}회</text>
+      <text x="${pt.x}" y="${h-22}" text-anchor="middle" font-size="9" fill="#94a3b8">${(pt.p.quoteDate||"").substring(5)}</text>
+    `).join("")}
+  </svg>`;
 }
 
 // BOM 필터 이벤트
@@ -11822,20 +12179,24 @@ async function syncSLFromTeams() {
          || cats.includes("구매활동") || cats.includes("요청") || cats.includes("구매")) return true;
       // prefix/카테고리 없으면 → 포함하지 않음 (마케팅·기타와 꼬임 방지)
       return false;
-    }).map(e=>({
-      id: e.id,
-            title: (e.subject||"").replace(/^\[(영업|구매활동|전시회|요청|구매)\]\s*/,""),
-      originalTitle: e.subject||"",
-      start: (e.start?.dateTime||e.start?.date||"").split("T")[0],
-      end:   (e.end?.dateTime||e.end?.date||"").split("T")[0],
-      organizer: e.organizer?.emailAddress?.name||"",
-      location: e.location?.displayName||"",
-      categories: e.categories||[],
-      // 🆕 라벨 자동 분류
-      kind: title.startsWith("[요청]") || cats.includes("요청") ? "request" 
-          : title.startsWith("[구매]") || cats.includes("구매") ? "order"
-          : "purchase",
-    }));
+    }).map(e=>{
+      const t = e.subject||"";
+      const c = e.categories||[];
+      return {
+        id: e.id,
+        title: t.replace(/^\[(영업|구매활동|전시회|요청|구매)\]\s*/,""),
+        originalTitle: t,
+        start: (e.start?.dateTime||e.start?.date||"").split("T")[0],
+        end:   (e.end?.dateTime||e.end?.date||"").split("T")[0],
+        organizer: e.organizer?.emailAddress?.name||"",
+        location: e.location?.displayName||"",
+        categories: c,
+        // 🆕 라벨 자동 분류
+        kind: t.startsWith("[요청]") || c.includes("요청") ? "request" 
+            : t.startsWith("[구매]") || c.includes("구매") ? "order"
+            : "purchase",
+      };
+    });
 
     // Teams 이벤트 → 구매활동 목록 자동 연동
     let updated = 0, created = 0;
@@ -19408,6 +19769,7 @@ async function saveSLActivity() {
           spec: it.spec || "",                        // 규격/제조사
           unit: it.unit || "EA",                      // 단위
           qty: Number(it.qty) || 0,                   // 수량
+          unitPrice: Number(it.unitPrice) || 0,       // 🆕 EA당 단가
           // 프로젝트 정보
           projectName: it.projectName || projectName, // 프로젝트명 (BM26005 세종산업 #2...)
           projectNo: it.projectNo || projectNo,       // 프로젝트번호 (BM26005)
@@ -19418,7 +19780,7 @@ async function saveSLActivity() {
           items: `${it.name||""} ${it.partNo?`(${it.partNo})`:""} · ${it.qty||0}${it.unit||""}`,
           bomName: it.name || "",
           bomCode,
-          amount: 0,                                  // 견적 받기 전엔 0
+          amount: (Number(it.unitPrice)||0) * (Number(it.qty)||0),  // 🆕 단가×수량 = 금액
           vendorCandidates: vendor,
           // 진행상태
           status: "구매요청접수",
