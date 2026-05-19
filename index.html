@@ -3841,6 +3841,52 @@ function parseENJETPRTextLocally(pdfText) {
   console.log(`✅ 로컬 파싱 완료: ${result.items.length}개 품목`);
   if(result.items.length > 0) {
     console.log("📋 첫 품목 샘플:", result.items[0]);
+    console.log("📋 마지막 품목 샘플:", result.items[result.items.length-1]);
+  }
+  
+  // 🆕 목표 품목수 추출 (합계/총건수 패턴) - 검증용
+  let expectedCount = 0;
+  
+  // 패턴 1: "합계 33" "합계 :  33"
+  const sumMatch = pdfText.match(/합계\s*:?\s*(\d{1,3})/);
+  if(sumMatch) expectedCount = Math.max(expectedCount, parseInt(sumMatch[1], 10));
+  
+  // 패턴 2: 마지막 No (33번까지 있으면 33개)
+  const lastNo = result.items.length > 0 ? Math.max(...result.items.map(it => it.no || 0)) : 0;
+  
+  // 패턴 3: PDF 전체에서 No(번호)의 최댓값 찾기 (놓친 행 있는지 확인)
+  // "No\n1\n품명..." 형태이거나 "1 품명 ... \n2 품명 ..." 같은 줄에서 첫 숫자
+  const allNos = [];
+  const numLinePattern = /^\s*(\d{1,3})\s+[가-힣A-Za-z]/gm;
+  let nm;
+  while((nm = numLinePattern.exec(pdfText)) !== null) {
+    const n = parseInt(nm[1], 10);
+    if(n >= 1 && n <= 200) allNos.push(n);
+  }
+  // 1부터 연속된 번호의 마지막 (1, 2, 3, ..., 33) 찾기
+  const sortedNos = [...new Set(allNos)].sort((a,b) => a-b);
+  let consecutiveMax = 0;
+  for(let i = 0; i < sortedNos.length; i++) {
+    if(sortedNos[i] === i + 1) consecutiveMax = sortedNos[i];
+    else break;
+  }
+  if(consecutiveMax > expectedCount) expectedCount = consecutiveMax;
+  
+  console.log(`📊 검증: 목표 ${expectedCount}개 (합계라인 ${sumMatch?.[1]||"-"} / 마지막No ${lastNo} / 연속최대 ${consecutiveMax}) vs 추출 ${result.items.length}개`);
+  
+  result._expectedCount = expectedCount;
+  result._isComplete = expectedCount > 0 ? (result.items.length >= expectedCount) : true;
+  
+  if(expectedCount > 0 && result.items.length < expectedCount) {
+    console.warn(`⚠️ 로컬 파싱 부족! ${result.items.length}/${expectedCount}개만 추출 → AI 폴백 권장`);
+    // 어떤 No가 누락됐는지 확인
+    const foundNos = new Set(result.items.map(it => it.no));
+    const missing = [];
+    for(let i = 1; i <= expectedCount; i++) {
+      if(!foundNos.has(i)) missing.push(i);
+    }
+    console.warn(`⚠️ 누락된 No: [${missing.join(", ")}]`);
+    result._missingNos = missing;
   }
   
   return result.items.length > 0 ? result : null;
@@ -3877,16 +3923,28 @@ async function aiParsePR() {
       console.log(`⚡ PDF 텍스트 ${pdfText.length}자 추출됨, 로컬 파싱 시도`);
       const localResult = parseENJETPRTextLocally(pdfText);
       if(localResult && localResult.items.length > 0) {
-        console.log(`⚡ 로컬 파싱 성공: ${localResult.items.length}개 품목 (AI 호출 안 함)`);
-        result = localResult;
-        if(info) info.textContent = `⚡ 로컬 파싱 완료 (${localResult.items.length}개 품목, AI 없이 즉시 추출)`;
+        // 🆕 완전성 체크: 합계/마지막No와 비교해서 누락된 게 있으면 AI 폴백
+        if(localResult._isComplete) {
+          console.log(`⚡ 로컬 파싱 성공 (완전): ${localResult.items.length}개 품목 (AI 호출 안 함)`);
+          result = localResult;
+          if(info) info.textContent = `⚡ 로컬 파싱 완료 (${localResult.items.length}개 품목, AI 없이 즉시 추출)`;
+        } else {
+          // 부족하면 AI에 더 정확하게 다시 받기
+          console.warn(`⚠️ 로컬 파싱 ${localResult.items.length}/${localResult._expectedCount}개만 추출 → AI로 폴백`);
+          if(info) info.textContent = `⚠️ 로컬 ${localResult.items.length}/${localResult._expectedCount}개 추출 → AI로 보완 중...`;
+          // localResult를 임시 저장 (AI 실패 시 폴백)
+          window._localFallback = localResult;
+        }
       }
     }
     
-    // ⚡ Step 2: 로컬 파싱 실패 시 AI 호출 (Copilot, 30초 타임아웃)
+    // ⚡ Step 2: 로컬 파싱 실패 또는 부족 시 AI 호출
     if(!result) {
       console.log("⚡ 로컬 파싱 실패 또는 부족 - AI 호출로 폴백");
-      if(info) info.textContent = "🤖 로컬 추출 실패 → AI 호출 중 (최대 30초)...";
+      const expected = window._localFallback?._expectedCount || 0;
+      if(info) info.textContent = expected > 0 
+        ? `🤖 ${expected}개 품목 모두 추출하기 위해 AI 호출 중...`
+        : "🤖 로컬 추출 실패 → AI 호출 중 (최대 30초)...";
       
       const prompt = `이 구매요청서(PR) PDF에서 다음 정보를 JSON으로 추출해줘. 반드시 JSON만 출력 (설명/마크다운 없이):
 
@@ -3953,8 +4011,42 @@ async function aiParsePR() {
       if(!result) throw new Error("AI 응답에서 JSON 추출 실패");
     }
     
+    // 🆕 AI 결과 + 로컬 결과 머지 (No 기준 - 더 많은 쪽 우선, 빈 칸 채우기)
+    const localFallback = window._localFallback;
+    if(localFallback && result && Array.isArray(result.items)) {
+      const expectedCount = localFallback._expectedCount || 0;
+      const aiCount = result.items.length;
+      const localCount = localFallback.items.length;
+      console.log(`📊 결과 머지: AI ${aiCount}개 + 로컬 ${localCount}개 (목표 ${expectedCount}개)`);
+      
+      // AI가 부족하면 → 로컬에서 누락된 No 보충
+      if(expectedCount > 0 && aiCount < expectedCount) {
+        const aiNos = new Set(result.items.map(it => Number(it.no) || 0));
+        const supplements = localFallback.items.filter(it => !aiNos.has(Number(it.no) || 0));
+        if(supplements.length > 0) {
+          console.log(`📋 로컬에서 누락분 ${supplements.length}개 보충`);
+          result.items = [...result.items, ...supplements].sort((a,b) => (Number(a.no)||0) - (Number(b.no)||0));
+        }
+      }
+      // 로컬이 더 많으면 → 로컬 결과 사용 (AI가 무시한 품목이 있을 수 있음)
+      else if(localCount > aiCount) {
+        console.log(`📋 로컬이 더 많음 (${localCount} > ${aiCount}) → 로컬 사용 + AI 메타 정보 유지`);
+        const aiMeta = { ...result };
+        delete aiMeta.items;
+        result = { ...aiMeta, items: localFallback.items };
+      }
+      window._localFallback = null;
+    }
+    
     console.log("✅ 구매요청서 파싱 결과:", result);
     console.log(`   - 품목 개수: ${(result.items||[]).length}개`);
+    
+    // 🆕 최종 개수 검증
+    const finalExpected = localFallback?._expectedCount || 0;
+    const finalCount = (result.items||[]).length;
+    if(finalExpected > 0 && finalCount < finalExpected) {
+      console.warn(`⚠️ 최종 ${finalCount}/${finalExpected}개 (${finalExpected - finalCount}개 누락) - 검토 모달에서 직접 추가 필요`);
+    }
     
     // 결과 저장 (저장 버튼 클릭 시 사용)
     _slAIParseResult = result;
@@ -3981,8 +4073,14 @@ async function aiParsePR() {
     const itemCount = (result.items||[]).length;
     
     if(info) {
-      info.textContent = `✅ 파싱 완료: ${file.name} · 품목 ${itemCount}개 → 검토 모달 자동 표시`;
-      info.style.color = "var(--g)";
+      const expected = localFallback?._expectedCount || 0;
+      if(expected > 0 && itemCount < expected) {
+        info.textContent = `⚠️ ${itemCount}/${expected}개 추출 (${expected - itemCount}개 누락) - 검토 모달에서 직접 추가하세요`;
+        info.style.color = "var(--a)";
+      } else {
+        info.textContent = `✅ 파싱 완료: ${file.name} · 품목 ${itemCount}개${expected > 0 ? ` (목표 ${expected}개 모두 추출 ✓)` : ""} → 검토 모달 자동 표시`;
+        info.style.color = "var(--g)";
+      }
     }
     
     // 🆕 PR 검토 모달 자동 오픈 (좌:큰 PDF / 우:33개 품목 편집 가능)
@@ -4554,6 +4652,11 @@ function openPurchaseQuoteModal(id) {
     setField("pq-f-total", "");
     setField("pq-f-type", "일반견적");
     setField("pq-f-status", "검토중");
+    
+    // 🆕 구매활동에서 진입한 경우 영업코드 자동 채우기
+    if(window._currentSLActPjcode) {
+      setField("pq-f-salescode", window._currentSLActPjcode);
+    }
   }
   
   // 파일 정보 초기화
@@ -15316,21 +15419,10 @@ function syncSLActivityFromEvent(evt, save) {
     if(save) saveSLToSP().then(()=>renderSLAll());
     return "updated";
   } else {
-    const newAct = {
-      id:"sl_teams_"+evt.id, company, pjcode:pjcode||"", status:"신규",
-      custMgr:"", salesMgr:evt.organizer||"",
-      start:today, end:evt.end||today, lastActivity:today,
-      note:"[Teams 자동생성] "+title, files:{},
-      teamsEventId:evt.id, createdAt:now, updatedAt:now,
-      history:[{date:today, action:"🆕 Teams 자동생성: "+title, type:"create", teamsId:evt.id}]
-    };
-    slData.push(newAct);
-    if(save) saveSLToSP().then(()=>renderSLAll());
-    // SP 엑셀 프로젝트현황 시트에도 행 추가
-    addSLToProjectSheet(newAct).then(added => {
-      if(added) setTimeout(()=> loadSalesAndProject().catch(()=>{}), 2000);
-    });
-    return "created";
+    // 🚫 구매 모듈은 단방향: 일정 → 목록 자동 생성 금지
+    // 구매활동은 사용자가 직접 [+ 구매활동 추가]로만 생성. 일정은 표시 전용.
+    console.log(`📅 일정 ${title} - 매칭되는 구매활동 없음 (자동 생성 안 함, 단방향)`);
+    return "skipped";
   }
 }
 
@@ -15640,67 +15732,70 @@ function openSLActPRUploader(actId) {
 
 // 📄 견적서 업로더
 function openSLActQuoteUploader(actId) {
-  const act = slData.find(x => x.id === actId);
-  if(!act) return;
+  const act = (slData||[]).find(x => x.id === actId);
+  console.log("📄 견적서 업로더 호출:", { actId, found: !!act });
+  // 컨텍스트 주입 (act 못 찾아도 진행)
+  window._currentSLActId = actId || "";
+  window._currentSLActPjcode = act?.pjcode || "";
   if(typeof openPurchaseQuoteModal === "function") {
-    // 구매활동 컨텍스트 주입
-    window._currentSLActId = actId;
-    window._currentSLActPjcode = act.pjcode || "";
     openPurchaseQuoteModal(null);
   } else {
-    alert("📄 견적서 모달 함수 없음");
+    alert("📄 견적서 모달 함수 없음 (openPurchaseQuoteModal)");
   }
 }
 
 // 📦 발주서 업로더
 function openSLActOrderUploader(actId) {
-  const act = slData.find(x => x.id === actId);
-  if(!act) return;
+  const act = (slData||[]).find(x => x.id === actId);
+  console.log("📦 발주서 업로더 호출:", { actId, found: !!act });
+  window._currentSLActId = actId || "";
+  window._currentSLActPjcode = act?.pjcode || "";
   if(typeof openPurchaseOrderModal === "function") {
-    window._currentSLActId = actId;
-    window._currentSLActPjcode = act.pjcode || "";
     openPurchaseOrderModal(null);
   } else {
-    alert("📦 발주서 모달 함수 없음");
+    alert("📦 발주서 모달 함수 없음 (openPurchaseOrderModal)");
   }
 }
 
 // 🚚 거래명세서 업로더
 function openSLActDeliveryUploader(actId) {
-  const act = slData.find(x => x.id === actId);
-  if(!act) return;
+  const act = (slData||[]).find(x => x.id === actId);
+  console.log("🚚 거래명세서 업로더 호출:", { actId, found: !!act });
+  window._currentSLActId = actId || "";
+  window._currentSLActPjcode = act?.pjcode || "";
   if(typeof openPurchaseDeliveryModal === "function") {
-    window._currentSLActId = actId;
-    window._currentSLActPjcode = act.pjcode || "";
     openPurchaseDeliveryModal(null);
   } else {
-    alert("🚚 거래명세서 모달 함수 없음");
+    alert("🚚 거래명세서 모달 함수 없음 (openPurchaseDeliveryModal)");
   }
 }
 
 // 🧾 세금계산서 업로더
 function openSLActTaxUploader(actId) {
-  const act = slData.find(x => x.id === actId);
-  if(!act) return;
+  const act = (slData||[]).find(x => x.id === actId);
+  console.log("🧾 세금계산서 업로더 호출:", { actId, found: !!act });
+  window._currentSLActId = actId || "";
+  window._currentSLActPjcode = act?.pjcode || "";
   if(typeof openPurchaseTaxModal === "function") {
-    window._currentSLActId = actId;
-    window._currentSLActPjcode = act.pjcode || "";
     openPurchaseTaxModal(null);
   } else {
-    alert("🧾 세금계산서 모달 함수 없음");
+    alert("🧾 세금계산서 모달 함수 없음 (openPurchaseTaxModal)");
   }
 }
 
-// 💰 회계전표 업로더
+// 💰 회계전표 업로더 (실제 함수는 openSettleModal)
 function openSLActAccountUploader(actId) {
-  const act = slData.find(x => x.id === actId);
-  if(!act) return;
-  if(typeof openPurchaseSettleModal === "function") {
-    window._currentSLActId = actId;
-    window._currentSLActPjcode = act.pjcode || "";
+  const act = (slData||[]).find(x => x.id === actId);
+  console.log("💰 회계전표 업로더 호출:", { actId, found: !!act });
+  window._currentSLActId = actId || "";
+  window._currentSLActPjcode = act?.pjcode || "";
+  // 🔧 회계전표는 openSettleModal (Purchase 접두어 없음)
+  if(typeof openSettleModal === "function") {
+    openSettleModal(null);
+  } else if(typeof openPurchaseSettleModal === "function") {
     openPurchaseSettleModal(null);
   } else {
-    alert("💰 회계전표 모달 함수 없음");
+    alert("💰 회계전표 모달 함수 없음 (openSettleModal)");
   }
 }
 
