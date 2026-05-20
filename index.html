@@ -5009,6 +5009,143 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📤 5개 매입 모달 - SharePoint 파일 업로드 공통 헬퍼
+// 폴더: 🏭 구매/1.구매활동/{프로젝트코드}/{문서종류}/
+// 파일명: {프로젝트코드}-{작성날짜}-{문서번호}-{원본파일명}.pdf
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 파일명 안전화 (/ : * ? " < > | 제거)
+function _sanitizeFilename(s) {
+  return (s||"").replace(/[\/:*?"<>|\\]/g, "_").trim();
+}
+
+// 폴더 자동 생성 (없으면 생성, 있으면 통과)
+async function _ensureSPFolder(folderPath) {
+  if(typeof getToken !== "function" || typeof getIds !== "function") return false;
+  try {
+    await getIds();
+    const t = await getToken();
+    if(!spDrive || !t) return false;
+    
+    // 폴더 경로를 단계별로 생성 (각 단계마다)
+    const parts = folderPath.split("/").filter(Boolean);
+    let curPath = "";
+    for(const part of parts) {
+      curPath = curPath ? `${curPath}/${part}` : part;
+      const encPath = curPath.split("/").map(encodeURIComponent).join("/");
+      
+      // 폴더 존재 확인
+      try {
+        const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}`, {
+          headers: { "Authorization": "Bearer " + t }
+        });
+        if(r.ok) continue;  // 이미 있음
+      } catch(e) { /* 없으면 생성 시도 */ }
+      
+      // 부모 경로
+      const parentParts = curPath.split("/").slice(0, -1);
+      const parentPath = parentParts.join("/");
+      const encParent = parentParts.map(encodeURIComponent).join("/");
+      
+      // 새 폴더 생성
+      const createUrl = parentPath 
+        ? `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encParent}:/children`
+        : `https://graph.microsoft.com/v1.0/drives/${spDrive}/root/children`;
+      
+      try {
+        await fetch(createUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+          body: JSON.stringify({
+            name: part,
+            folder: {},
+            "@microsoft.graph.conflictBehavior": "replace"
+          })
+        });
+      } catch(e) {
+        console.warn(`폴더 생성 실패 (${part}):`, e.message);
+      }
+    }
+    return true;
+  } catch(e) {
+    console.warn("폴더 생성 헬퍼 실패:", e.message);
+    return false;
+  }
+}
+
+// PDF/파일을 SharePoint에 업로드
+// 반환: { ok, url, filename, path, error }
+async function _uploadDocToSP(file, options) {
+  // options = { projectCode, docType, docNo, docDate }
+  // docType: "견적서" | "발주서" | "거래명세서" | "세금계산서" | "회계전표"
+  if(!file) return { ok: false, error: "파일 없음" };
+  if(!options?.projectCode) return { ok: false, error: "프로젝트코드 없음" };
+  if(!options?.docType) return { ok: false, error: "문서종류 없음" };
+  
+  try {
+    if(typeof getIds === "function") await getIds();
+    if(typeof getToken !== "function") return { ok: false, error: "Graph 인증 함수 없음" };
+    const t = await getToken();
+    if(!t || !spDrive) return { ok: false, error: "토큰/드라이브 없음" };
+    
+    const pjCode = _sanitizeFilename(options.projectCode);
+    const docType = _sanitizeFilename(options.docType);
+    const docNo = _sanitizeFilename(options.docNo || "no-num");
+    const docDate = (options.docDate || new Date().toISOString().slice(0,10)).slice(0,10);
+    
+    // 원본 파일명 (확장자 보존)
+    const origName = _sanitizeFilename(file.name || "file.pdf");
+    
+    // 폴더: 🏭 구매/1.구매활동/{프로젝트코드}/{문서종류}/
+    const folderPath = `🏭 구매/1.구매활동/${pjCode}/${docType}`;
+    
+    // 파일명: {프로젝트코드}-{작성날짜}-{문서번호}-{원본파일명}
+    const newFilename = `${pjCode}-${docDate}-${docNo}-${origName}`;
+    
+    // 폴더 자동 생성
+    await _ensureSPFolder(folderPath);
+    
+    // 파일 업로드
+    const fullPath = `${folderPath}/${newFilename}`;
+    const encPath = fullPath.split("/").map(encodeURIComponent).join("/");
+    
+    // 파일을 ArrayBuffer로
+    const buffer = await file.arrayBuffer();
+    
+    const uploadUrl = `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`;
+    const resp = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": "Bearer " + t,
+        "Content-Type": file.type || "application/pdf",
+      },
+      body: buffer,
+    });
+    
+    if(!resp.ok) {
+      const errText = await resp.text();
+      console.warn("SP 파일 업로드 실패:", resp.status, errText.substring(0,200));
+      return { ok: false, error: `HTTP ${resp.status}` };
+    }
+    
+    const r = await resp.json();
+    const webUrl = r.webUrl || `https://enjetco.sharepoint.com/sites/06.BackOffice/Shared%20Documents/${encPath}`;
+    
+    console.log(`✅ SP 파일 업로드 완료: ${fullPath}`);
+    return {
+      ok: true,
+      url: webUrl,
+      filename: newFilename,
+      path: fullPath,
+      size: file.size,
+    };
+  } catch(e) {
+    console.warn("파일 업로드 헬퍼 실패:", e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // 공통 AI 파싱 (파일 첨부 시 자동 호출 또는 [AI 파싱] 버튼)
 async function _purchaseAIParse(prefix, docType, auto) {
   const fileInput = document.getElementById(`${prefix}-f-file`);
@@ -5445,7 +5582,7 @@ async function savePurchaseQuote() {
   const quoteNo = document.getElementById("pq-f-quoteno").value.trim();
   const quoteDate = document.getElementById("pq-f-date").value;
   
-  if(!prCode) { alert("PR 코드를 입력해주세요. (예: PR-260519-01)"); return; }
+  // 🆕 PR 코드는 선택 (견적서가 PR 없이 받을 수도 있음)
   if(!vendor) { alert("거래처를 입력해주세요."); return; }
   if(!quoteNo) { alert("견적 번호를 입력해주세요."); return; }
   if(!quoteDate) { alert("견적일을 선택해주세요."); return; }
@@ -5460,18 +5597,19 @@ async function savePurchaseQuote() {
   
   const data = {
     id: _pqEditId || ("pq_" + Date.now()),
+    parentSLId: window._currentSLActId || (_pqEditId ? _pqdbData.find(x=>x.id===_pqEditId)?.parentSLId : null),  // 🆕 구매활동 연결
     prCode,
-    salesCode: document.getElementById("pq-f-salescode").value.trim(),
+    salesCode: document.getElementById("pq-f-salescode").value.trim() || window._currentSLActPjcode || "",  // 🆕 영업코드 자동
     vendor,
     type: document.getElementById("pq-f-type").value,
     quoteNo,
     quoteDate,
     validUntil: document.getElementById("pq-f-valid").value,
     deliveryDate: document.getElementById("pq-f-delivery").value,
-    leadDays: Number(document.getElementById("pq-f-leaddays")?.value || 0),  // 🆕 D(PO)+N일
-    vatMode: document.getElementById("pq-f-vat-mode")?.value || "separate",  // 🆕 VAT 별도/포함
+    leadDays: Number(document.getElementById("pq-f-leaddays")?.value || 0),
+    vatMode: document.getElementById("pq-f-vat-mode")?.value || "separate",
     items: document.getElementById("pq-f-items").value.trim(),
-    itemList: Array.isArray(_pqItems) ? _pqItems.map(it => ({  // 🆕 품목 상세 배열
+    itemList: Array.isArray(_pqItems) ? _pqItems.map(it => ({
       name: it.name || "",
       unit: it.unit || "EA",
       qty: Number(it.qty) || 0,
@@ -5483,9 +5621,32 @@ async function savePurchaseQuote() {
     totalAmount: Number(document.getElementById("pq-f-total").value || 0),
     status: document.getElementById("pq-f-status").value,
     note: document.getElementById("pq-f-note").value.trim(),
+    fileUrl: _pqEditId ? (_pqdbData.find(x=>x.id===_pqEditId)?.fileUrl || "") : "",  // 🆕 SP 파일 URL
+    fileName: _pqEditId ? (_pqdbData.find(x=>x.id===_pqEditId)?.fileName || "") : "",  // 🆕 SP 파일명
     createdAt: _pqEditId ? (_pqdbData.find(x=>x.id===_pqEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  
+  // 🆕 PDF 파일이 첨부됐으면 SharePoint에 업로드
+  const file = document.getElementById("pq-f-file")?.files?.[0];
+  if(file && data.salesCode) {
+    const upRes = await _uploadDocToSP(file, {
+      projectCode: data.salesCode,  // 영업프로젝트코드 (예: BM26005)
+      docType: "견적서",
+      docNo: data.quoteNo,
+      docDate: data.quoteDate,
+    });
+    if(upRes.ok) {
+      data.fileUrl = upRes.url;
+      data.fileName = upRes.filename;
+      data.filePath = upRes.path;
+      console.log(`✅ 견적서 PDF 업로드: ${upRes.filename}`);
+    } else {
+      console.warn(`⚠️ PDF 업로드 실패: ${upRes.error} (데이터는 저장됨)`);
+    }
+  } else if(file && !data.salesCode) {
+    console.warn("⚠️ 프로젝트코드가 없어 SP 폴더 업로드 스킵 (영업코드 입력 권장)");
+  }
   
   if(_pqEditId) {
     _pqdbData = _pqdbData.map(x => x.id === _pqEditId ? data : x);
@@ -5495,17 +5656,23 @@ async function savePurchaseQuote() {
   
   closePurchaseQuoteModal();
   if(typeof renderPQDB === "function") renderPQDB();
+  if(typeof renderSLAll === "function") renderSLAll();  // 🆕 구매활동 목록 카운트 갱신
   
   const r = await savePQDB();
   if(r.sp) {
     console.log("✅ 매입 견적서 저장 완료");
   } else {
-    alert("⚠️ SP 저장 실패 (localStorage에 백업됨)\n" + (r.error || ""));
+    // 🆕 alert 대신 콘솔 경고 (BH가 모든 데이터 사라졌다고 놀라지 않도록)
+    console.warn("⚠️ SP 저장 실패 (localStorage에 백업됨):", r.error || "");
   }
   
-  // 🆕 BOM 가격 이력 자동 누적 (PR을 통해 BOM 추적)
+  // 🆕 BOM 가격 이력 자동 누적 (try/catch로 완전 격리)
   if(!_pqEditId && typeof addBOMPriceHistory === "function") {
-    addBOMPriceHistory(data).catch(e => console.warn("BOM 가격 이력 추가 실패:", e));
+    try {
+      await addBOMPriceHistory(data);
+    } catch(e) {
+      console.warn("BOM 가격 이력 추가 실패 (견적은 정상 저장됨):", e.message);
+    }
   }
 }
 
@@ -5514,87 +5681,96 @@ async function savePurchaseQuote() {
 // 견적의 PR 코드 → PR의 bomCode → BOM에 이력 추가
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function addBOMPriceHistory(quoteData) {
-  if(!quoteData || !quoteData.prCode) return;
+  if(!quoteData) return;
   
-  // 🆕 itemList가 있으면 각 품목별로 BOM 매칭 시도
-  if(Array.isArray(quoteData.itemList) && quoteData.itemList.length > 0) {
-    let matched = 0;
-    for(const item of quoteData.itemList) {
-      const name = (item.name || "").trim();
-      const unitPrice = Number(item.unitPrice) || 0;
-      if(!name || unitPrice <= 0) continue;
-      
-      // BOM 매칭: 품명/품번 부분 일치
-      const bom = (_bomData||[]).find(b => {
-        const bomName = (b.name || "").toLowerCase();
-        const bomCode = (b.bomCode || "").toLowerCase();
-        const itemName = name.toLowerCase();
-        return bomName.includes(itemName) || itemName.includes(bomName) || 
-               bomCode.includes(itemName) || itemName.includes(bomCode);
-      });
-      
-      if(!bom) {
-        console.log(`📋 BOM 매칭 실패: ${name}`);
-        continue;
+  try {
+    // 🆕 itemList가 있으면 각 품목별로 BOM 매칭 시도 (PR 코드 없어도 시도)
+    if(Array.isArray(quoteData.itemList) && quoteData.itemList.length > 0) {
+      let matched = 0;
+      let notMatched = 0;
+      for(const item of quoteData.itemList) {
+        const name = (item.name || "").trim();
+        const unitPrice = Number(item.unitPrice) || 0;
+        if(!name || unitPrice <= 0) continue;
+        
+        // BOM 매칭: 품명/품번 부분 일치
+        const bom = (_bomData||[]).find(b => {
+          const bomName = (b.name || "").toLowerCase();
+          const bomCode = (b.bomCode || "").toLowerCase();
+          const itemName = name.toLowerCase();
+          return bomName.includes(itemName) || itemName.includes(bomName) || 
+                 bomCode.includes(itemName) || itemName.includes(bomCode);
+        });
+        
+        if(!bom) {
+          notMatched++;
+          continue;  // 🆕 조용히 스킵 (alert/error 없음)
+        }
+        
+        // 이력 추가
+        const historyItem = {
+          quoteId: `${quoteData.id}_item${matched}`,
+          quoteNo: quoteData.quoteNo,
+          quoteDate: quoteData.quoteDate,
+          vendor: quoteData.vendor,
+          itemName: name,
+          unitPrice: unitPrice,
+          qty: Number(item.qty) || 1,
+          supplyAmount: unitPrice * (Number(item.qty)||1),
+          totalAmount: unitPrice * (Number(item.qty)||1),
+          prCode: quoteData.prCode || "",
+          addedAt: new Date().toISOString(),
+        };
+        
+        if(!Array.isArray(bom.priceHistory)) bom.priceHistory = [];
+        const existingIdx = bom.priceHistory.findIndex(h => h.quoteId === historyItem.quoteId);
+        if(existingIdx >= 0) bom.priceHistory[existingIdx] = historyItem;
+        else bom.priceHistory.push(historyItem);
+        
+        // 정렬 + 네고율 갱신
+        bom.priceHistory.sort((a,b) => (a.quoteDate||"").localeCompare(b.quoteDate||""));
+        const first = bom.priceHistory[0];
+        const latest = bom.priceHistory[bom.priceHistory.length-1];
+        if(first && latest && first.unitPrice > 0) {
+          bom.currentPrice = latest.unitPrice;
+          bom.currentVendor = latest.vendor;
+          bom.lastQuoteDate = latest.quoteDate;
+          bom.negoRate = first === latest ? 0 : ((first.unitPrice - latest.unitPrice) / first.unitPrice * 100);
+        }
+        bom.updatedAt = new Date().toISOString();
+        matched++;
       }
       
-      // 이력 추가
-      const historyItem = {
-        quoteId: `${quoteData.id}_item${matched}`,
-        quoteNo: quoteData.quoteNo,
-        quoteDate: quoteData.quoteDate,
-        vendor: quoteData.vendor,
-        itemName: name,
-        unitPrice: unitPrice,
-        qty: Number(item.qty) || 1,
-        supplyAmount: unitPrice * (Number(item.qty)||1),
-        totalAmount: unitPrice * (Number(item.qty)||1),
-        prCode: quoteData.prCode,
-        addedAt: new Date().toISOString(),
-      };
-      
-      if(!Array.isArray(bom.priceHistory)) bom.priceHistory = [];
-      const existingIdx = bom.priceHistory.findIndex(h => h.quoteId === historyItem.quoteId);
-      if(existingIdx >= 0) bom.priceHistory[existingIdx] = historyItem;
-      else bom.priceHistory.push(historyItem);
-      
-      // 정렬 + 네고율 갱신
-      bom.priceHistory.sort((a,b) => (a.quoteDate||"").localeCompare(b.quoteDate||""));
-      const first = bom.priceHistory[0];
-      const latest = bom.priceHistory[bom.priceHistory.length-1];
-      if(first && latest && first.unitPrice > 0) {
-        bom.currentPrice = latest.unitPrice;
-        bom.currentVendor = latest.vendor;
-        bom.lastQuoteDate = latest.quoteDate;
-        bom.negoRate = first === latest ? 0 : ((first.unitPrice - latest.unitPrice) / first.unitPrice * 100);
+      if(matched > 0) {
+        console.log(`✅ BOM 가격 이력 ${matched}건 누적 (매칭 안 됨 ${notMatched}건 - 조용히 스킵)`);
+        try {
+          if(typeof saveBOMDB === "function") await saveBOMDB();
+          if(typeof renderBOMDB === "function") renderBOMDB();
+        } catch(e) { console.warn("BOM DB 저장/렌더 실패 (무시):", e.message); }
+      } else {
+        console.log(`ℹ️ BOM 매칭된 품목 없음 (총 ${quoteData.itemList.length}개 시도) - 견적은 정상 저장됨`);
       }
-      bom.updatedAt = new Date().toISOString();
-      matched++;
-      console.log(`📋 BOM ${bom.bomCode} 이력 추가: ${name} ${unitPrice.toLocaleString()}원`);
+      return;
     }
     
-    if(matched > 0) {
-      console.log(`✅ BOM 가격 이력 ${matched}건 누적 완료`);
-      if(typeof saveBOMDB === "function") await saveBOMDB();
-      if(typeof renderBOMDB === "function") renderBOMDB();
-    } else {
-      console.log(`📋 BOM 매칭된 품목 없음 (총 ${quoteData.itemList.length}개 시도)`);
+    // PR 없으면 폴백도 스킵
+    if(!quoteData.prCode) {
+      console.log("ℹ️ BOM 가격 이력 스킵: PR 코드 없음 (견적만 저장)");
+      return;
     }
-    return;
-  }
-  
-  // 폴백: 기존 방식 (PR 1건 = BOM 1건)
-  const pr = (_prMaster||[]).find(p => p.prCode === quoteData.prCode);
-  if(!pr) {
-    console.log(`📋 BOM 가격 이력 스킵: PR ${quoteData.prCode} 없음`);
-    return;
-  }
-  
-  const bomCode = pr.bomCode;
-  if(!bomCode) {
-    console.log(`📋 BOM 가격 이력 스킵: PR ${quoteData.prCode}에 bomCode 없음`);
-    return;
-  }
+    
+    // 폴백: 기존 방식 (PR 1건 = BOM 1건)
+    const pr = (_prMaster||[]).find(p => p.prCode === quoteData.prCode);
+    if(!pr) {
+      console.log(`ℹ️ BOM 가격 이력 스킵: PR ${quoteData.prCode} 없음`);
+      return;
+    }
+    
+    const bomCode = pr.bomCode;
+    if(!bomCode) {
+      console.log(`ℹ️ BOM 가격 이력 스킵: PR ${quoteData.prCode}에 bomCode 없음`);
+      return;
+    }
   
   // BOM 찾기
   const bom = (_bomData||[]).find(b => b.bomCode === bomCode);
@@ -5655,6 +5831,10 @@ async function addBOMPriceHistory(quoteData) {
     await saveBOMDB();
   }
   if(typeof renderBOMDB === "function") renderBOMDB();
+  } catch(e) {
+    // 🆕 BOM 매칭/저장 실패해도 견적서 자체는 정상 저장됨 (조용히 스킵)
+    console.warn("⚠️ BOM 가격 이력 추가 실패 (견적은 정상 저장됨):", e.message);
+  }
 }
 
 // 매입 견적서 테이블 렌더
@@ -5844,6 +6024,8 @@ async function savePurchaseOrder() {
   
   const data = {
     id: _poEditId || ("po_" + Date.now()),
+    parentSLId: window._currentSLActId || (_poEditId ? _pordData.find(x=>x.id===_poEditId)?.parentSLId : null),
+    salesCode: document.getElementById("po-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
     poCode,
     prCode,
     vendor,
@@ -5856,9 +6038,29 @@ async function savePurchaseOrder() {
     payTerm: document.getElementById("po-f-payterm").value,
     status: document.getElementById("po-f-status").value,
     note: document.getElementById("po-f-note").value.trim(),
+    fileUrl: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileUrl || "") : "",
+    fileName: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileName || "") : "",
     createdAt: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  
+  // 🆕 PDF 파일이 첨부됐으면 SharePoint에 업로드
+  const file = document.getElementById("po-f-file")?.files?.[0];
+  if(file && data.salesCode) {
+    const upRes = await _uploadDocToSP(file, {
+      projectCode: data.salesCode,
+      docType: "발주서",
+      docNo: data.poCode,
+      docDate: data.poDate,
+    });
+    if(upRes.ok) {
+      data.fileUrl = upRes.url;
+      data.fileName = upRes.filename;
+      data.filePath = upRes.path;
+    } else {
+      console.warn(`⚠️ 발주서 PDF 업로드 실패: ${upRes.error}`);
+    }
+  }
   
   if(_poEditId) {
     _pordData = _pordData.map(x => x.id === _poEditId ? data : x);
@@ -6050,6 +6252,8 @@ async function savePurchaseDelivery() {
   
   const data = {
     id: _pdlvEditId || ("pdlv_" + Date.now()),
+    parentSLId: window._currentSLActId || (_pdlvEditId ? _pdlvData.find(x=>x.id===_pdlvEditId)?.parentSLId : null),
+    salesCode: document.getElementById("pdlv-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
     dlvNo,
     poCode: document.getElementById("pdlv-f-pocode").value.trim(),
     prCode: document.getElementById("pdlv-f-prcode").value.trim(),
@@ -6062,9 +6266,29 @@ async function savePurchaseDelivery() {
     inspectStatus: document.getElementById("pdlv-f-status").value,
     inspector: document.getElementById("pdlv-f-inspector").value.trim(),
     defectNote: document.getElementById("pdlv-f-defectnote").value.trim(),
+    fileUrl: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.fileUrl || "") : "",
+    fileName: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.fileName || "") : "",
     createdAt: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  
+  // 🆕 PDF 업로드
+  const file = document.getElementById("pdlv-f-file")?.files?.[0];
+  if(file && data.salesCode) {
+    const upRes = await _uploadDocToSP(file, {
+      projectCode: data.salesCode,
+      docType: "거래명세서",
+      docNo: data.dlvNo,
+      docDate: data.dlvDate,
+    });
+    if(upRes.ok) {
+      data.fileUrl = upRes.url;
+      data.fileName = upRes.filename;
+      data.filePath = upRes.path;
+    } else {
+      console.warn(`⚠️ 거래명세서 PDF 업로드 실패: ${upRes.error}`);
+    }
+  }
   
   if(_pdlvEditId) {
     _pdlvData = _pdlvData.map(x => x.id === _pdlvEditId ? data : x);
@@ -6242,6 +6466,8 @@ async function savePurchaseTax() {
   
   const data = {
     id: _ptaxEditId || ("ptax_" + Date.now()),
+    parentSLId: window._currentSLActId || (_ptaxEditId ? _ptaxData.find(x=>x.id===_ptaxEditId)?.parentSLId : null),
+    salesCode: document.getElementById("ptax-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
     taxNo,
     prCode: document.getElementById("ptax-f-prcode").value.trim(),
     vendor,
@@ -6255,9 +6481,29 @@ async function savePurchaseTax() {
     payStatus: document.getElementById("ptax-f-paystatus").value,
     actualPayDate: document.getElementById("ptax-f-paydate").value,
     note: document.getElementById("ptax-f-note").value.trim(),
+    fileUrl: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.fileUrl || "") : "",
+    fileName: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.fileName || "") : "",
     createdAt: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  
+  // 🆕 PDF 업로드
+  const file = document.getElementById("ptax-f-file")?.files?.[0];
+  if(file && data.salesCode) {
+    const upRes = await _uploadDocToSP(file, {
+      projectCode: data.salesCode,
+      docType: "세금계산서",
+      docNo: data.taxNo,
+      docDate: data.taxDate,
+    });
+    if(upRes.ok) {
+      data.fileUrl = upRes.url;
+      data.fileName = upRes.filename;
+      data.filePath = upRes.path;
+    } else {
+      console.warn(`⚠️ 세금계산서 PDF 업로드 실패: ${upRes.error}`);
+    }
+  }
   
   if(_ptaxEditId) {
     _ptaxData = _ptaxData.map(x => x.id === _ptaxEditId ? data : x);
@@ -7693,6 +7939,8 @@ async function saveSettle() {
   
   const data = {
     id: _stlEditId || ("stl_" + Date.now()),
+    parentSLId: window._currentSLActId || (_stlEditId ? _pstlData.find(x=>x.id===_stlEditId)?.parentSLId : null),
+    salesCode: document.getElementById("stl-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
     stCode,
     prCode,
     poCode: document.getElementById("stl-f-pocode").value.trim(),
@@ -7704,9 +7952,29 @@ async function saveSettle() {
     acctNo: document.getElementById("stl-f-acctno").value.trim(),
     payStatus: document.getElementById("stl-f-paystatus").value,
     note: document.getElementById("stl-f-note").value.trim(),
+    fileUrl: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.fileUrl || "") : "",
+    fileName: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.fileName || "") : "",
     createdAt: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  
+  // 🆕 PDF 업로드
+  const file = document.getElementById("stl-f-file")?.files?.[0];
+  if(file && data.salesCode) {
+    const upRes = await _uploadDocToSP(file, {
+      projectCode: data.salesCode,
+      docType: "회계전표",
+      docNo: data.stCode,
+      docDate: data.stlDate,
+    });
+    if(upRes.ok) {
+      data.fileUrl = upRes.url;
+      data.fileName = upRes.filename;
+      data.filePath = upRes.path;
+    } else {
+      console.warn(`⚠️ 회계전표 PDF 업로드 실패: ${upRes.error}`);
+    }
+  }
   
   if(_stlEditId) {
     _pstlData = _pstlData.map(x => x.id === _stlEditId ? data : x);
@@ -16491,17 +16759,17 @@ function renderSLTablePurchase(data) {
       }
     };
     
-    // 각 DB 카운트
-    const qCount = (typeof _quoteDB !== "undefined" && Array.isArray(_quoteDB)) 
-      ? _quoteDB.filter(q => q.parentSLId === r.id || q.salesCode === r.pjcode).length : 0;
-    const oCount = (typeof _orderDB !== "undefined" && Array.isArray(_orderDB)) 
-      ? _orderDB.filter(o => o.parentSLId === r.id || o.salesCode === r.pjcode).length : 0;
-    const dCount = (typeof _deliveryDB !== "undefined" && Array.isArray(_deliveryDB)) 
-      ? _deliveryDB.filter(d2 => d2.parentSLId === r.id || d2.salesCode === r.pjcode).length : 0;
-    const tCount = (typeof _taxDB !== "undefined" && Array.isArray(_taxDB)) 
-      ? _taxDB.filter(t => t.parentSLId === r.id || t.salesCode === r.pjcode).length : 0;
-    const aCount = (typeof _settleDB !== "undefined" && Array.isArray(_settleDB)) 
-      ? _settleDB.filter(s => s.parentSLId === r.id || s.salesCode === r.pjcode).length : 0;
+    // 각 DB 카운트 (구매 DB는 _pqdbData/_pordData/_pdlvData/_ptaxData/_pstlData 사용)
+    const qCount = (typeof _pqdbData !== "undefined" && Array.isArray(_pqdbData)) 
+      ? _pqdbData.filter(q => q.parentSLId === r.id || q.salesCode === r.pjcode).length : 0;
+    const oCount = (typeof _pordData !== "undefined" && Array.isArray(_pordData)) 
+      ? _pordData.filter(o => o.parentSLId === r.id || o.salesCode === r.pjcode).length : 0;
+    const dCount = (typeof _pdlvData !== "undefined" && Array.isArray(_pdlvData)) 
+      ? _pdlvData.filter(d2 => d2.parentSLId === r.id || d2.salesCode === r.pjcode).length : 0;
+    const tCount = (typeof _ptaxData !== "undefined" && Array.isArray(_ptaxData)) 
+      ? _ptaxData.filter(t => t.parentSLId === r.id || t.salesCode === r.pjcode).length : 0;
+    const aCount = (typeof _pstlData !== "undefined" && Array.isArray(_pstlData)) 
+      ? _pstlData.filter(s => s.parentSLId === r.id || s.salesCode === r.pjcode).length : 0;
     
     return `<tr style="cursor:pointer" onclick="openSLModal(slData.find(x=>x.id==='${r.id}'))">
       <td onclick="event.stopPropagation()">${projectCell}</td>
@@ -27997,8 +28265,8 @@ function deleteTax(id){
               <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px">📋 기본 정보</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div>
-                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
-                  <input type="text" id="pq-f-prcode" placeholder="PR-260519-01" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드 <span style="font-weight:400;color:var(--t3)">(선택)</span></label>
+                  <input type="text" id="pq-f-prcode" placeholder="PR-260519-01 (선택사항)" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
                 </div>
                 <div>
                   <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
