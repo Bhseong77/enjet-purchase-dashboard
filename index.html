@@ -2581,29 +2581,30 @@
         </div>
         <div class="cb" style="padding:8px 12px">
           <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <input class="si" type="text" id="taxSrch" placeholder="🔍 발행번호 / PR코드 / 거래처 / 사업자번호..." oninput="if(typeof filterTAX==='function')filterTAX()" style="flex:1;min-width:200px">
+            <input class="si" type="text" id="taxSrch" placeholder="🔍 승인번호 / 프로젝트 / 거래처 / 사업자번호 / 품목..." oninput="if(typeof filterTAX==='function')filterTAX()" style="flex:1;min-width:200px">
             <select class="ss" id="taxPayFilter" onchange="if(typeof filterTAX==='function')filterTAX()" style="min-width:130px">
-              <option value="">전체 결제상태</option>
-              <option value="paid">결제완료</option>
-              <option value="unpaid">결제대기</option>
-              <option value="overdue">지연</option>
+              <option value="">전체 지급상태</option>
+              <option value="미지급">미지급</option>
+              <option value="일부지급">일부지급</option>
+              <option value="지급완료">지급완료</option>
+              <option value="보류">보류</option>
             </select>
           </div>
           <div style="overflow-x:auto">
-            <table class="tbl" style="min-width:1200px">
+            <table class="tbl" style="min-width:1350px">
               <thead><tr>
-                <th style="min-width:160px">세금계산서번호</th>
-                <th style="min-width:110px">PR코드</th>
-                <th style="min-width:130px">거래처</th>
-                <th style="min-width:120px">사업자번호</th>
-                <th style="min-width:90px">발행일</th>
-                <th style="min-width:110px;text-align:right">공급가</th>
-                <th style="min-width:90px;text-align:right">VAT</th>
-                <th style="min-width:110px;text-align:right">총금액</th>
-                <th style="min-width:90px">결제예정일</th>
-                <th style="min-width:80px;text-align:center">전자세금</th>
-                <th style="min-width:90px">결제상태</th>
-                <th style="min-width:80px;text-align:center">파일</th>
+                <th style="min-width:170px">승인번호</th>
+                <th style="min-width:100px">프로젝트</th>
+                <th style="min-width:140px">거래처(공급자)</th>
+                <th style="min-width:110px">사업자번호</th>
+                <th style="min-width:90px">작성일자</th>
+                <th style="min-width:100px;text-align:right">공급가액</th>
+                <th style="min-width:90px;text-align:right">세액</th>
+                <th style="min-width:110px;text-align:right">합계금액</th>
+                <th style="min-width:100px;text-align:right;background:#fef2f2">외상미수금</th>
+                <th style="min-width:90px">지급예정일</th>
+                <th style="min-width:90px">지급상태</th>
+                <th style="min-width:60px;text-align:center">파일</th>
               </tr></thead>
               <tbody id="taxBody">
                 <tr><td colspan="12"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처에서 받은 매입세금계산서 업로드 시 자동 파싱</div></div></td></tr>
@@ -4419,6 +4420,169 @@ function parseENJETPOTextLocally(pdfText) {
   return result.itemList.length > 0 ? result : null;
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🧾 매입 세금계산서 로컬 파싱 - 국세청 전자세금계산서 양식 (고정)
+//
+// 양식 특징:
+//   - "승인번호 YYYYMMDD-XXXXXXXX-XXXXXXXX" (32자리 형식)
+//   - 공급자(왼쪽) / 공급받는자(오른쪽): 등록번호, 상호, 성명, 사업장주소, 업태, 종목, 이메일
+//   - 우리(엔젯) 공급받는자(오른쪽). 왼쪽이 거래처(공급자)
+//   - 작성일자 / 공급가액 / 세액 / 비고 (영수증 한 행)
+//   - 합계금액 / 현금 / 수표 / 어음 / 외상미수금 / 이 금액을 (청구) 함
+//   - 품목 표 (월 일 품목 규격 수량 단가 공급가액 세액 비고)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function parseENJETTAXTextLocally(pdfText) {
+  if(!pdfText) return null;
+  console.log("🧾 세금계산서 로컬 파싱 시작 - 텍스트 길이:", pdfText.length);
+  
+  // 시그니처: "전자세금계산서" 또는 "승인번호" + "공급받는자"
+  const isTaxInvoice = /전자세금계산서|세금계산서/.test(pdfText) && /승인번호/.test(pdfText);
+  if(!isTaxInvoice) {
+    console.log("🧾 세금계산서 시그니처 미발견 - AI에 위임");
+    return null;
+  }
+  
+  const result = {
+    vendor: "",        // 거래처(공급자) 상호
+    taxNo: "",         // 승인번호
+    taxDate: "",       // 작성일자
+    bizNo: "",         // 공급자 사업자번호
+    items: "",         // 품목 요약
+    supplyAmount: 0,   // 공급가액
+    vatAmount: 0,      // 세액 (VAT)
+    totalAmount: 0,    // 합계금액
+    unpaidAmount: 0,   // 외상미수금
+    eTaxType: "전자",
+    _engine: "local",
+  };
+  
+  // ── 1) 승인번호 ──
+  // 예: "승인번호 20260512-41000096-36232975"
+  const taxNoMatch = pdfText.match(/승인번호\s+([\d\-]{20,})/);
+  if(taxNoMatch) {
+    result.taxNo = taxNoMatch[1].trim();
+    // 작성일자 추출: 승인번호 앞 8자리가 YYYYMMDD
+    const datePart = result.taxNo.match(/^(\d{4})(\d{2})(\d{2})/);
+    if(datePart) result.taxDate = `${datePart[1]}-${datePart[2]}-${datePart[3]}`;
+  }
+  
+  // ── 2) 작성일자 (별도 명시된 경우 우선) ──
+  // 예: "작성일자 2026-05-12" 또는 "2026 05 12"
+  const taxDateMatch = pdfText.match(/작성일자\s+(\d{4}[-./\s]\d{1,2}[-./\s]\d{1,2})/);
+  if(taxDateMatch) {
+    result.taxDate = taxDateMatch[1].replace(/[./\s]/g, "-").replace(/-(\d)(?=-|$)/g, "-0$1");
+  }
+  
+  // ── 3) 공급자(거래처) 정보 추출 ──
+  // 공급자는 왼쪽, 공급받는자(우리)는 오른쪽
+  // PDF 텍스트에선 둘이 섞여 나옴. "공급자"/"공급받는자" 마커로 분리
+  // 패턴: "등록번호 195-87-00901" (공급자) → 첫 번째 등록번호가 공급자
+  const bizNoMatches = [...pdfText.matchAll(/(\d{3}-\d{2}-\d{5})/g)];
+  if(bizNoMatches.length > 0) {
+    // 첫 번째 사업자번호 = 공급자
+    result.bizNo = bizNoMatches[0][1];
+  }
+  
+  // 상호 (법인명) - 공급자 쪽 추출
+  // 첫 번째 "상호" 또는 "(법인명)" 다음의 회사명
+  // 패턴: "라이트컨버젼코리아 주식회사" / "(주)..." / "...주식회사" / "..㈜"
+  // 공급받는자 측에 "엔젯/ENJET"이 나오므로 그 앞에 있는 회사명이 공급자
+  const enjetIdx = pdfText.search(/엔젯|ENJET/i);
+  let vendorSearchArea = enjetIdx > 0 ? pdfText.substring(0, enjetIdx) : pdfText;
+  
+  // 다양한 형태의 회사명 매칭
+  const vendorPatterns = [
+    /([가-힣A-Za-z][가-힣A-Za-z0-9\s]+(?:주식회사|㈜|\(주\)))/,  // ...주식회사 / ...㈜
+    /((?:㈜|\(주\))\s*[가-힣A-Za-z][가-힣A-Za-z0-9\s]+)/,        // ㈜...
+  ];
+  for(const pat of vendorPatterns) {
+    const m = vendorSearchArea.match(pat);
+    if(m && !/엔젯|ENJET/i.test(m[1])) {
+      result.vendor = m[1].trim();
+      break;
+    }
+  }
+  
+  // ── 4) 금액 추출 - 콤마 포함 큰 숫자들 ──
+  // 패턴: "3,000,000" 또는 "300,000"
+  // 보통 PDF에서 공급가액/세액/합계금액/외상미수금 순으로 등장
+  // 가장 큰 합리적 금액들 = [공급가, 세액, 합계, 외상미수금]
+  const allNums = [...pdfText.matchAll(/([\d]{1,3}(?:,\d{3})+)/g)]
+    .map(m => Number(m[1].replace(/,/g, "")))
+    .filter(n => n >= 1000);
+  
+  // 공급가액: "공급가액" 키워드 옆 숫자
+  const supplyMatch = pdfText.match(/공급가액[\s\S]{0,200}?([\d,]+)/);
+  if(supplyMatch) result.supplyAmount = Number(supplyMatch[1].replace(/,/g, "")) || 0;
+  
+  // 세액: "세액" 키워드 옆 숫자
+  const vatMatch = pdfText.match(/세\s*액[\s\S]{0,150}?([\d,]+)/);
+  if(vatMatch) result.vatAmount = Number(vatMatch[1].replace(/,/g, "")) || 0;
+  
+  // 합계금액
+  const totalMatch = pdfText.match(/합계금액[\s\S]{0,200}?([\d,]+)/);
+  if(totalMatch) result.totalAmount = Number(totalMatch[1].replace(/,/g, "")) || 0;
+  
+  // 외상미수금
+  const unpaidMatch = pdfText.match(/외상미수금[\s\S]{0,150}?([\d,]+)/);
+  if(unpaidMatch) result.unpaidAmount = Number(unpaidMatch[1].replace(/,/g, "")) || 0;
+  
+  // ── 5) 검증 및 보정 ──
+  // 공급가 + 세액 = 합계금액 (오차 ±1원)
+  if(result.supplyAmount > 0 && result.vatAmount > 0) {
+    const calcTotal = result.supplyAmount + result.vatAmount;
+    if(Math.abs(calcTotal - result.totalAmount) > 1) {
+      // 합계 안 맞으면 공급가+세액으로 보정
+      console.log(`🧾 합계 불일치 (${result.totalAmount} → ${calcTotal}) - 보정`);
+      result.totalAmount = calcTotal;
+    }
+  }
+  // 외상미수금이 없으면 합계와 동일
+  if(result.unpaidAmount === 0) result.unpaidAmount = result.totalAmount;
+  // VAT가 없으면 공급가의 10%
+  if(result.vatAmount === 0 && result.supplyAmount > 0) {
+    result.vatAmount = Math.round(result.supplyAmount * 0.1);
+    result.totalAmount = result.supplyAmount + result.vatAmount;
+  }
+  
+  // ── 6) 품목 요약 ──
+  // PDF 표 안의 첫 품목명 추출 (보통 영문 + 한글 혼합)
+  // "Service and inspection for CARBIDE CB5" 같은 패턴
+  // 표 안: 월 일 품목 규격 수량 단가 ...
+  // 품목명은 보통 알파벳/숫자/한글 혼합 + 길이 10~100자
+  const itemPatterns = [
+    // 영문 시작: "Service and inspection..."
+    /\b([A-Z][a-zA-Z][a-zA-Z\s\-/]{8,}[A-Za-z\d])/,
+    // 품목/Description 다음 줄
+    /(?:품목|Description)[\s\S]{0,30}?\n([^\n]{5,80})/,
+  ];
+  for(const pat of itemPatterns) {
+    const m = pdfText.match(pat);
+    if(m && m[1] && !/세금계산서|승인번호|공급자|받는자|작성일|합계|외상/.test(m[1])) {
+      result.items = m[1].trim().substring(0, 100);
+      break;
+    }
+  }
+  
+  console.log(`🧾 세금계산서 로컬 파싱 완료:`, {
+    vendor: result.vendor,
+    taxNo: result.taxNo,
+    taxDate: result.taxDate,
+    bizNo: result.bizNo,
+    supply: result.supplyAmount,
+    vat: result.vatAmount,
+    total: result.totalAmount,
+    unpaid: result.unpaidAmount,
+  });
+  
+  // 최소 검증: 승인번호 + 공급가 둘 다 있어야 유효
+  if(!result.taxNo || result.supplyAmount === 0) {
+    console.log("🧾 필수 정보 누락 - AI에 위임");
+    return null;
+  }
+  
+  return result;
+}
 
 
 async function aiParsePR() {
@@ -6046,6 +6210,74 @@ async function _purchaseAIParse(prefix, docType, auto) {
       showProgress("🤖 AI 파싱으로 폴백 중...", "#2563eb", true);
     }
     
+    // ⚡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 세금계산서: 국세청 양식 고정 - 로컬 파싱 우선 (정규식만으로 추출)
+    // 우선순위: 로컬 → Gemini → OpenAI → Copilot
+    // ⚡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if(docType === "tax") {
+      showProgress("⚡ 세금계산서 로컬 파싱 시도...", "#7c3aed", true);
+      try {
+        let pdfText = "";
+        if(typeof extractPdfText === "function") {
+          pdfText = await extractPdfText(base64);
+        }
+        if(pdfText && pdfText.length > 100) {
+          console.log(`⚡ 세금계산서 PDF 텍스트 ${pdfText.length}자 추출`);
+          const localResult = parseENJETTAXTextLocally(pdfText);
+          if(localResult && localResult.taxNo) {
+            console.log(`⚡ 세금계산서 로컬 파싱 성공: 승인번호 ${localResult.taxNo}`);
+            
+            const fillForce = (id, val) => {
+              const el = document.getElementById(id);
+              if(el && val !== undefined && val !== null && val !== "") {
+                el.value = val;
+                el.dispatchEvent(new Event("input"));
+              }
+            };
+            
+            // 거래처 보정: 엔젯이면 무시 (받는쪽 잘못 가져온 경우)
+            let useVendor = localResult.vendor;
+            if(useVendor && /^(엔젯|ENJET|Enjet|enjet|㈜엔젯|\(주\)엔젯)/.test(useVendor.trim())) {
+              console.warn(`⚠️ 거래처가 엔젯으로 추출됨 - 무시 (공급자가 아님)`);
+              useVendor = "";
+            }
+            
+            if(useVendor) fillForce(`${prefix}-f-vendor`, useVendor);
+            if(localResult.taxNo) fillForce(`${prefix}-f-taxno`, localResult.taxNo);
+            if(localResult.taxDate) fillForce(`${prefix}-f-date`, localResult.taxDate);
+            if(localResult.bizNo) fillForce(`${prefix}-f-bizno`, localResult.bizNo);
+            if(localResult.items) fillForce(`${prefix}-f-items`, localResult.items);
+            if(localResult.supplyAmount) fillForce(`${prefix}-f-supply`, localResult.supplyAmount);
+            if(localResult.vatAmount) fillForce(`${prefix}-f-vat`, localResult.vatAmount);
+            if(localResult.totalAmount) fillForce(`${prefix}-f-total`, localResult.totalAmount);
+            if(localResult.unpaidAmount) fillForce(`${prefix}-f-unpaid`, localResult.unpaidAmount);
+            
+            // 지급예정일 자동 계산 (작성일자 기준 익월 10일)
+            if(typeof updatePTAXPaymentDate === "function") {
+              setTimeout(() => updatePTAXPaymentDate(true), 100);
+            }
+            
+            showProgress(`✅ 로컬 파싱 완료 - 결과 확인 후 저장하세요`, "#16a34a", false);
+            window[`_aiParsing_${prefix}`] = false;
+            window[`_aiParsed_${prefix}`] = true;
+            
+            setTimeout(() => {
+              if(typeof _showAIReviewAlert === "function") {
+                _showAIReviewAlert("세금계산서", 1, "로컬 파싱");
+              }
+            }, 500);
+            
+            return;  // AI 호출 안 함
+          } else {
+            console.log("⚡ 세금계산서 로컬 파싱 실패 → AI 폴백");
+          }
+        }
+      } catch(localErr) {
+        console.warn("⚡ 세금계산서 로컬 파싱 오류:", localErr.message);
+      }
+      showProgress("🤖 AI 파싱으로 폴백 중...", "#2563eb", true);
+    }
+    
     // docType별 프롬프트
     const prompts = {
       quote: `이 매입 견적서 PDF에서 정보를 JSON으로 추출. 반드시 JSON만 출력 (코드블록/주석 없이):
@@ -6117,8 +6349,26 @@ async function _purchaseAIParse(prefix, docType, auto) {
 - 만약 vendor 후보가 "ENJET" 또는 "엔젯"이면 → PDF를 다시 보고 다른 회사명 찾기
 
 ⚠️ 거래번호(dlvNo): PDF 상단의 "거래번호" 또는 "거래명세번호" 옆 숫자/문자열. 비어있으면 빈 문자열 ""`,
-      tax: `이 세금계산서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
-{"vendor":"공급자명","taxNo":"승인번호","taxDate":"YYYY-MM-DD","bizNo":"사업자등록번호","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+      tax: `이 매입 세금계산서 PDF에서 정보를 JSON으로 추출. JSON만 출력 (코드블록/주석 없이):
+{
+  "vendor": "공급자(왼쪽) 상호 - 절대 수신자나 ENJET/엔젯이면 안 됨!",
+  "taxNo": "승인번호 (예: 20260512-41000096-36232975)",
+  "taxDate": "YYYY-MM-DD (작성일자)",
+  "bizNo": "공급자 사업자등록번호 (XXX-XX-XXXXX)",
+  "items": "품목 요약 (예: Service and inspection for CARBIDE CB5)",
+  "supplyAmount": 공급가액 숫자,
+  "vatAmount": 세액 숫자 (보통 공급가의 10%),
+  "totalAmount": 합계금액 숫자 (= 공급가 + 세액),
+  "unpaidAmount": 외상미수금 숫자 (보통 합계와 동일, 일부 지급된 경우만 다름)
+}
+
+⚠️ 거래처(vendor) 판단 - 매입 세금계산서는 우리(ENJET/엔젯)가 받는 입장:
+- 왼쪽 "공급자" 칸 = vendor (보내는 회사)
+- 오른쪽 "공급받는자" 칸 = 우리(엔젯) → vendor 아님!
+- 예: 공급자 라이트컨버젼코리아㈜ + 받는자 엔젯 → vendor="라이트컨버젼코리아㈜"
+- vendor 후보가 "엔젯/ENJET"이면 → 다시 보고 다른 회사명 찾기
+
+⚠️ 사업자번호(bizNo)도 마찬가지: 공급자 쪽 사업자번호. PDF 첫 번째 등장하는 사업자번호가 공급자임`,
       settle: `이 회계전표/매입 영수증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
 {"vendor":"거래처명","entryDate":"YYYY-MM-DD","items":"항목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
     };
@@ -6222,6 +6472,11 @@ async function _purchaseAIParse(prefix, docType, auto) {
       if(result.taxNo) fillForce(`${prefix}-f-taxno`, result.taxNo);
       if(result.taxDate) fillForce(`${prefix}-f-date`, result.taxDate);
       if(result.bizNo) fillForce(`${prefix}-f-bizno`, result.bizNo);
+      if(result.unpaidAmount) fillForce(`${prefix}-f-unpaid`, result.unpaidAmount);
+      // 지급예정일 자동 계산
+      if(result.taxDate && typeof updatePTAXPaymentDate === "function") {
+        setTimeout(() => updatePTAXPaymentDate(true), 100);
+      }
     } else if(docType === "settle") {
       if(result.entryDate) fillForce(`${prefix}-f-date`, result.entryDate);
     }
@@ -7614,24 +7869,31 @@ function openPurchaseTaxModal(id) {
     setField("ptax-f-date", d.taxDate);
     setField("ptax-f-paydue", d.payDue);
     setField("ptax-f-etax", d.eTaxType || "전자");
+    setField("ptax-f-items", d.items);
     setField("ptax-f-supply", d.supplyAmount);
     setField("ptax-f-vat", d.vatAmount);
     setField("ptax-f-total", d.totalAmount);
-    setField("ptax-f-paystatus", d.payStatus || "unpaid");
-    setField("ptax-f-paydate", d.actualPayDate);
+    setField("ptax-f-unpaid", d.unpaidAmount !== undefined ? d.unpaidAmount : d.totalAmount);  // 🆕
+    setField("ptax-f-paystatus", d.payStatus || "미지급");
     setField("ptax-f-note", d.note);
+    // 지급예정일 비어있으면 자동 계산
+    if(!d.payDue && d.taxDate) {
+      setTimeout(() => updatePTAXPaymentDate(true), 50);
+    }
   } else {
     document.getElementById("ptaxModalTitle").textContent = "🧾 매입 세금계산서";
     const today = new Date().toISOString().slice(0,10);
-    ["ptax-f-taxno","ptax-f-prcode","ptax-f-vendor","ptax-f-bizno","ptax-f-note"].forEach(id => setField(id, ""));
+    ["ptax-f-taxno","ptax-f-prcode","ptax-f-vendor","ptax-f-bizno","ptax-f-note","ptax-f-items"].forEach(id => setField(id, ""));
     setField("ptax-f-date", today);
     setField("ptax-f-paydue", "");
     setField("ptax-f-etax", "전자");
     setField("ptax-f-supply", "");
     setField("ptax-f-vat", "");
     setField("ptax-f-total", "");
-    setField("ptax-f-paystatus", "unpaid");
-    setField("ptax-f-paydate", "");
+    setField("ptax-f-unpaid", "");  // 🆕
+    setField("ptax-f-paystatus", "미지급");
+    // 🆕 지급예정일: 작성일자(오늘) 기준 익월 10일
+    setTimeout(() => updatePTAXPaymentDate(true), 50);
   }
   
   // 거래처 입력 시 사업자번호 자동 매칭 (거래처DB)
@@ -7659,10 +7921,41 @@ function ptaxCalcTotal() {
   const supply = Number(document.getElementById("ptax-f-supply")?.value || 0);
   const vatEl = document.getElementById("ptax-f-vat");
   const totalEl = document.getElementById("ptax-f-total");
+  const unpaidEl = document.getElementById("ptax-f-unpaid");
   if(vatEl && !vatEl.dataset.manual) vatEl.value = Math.round(supply * 0.1);
   const vat = Number(vatEl?.value || 0);
-  if(totalEl) totalEl.value = supply + vat;
+  const total = supply + vat;
+  if(totalEl) totalEl.value = total;
+  // 🆕 외상미수금: 사용자가 직접 수정 안 했으면 합계와 동일
+  if(unpaidEl && !unpaidEl.dataset.manual) unpaidEl.value = total;
 }
+
+// 🆕 세금계산서 - 작성일자 기준 익월 10일 자동 (지급예정일)
+function updatePTAXPaymentDate(force) {
+  const dateEl = document.getElementById("ptax-f-date");
+  const payEl = document.getElementById("ptax-f-paydue");
+  if(!dateEl || !payEl) return;
+  const taxDate = dateEl.value;
+  if(!taxDate) return;
+  if(!force && payEl.dataset.manual === "1") return;
+  try {
+    const [y, m] = taxDate.split("-").map(Number);
+    if(!y || !m) return;
+    const nextMonth = m + 1;
+    const newY = nextMonth > 12 ? y + 1 : y;
+    const newM = nextMonth > 12 ? 1 : nextMonth;
+    payEl.value = `${newY}-${String(newM).padStart(2, "0")}-10`;
+    console.log(`💸 세금계산서 지급예정일: ${taxDate} → 익월 10일 = ${payEl.value}`);
+  } catch(_) {}
+}
+
+// 외상미수금 수동 수정 시 manual 표시
+document.addEventListener("DOMContentLoaded", () => {
+  const unpaidEl = document.getElementById("ptax-f-unpaid");
+  if(unpaidEl) unpaidEl.addEventListener("change", function() { this.dataset.manual = "1"; });
+  const payEl = document.getElementById("ptax-f-paydue");
+  if(payEl) payEl.addEventListener("change", function() { this.dataset.manual = "1"; });
+});
 window.addEventListener("DOMContentLoaded", () => {
   const vatEl = document.getElementById("ptax-f-vat");
   if(vatEl) vatEl.addEventListener("input", () => {
@@ -7675,33 +7968,44 @@ window.addEventListener("DOMContentLoaded", () => {
 
 async function savePurchaseTax() {
   if(!_purchaseGuardSave("ptax", "세금계산서")) return;
-  const taxNo = document.getElementById("ptax-f-taxno").value.trim();
-  const vendor = document.getElementById("ptax-f-vendor").value.trim();
-  const bizNo = document.getElementById("ptax-f-bizno").value.trim();
-  const taxDate = document.getElementById("ptax-f-date").value;
   
-  if(!taxNo) { alert("세금계산서 번호를 입력해주세요."); return; }
-  if(!vendor) { alert("거래처를 입력해주세요."); return; }
+  // 🆕 null 안전 헬퍼
+  const v = (id) => document.getElementById(id)?.value?.trim() || "";
+  const vNum = (id) => Number(document.getElementById(id)?.value || 0);
+  
+  const taxNo = v("ptax-f-taxno");
+  const vendor = v("ptax-f-vendor");
+  const bizNo = v("ptax-f-bizno");
+  const taxDate = document.getElementById("ptax-f-date")?.value || "";
+  
+  if(!taxNo) { alert("세금계산서 승인번호를 입력해주세요."); return; }
+  if(!vendor) { alert("거래처(공급자)를 입력해주세요."); return; }
   if(!bizNo) { alert("사업자번호를 입력해주세요."); return; }
-  if(!taxDate) { alert("발행일을 선택해주세요."); return; }
+  if(!taxDate) { alert("작성일자를 선택해주세요."); return; }
+  
+  // 외상미수금 기본값: 입력 안 했으면 총액과 동일
+  const totalAmount = vNum("ptax-f-total");
+  const unpaidInput = document.getElementById("ptax-f-unpaid")?.value;
+  const unpaidAmount = (unpaidInput === "" || unpaidInput === undefined) ? totalAmount : Number(unpaidInput);
   
   const data = {
     id: _ptaxEditId || ("ptax_" + Date.now()),
     parentSLId: window._currentSLActId || (_ptaxEditId ? _ptaxData.find(x=>x.id===_ptaxEditId)?.parentSLId : null),
-    salesCode: document.getElementById("ptax-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
-    taxNo,
-    prCode: document.getElementById("ptax-f-prcode").value.trim(),
-    vendor,
+    salesCode: v("ptax-f-salescode") || window._currentSLActPjcode || "",
+    taxNo,  // 승인번호
+    prCode: v("ptax-f-prcode"),  // PR코드 (선택사항)
+    vendor,  // 공급자
     bizNo,
-    taxDate,
-    payDue: document.getElementById("ptax-f-paydue").value,
-    eTaxType: document.getElementById("ptax-f-etax").value,
-    supplyAmount: Number(document.getElementById("ptax-f-supply").value || 0),
-    vatAmount: Number(document.getElementById("ptax-f-vat").value || 0),
-    totalAmount: Number(document.getElementById("ptax-f-total").value || 0),
-    payStatus: document.getElementById("ptax-f-paystatus").value,
-    actualPayDate: document.getElementById("ptax-f-paydate").value,
-    note: document.getElementById("ptax-f-note").value.trim(),
+    taxDate,  // 작성일자
+    payDue: document.getElementById("ptax-f-paydue")?.value || "",  // 지급예정일
+    eTaxType: v("ptax-f-etax") || "전자",
+    supplyAmount: vNum("ptax-f-supply"),
+    vatAmount: vNum("ptax-f-vat"),
+    totalAmount,
+    unpaidAmount,  // 🆕 외상미수금
+    payStatus: v("ptax-f-paystatus") || "미지급",
+    actualPayDate: document.getElementById("ptax-f-paydate")?.value || "",  // 모달에 없음 - 안전 처리
+    note: v("ptax-f-note"),
     fileUrl: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.fileUrl || "") : "",
     fileName: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.fileName || "") : "",
     createdAt: _ptaxEditId ? (_ptaxData.find(x=>x.id===_ptaxEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
@@ -7758,7 +8062,7 @@ function renderPTAX() {
   let filtered = _ptaxData.filter(d => {
     if(payF && d.payStatus !== payF) return false;
     if(search) {
-      const blob = [d.taxNo, d.prCode, d.vendor, d.bizNo].join(" ").toLowerCase();
+      const blob = [d.taxNo, d.prCode, d.salesCode, d.vendor, d.bizNo, d.items].join(" ").toLowerCase();
       if(!blob.includes(search)) return false;
     }
     return true;
@@ -7772,28 +8076,39 @@ function renderPTAX() {
   const monthAmt = _ptaxData.filter(d => (d.taxDate||"").startsWith(yymm)).reduce((s,d) => s+(d.totalAmount||0), 0);
   setKpi("tax-month-amt", monthAmt.toLocaleString());
   setKpi("tax-vat-sum", _ptaxData.reduce((s,d)=>s+(d.vatAmount||0),0).toLocaleString());
-  setKpi("tax-unpaid", _ptaxData.filter(d=>d.payStatus==="unpaid").length);
+  // 🆕 외상미수금 합계 (미지급 + 일부지급 건)
+  const totalUnpaid = _ptaxData
+    .filter(d => d.payStatus !== "지급완료" && d.payStatus !== "paid")
+    .reduce((s,d) => s + (d.unpaidAmount !== undefined ? d.unpaidAmount : (d.totalAmount || 0)), 0);
+  setKpi("tax-unpaid", totalUnpaid.toLocaleString());
   setKpi("badge-tax", _ptaxData.length);
   
   tbody.innerHTML = filtered.slice(0, 300).map(d => {
-    const payBadge = {
-      "paid":    `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 결제완료</span>`,
-      "unpaid":  `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⏳ 결제대기</span>`,
-      "overdue": `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">⚠️ 지연</span>`,
-    }[d.payStatus] || d.payStatus;
+    // 🆕 payStatus 한글/구버전 모두 호환
+    const payBadgeMap = {
+      "지급완료": `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 지급완료</span>`,
+      "paid":     `<span style="padding:2px 8px;border-radius:5px;background:var(--gd);color:var(--g);font-size:12px;font-weight:700">✅ 지급완료</span>`,
+      "일부지급": `<span style="padding:2px 8px;border-radius:5px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700">💵 일부지급</span>`,
+      "미지급":   `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⏳ 미지급</span>`,
+      "unpaid":   `<span style="padding:2px 8px;border-radius:5px;background:var(--ad);color:var(--a);font-size:12px;font-weight:700">⏳ 미지급</span>`,
+      "보류":     `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">⏸️ 보류</span>`,
+      "overdue":  `<span style="padding:2px 8px;border-radius:5px;background:#fee2e2;color:var(--r);font-size:12px;font-weight:700">⚠️ 지연</span>`,
+    };
+    const payBadge = payBadgeMap[d.payStatus] || d.payStatus || "-";
     const eTaxBadge = d.eTaxType === "전자" ? "📧" : "📄";
+    const unpaid = d.unpaidAmount !== undefined ? d.unpaidAmount : (d.totalAmount || 0);
     
     return `<tr style="cursor:pointer" onclick="openPurchaseTaxModal('${d.id}')">
       <td style="font-family:var(--m);color:var(--p);font-weight:600">${escapeHtml(d.taxNo||"")}</td>
-      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.prCode||"-")}</td>
+      <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.salesCode||d.prCode||"-")}</td>
       <td style="font-weight:600">${escapeHtml(d.vendor||"")}</td>
       <td style="font-family:var(--m);color:var(--t2)">${escapeHtml(d.bizNo||"")}</td>
       <td style="color:var(--t2)">${escapeHtml(d.taxDate||"")}</td>
       <td style="text-align:right;font-family:var(--m)">${(d.supplyAmount||0).toLocaleString()}</td>
       <td style="text-align:right;font-family:var(--m);color:#92400e;font-weight:600">${(d.vatAmount||0).toLocaleString()}</td>
       <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--m);font-weight:700;color:var(--r);background:#fef2f2">${unpaid.toLocaleString()}</td>
       <td style="color:var(--t2)">${escapeHtml(d.payDue||"-")}</td>
-      <td style="text-align:center;font-size:16px">${eTaxBadge}</td>
       <td style="text-align:center">${payBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
     </tr>`;
@@ -30292,16 +30607,18 @@ function deleteTax(id){
                 <datalist id="ptax-vendor-list"></datalist>
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">세금계산 번호</label>
-                <input type="text" id="ptax-f-taxno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">세금계산 번호 (승인번호)</label>
+                <input type="text" id="ptax-f-taxno" placeholder="20260512-41000096-36232975" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">세금계산일 *</label>
-                <input type="date" id="ptax-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">작성일자 *</label>
+                <input type="date" id="ptax-f-date" onchange="updatePTAXPaymentDate()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
-                <input type="date" id="ptax-f-paydue" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px" title="작성일자 기준 익월 10일 자동 (수정 가능)">💸 지급예정일</label>
+                <input type="date" id="ptax-f-paydue" 
+                  title="작성일자 기준 익월 10일 자동 계산 (수정 가능)"
+                  style="padding:7px 9px;border:1px solid #fde68a;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fffbeb">
               </div>
               
             <div>
@@ -30311,39 +30628,45 @@ function deleteTax(id){
               </select>
             </div>
             <div>
-              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">사업자번호</label>
-              <input type="text" id="ptax-f-bizno" placeholder="123-45-67890" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">사업자번호 (공급자)</label>
+              <input type="text" id="ptax-f-bizno" placeholder="195-87-00901" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
             </div>
             </div>
             
             <!-- 품목 요약 -->
             <div>
               <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
-              <textarea id="ptax-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+              <textarea id="ptax-f-items" rows="2" placeholder="예: Service and inspection for CARBIDE CB5" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
             </div>
             
-            <!-- 금액 (공급가/VAT/총액) -->
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+            <!-- 금액 (공급가/VAT/총액/외상미수금) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
               <div>
                 <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
                 <input type="number" id="ptax-f-supply" placeholder="0" oninput="calcPTAXTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">세액 (VAT)</label>
                 <input type="number" id="ptax-f-vat" placeholder="자동" oninput="calcPTAXTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">합계금액</label>
                 <input type="number" id="ptax-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#dc2626;display:block;margin-bottom:3px">외상미수금</label>
+                <input type="number" id="ptax-f-unpaid" placeholder="0" 
+                  title="우리(엔젯)가 아직 지급하지 않은 금액. 보통 합계금액과 같음. 일부 지급 시 차액 입력"
+                  style="padding:7px 9px;border:1px solid #fca5a5;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700;background:#fef2f2;color:#dc2626">
               </div>
             </div>
             
             <!-- 상태 / 비고 -->
             <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">지급상태</label>
                 <select id="ptax-f-paystatus" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-                  <option>검토중</option><option>완료</option><option>보류</option>
+                  <option>미지급</option><option>일부지급</option><option>지급완료</option><option>보류</option>
                 </select>
               </div>
               <div>
