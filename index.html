@@ -5013,14 +5013,22 @@ function nextSTCode() { return nextPurchaseCode("ST", _pstlData); }
 // ━━ 9개 JSON 저장/로드 함수 (영업 safeSaveDB 패턴) ━━
 
 // 1. PR 마스터 (구매요청서)
-// 🆕 savePRMaster 디바운스 (409 Conflict 방지)
+// 🆕 savePRMaster 디바운스 (409 Conflict 방지) - 진행 중 추가 호출은 "끝나면 다시 한 번" 표시
 let _prSaveTimer = null;
-let _prSavePromise = null;
+let _prSaveInFlight = false;
+let _prSavePending = false;
 async function savePRMaster() {
-  if(_prSavePromise) return _prSavePromise;
-  _prSavePromise = new Promise((resolve) => {
+  if(_prSaveInFlight) {
+    // 진행 중이면 끝난 뒤 한 번 더 저장하도록 표시
+    _prSavePending = true;
+    console.log("💤 PR Master 저장 중 → 끝나면 최신본 다시 저장 예약");
+    return { sp: true, pending: true };
+  }
+  return new Promise((resolve) => {
     if(_prSaveTimer) clearTimeout(_prSaveTimer);
     _prSaveTimer = setTimeout(async () => {
+      _prSaveInFlight = true;
+      _prSaveTimer = null;
       try {
         const r = await safeSaveDB("pr_master", PR_SP_PATH, _prMaster);
         if(r.sp) console.log(`✅ PR Master 저장: ${_prMaster.length}건`);
@@ -5030,12 +5038,16 @@ async function savePRMaster() {
         console.warn("PR Master 저장 실패:", e.message);
         resolve({ sp: false, error: e.message });
       } finally {
-        _prSaveTimer = null;
-        _prSavePromise = null;
+        _prSaveInFlight = false;
+        // 진행 중에 새 요청이 들어왔으면 한 번 더 저장 (최신 데이터 반영)
+        if(_prSavePending) {
+          _prSavePending = false;
+          console.log("🔁 PR Master 보류된 변경분 재저장");
+          savePRMaster().catch(()=>{});
+        }
       }
     }, 500);
   });
-  return _prSavePromise;
 }
 async function loadPRMaster() {
   _prMaster = await safeLoadDB("pr_master", PR_SP_PATH);
@@ -5110,32 +5122,39 @@ async function loadPSTL() {
 }
 
 // 7. BOM
-// 🆕 saveBOMDB 디바운스 - 짧은 시간에 여러번 호출되면 마지막 한번만 저장 (409 Conflict 방지)
+// 🆕 saveBOMDB 디바운스 - 진행 중 추가 호출은 "끝나면 다시 한 번" 표시 (누락 방지)
 let _bomSaveTimer = null;
-let _bomSavePromise = null;
+let _bomSaveInFlight = false;
+let _bomSavePending = false;
 async function saveBOMDB() {
-  // 이미 예약된 저장이 있으면 그 Promise 반환
-  if(_bomSavePromise) return _bomSavePromise;
-  
-  _bomSavePromise = new Promise((resolve) => {
+  if(_bomSaveInFlight) {
+    _bomSavePending = true;
+    console.log("💤 BOM 저장 중 → 끝나면 최신본 다시 저장 예약");
+    return { sp: true, pending: true };
+  }
+  return new Promise((resolve) => {
     if(_bomSaveTimer) clearTimeout(_bomSaveTimer);
     _bomSaveTimer = setTimeout(async () => {
+      _bomSaveInFlight = true;
+      _bomSaveTimer = null;
       try {
         const r = await safeSaveDB("bom_data", BOM_SP_PATH, _bomData);
         if(r.sp) console.log(`✅ BOM 저장: ${_bomData.length}건`);
-        else console.warn(`⚠️ BOM SP 저장 실패 (localStorage 백업됨): ${r.error||""}`);
+        else console.warn(`⚠️ BOM SP 저장 실패: ${r.error||""}`);
         resolve(r);
       } catch(e) {
         console.warn("BOM 저장 실패:", e.message);
         resolve({ sp: false, error: e.message });
       } finally {
-        _bomSaveTimer = null;
-        _bomSavePromise = null;
+        _bomSaveInFlight = false;
+        if(_bomSavePending) {
+          _bomSavePending = false;
+          console.log("🔁 BOM 보류된 변경분 재저장");
+          saveBOMDB().catch(()=>{});
+        }
       }
-    }, 500);  // 500ms 디바운스 - 여러번 호출되면 마지막만 실행
+    }, 500);
   });
-  
-  return _bomSavePromise;
 }
 async function loadBOMDB() {
   _bomData = await safeLoadDB("bom_data", BOM_SP_PATH);
@@ -9163,6 +9182,18 @@ PD = PD_STATIC.map(r => Object.assign({
 
 async function syncAll() {
   setSS("spin","동기화 중...");
+  
+  // 🆕 구매 대시보드 데이터는 다른 작업의 에러와 무관하게 먼저/병렬로 로드
+  //    (이전엔 syncAll 후반부에서 호출되어 앞 작업 에러 시 함께 실패)
+  const purchaseDBPromise = (async () => {
+    try {
+      if(typeof loadAllPurchaseDB === "function") {
+        await loadAllPurchaseDB();
+        console.log("✅ 구매 DB 일괄 로드 완료 (PR/견적/발주/입고/세금/회계/BOM)");
+      }
+    } catch(e) { console.warn("구매 DB 로드 실패:", e.message); }
+  })();
+  
   try {
     // 매출+프로젝트 먼저, 구매활동 병렬
     const [, ] = await Promise.all([
@@ -9185,19 +9216,18 @@ async function syncAll() {
     // 모달 입력 중인 draft 복원 데이터 로드
     loadDraftsFromSP().catch(()=>{});
     
-    // 🆕 구매 대시보드 데이터 일괄 로드 (PR/견적/발주/입고/세금/회계/BOM)
+    // 거래처DB도 로드 (vendor 탭 진입 안 해도 모달 자동완성용)
     try {
-      if(typeof loadAllPurchaseDB === "function") {
-        await loadAllPurchaseDB();
-      }
-      // 거래처DB도 로드 (vendor 탭 진입 안 해도 모달 자동완성용)
       if(typeof loadVendorDB === "function" && Array.isArray(vendorData) && !vendorData.length) {
         loadVendorDB().catch(e=>console.warn("거래처DB 로드 실패:", e.message));
       }
-    } catch(e) { console.warn("구매 데이터 로드 실패:", e.message); }
+    } catch(e) { console.warn("거래처DB 로드 시도 실패:", e.message); }
     
     setSS("live","실시간 연동"); $("lsync","동기화: "+new Date().toLocaleTimeString("ko-KR"));
   } catch(e) { console.error(e); setSS("","연동 실패"); }
+  
+  // 🆕 구매 DB 로드 완료 보장
+  await purchaseDBPromise;
 }
 
 // ━━ 매출자료 파일로 SD + PD 통합 로드 ━━
@@ -26076,7 +26106,7 @@ function go(id, el) {
   if(el) el.classList.add("on");
   $("ptitle", TITLES[id]||id);
 
-  // 🆕 구매활동 탭 진입 시 캘린더 자동 동기화 (요청/구매 일정 보이도록)
+  // 🆕 구매활동 탭 진입 시 캘린더 자동 동기화 + DB 로드 (요청/구매 일정/품목 카운트 보이도록)
   if(id === "sl-list" || id === "purchase-activity") {
     if(typeof syncSLFromTeams === "function") {
       // 처음 진입이거나 5분 이상 지났으면 자동 동기화
@@ -26087,6 +26117,14 @@ function go(id, el) {
         syncSLFromTeams().catch(e => console.warn("자동 동기화:", e.message));
       }
     }
+    // 🆕 구매 DB도 비어있으면 자동 로드 (구매활동 목록 카운트 정확하게)
+    const dbEmpty = (!Array.isArray(_prMaster) || _prMaster.length === 0) ||
+                    (!Array.isArray(_pqdbData) || _pqdbData.length === 0) ||
+                    (!Array.isArray(_pordData) || _pordData.length === 0);
+    if(dbEmpty && typeof loadAllPurchaseDB === "function") {
+      console.log(`🔄 구매활동 탭 진입 - DB 비어있어 자동 로드`);
+      loadAllPurchaseDB().catch(e => console.warn("DB 자동 로드 실패:", e.message));
+    }
   }
   
   // DB 탭으로 이동 시 DB 그룹 자동 펼치기
@@ -26096,6 +26134,26 @@ function go(id, el) {
     // DB 토글 버튼도 on 표시
     const tog = document.getElementById("dbGroupToggle");
     if(tog) tog.classList.add("on");
+    
+    // 🆕 DB 탭 진입 시 데이터 자동 로드 - 비어있거나 5분 지났으면
+    const lastDbSync = window._lastDbLoad || 0;
+    const now = Date.now();
+    const isEmpty = (
+      (id === "pr-db" && (!Array.isArray(_prMaster) || _prMaster.length === 0)) ||
+      (id === "quote-db" && (!Array.isArray(_pqdbData) || _pqdbData.length === 0)) ||
+      (id === "order-db" && (!Array.isArray(_pordData) || _pordData.length === 0)) ||
+      (id === "delivery-db" && (!Array.isArray(_pdlvData) || _pdlvData.length === 0)) ||
+      (id === "tax-db" && (!Array.isArray(_ptaxData) || _ptaxData.length === 0)) ||
+      (id === "settle-db" && (!Array.isArray(_pstlData) || _pstlData.length === 0)) ||
+      (id === "bom-db" && (!Array.isArray(_bomData) || _bomData.length === 0))
+    );
+    if(isEmpty || (now - lastDbSync > 300000)) {  // 비어있거나 5분
+      window._lastDbLoad = now;
+      if(typeof loadAllPurchaseDB === "function") {
+        console.log(`🔄 DB 탭(${id}) 진입 - 데이터 자동 로드`);
+        loadAllPurchaseDB().catch(e => console.warn("DB 자동 로드 실패:", e.message));
+      }
+    }
   }
 
   // ─ 모바일 탭바 상태 동기화 ─
