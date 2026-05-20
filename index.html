@@ -409,7 +409,6 @@
       </div>
       <div id="dbGroupItems" style="display:none;overflow:hidden">
         <div class="ni sb-sub-item" onclick="go('pr-db',this)" style="padding-left:22px">📝 구매요청서 DB <span class="nb nbg" id="badge-pr">0</span></div>
-        <div class="ni sb-sub-item" onclick="go('bom-db',this)" style="padding-left:22px">🧩 BOM DB <span class="nb nbg" id="badge-bom">0</span></div>
         <div class="ni sb-sub-item" onclick="go('quote-db',this)" style="padding-left:22px">📄 견적서 DB <span class="nb nbg" id="badge-qdb">0</span></div>
         <div class="ni sb-sub-item" onclick="go('order-db',this)" style="padding-left:22px">📦 발주서 DB <span class="nb nbg" id="badge-ord">0</span></div>
         <div class="ni sb-sub-item" onclick="go('delivery-db',this)" style="padding-left:22px">🚚 거래명세서 DB <span class="nb nbg" id="badge-dlv">0</span></div>
@@ -417,6 +416,7 @@
         <div class="ni sb-sub-item" onclick="go('settle-db',this)" style="padding-left:22px">💼 회계전표 DB <span class="nb nbg" id="badge-stl">0</span></div>
       </div>
       <div class="ni" onclick="go('vendor',this)">🏪 거래처 DB <span class="nb nbg" id="badge-vd">-</span></div>
+      <div class="ni" onclick="go('bom-db',this)">🧩 BOM DB <span class="nb nbg" id="badge-bom">0</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -2890,13 +2890,14 @@
   </div>
   <div id="mobDbItems" style="display:none">
     <div class="mob-more-item" onclick="go('pr-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">📝</span>구매요청서 DB</div>
-    <div class="mob-more-item" onclick="go('bom-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">🧩</span>BOM DB</div>
     <div class="mob-more-item" onclick="go('quote-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">📄</span>견적서 DB</div>
     <div class="mob-more-item" onclick="go('order-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">📦</span>발주서 DB</div>
     <div class="mob-more-item" onclick="go('delivery-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">🚚</span>거래명세서 DB</div>
     <div class="mob-more-item" onclick="go('tax-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">🧾</span>세금계산서 DB</div>
     <div class="mob-more-item" onclick="go('settle-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">💼</span>회계전표 DB</div>
   </div>
+  <div class="mob-more-item" onclick="go('vendor',this);closeMobMore()"><span class="mob-icon">🏪</span>거래처 DB</div>
+  <div class="mob-more-item" onclick="go('bom-db',this);closeMobMore()"><span class="mob-icon">🧩</span>BOM DB</div>
   <div class="mob-more-item" onclick="go('purchase-todo',this);closeMobMore()"><span class="mob-icon">✅</span>구매Todo</div>
   <div class="mob-more-item" onclick="go('cashflow',this);closeMobMore()"><span class="mob-icon">💰</span>현금흐름</div>
 </div>
@@ -7024,6 +7025,11 @@ async function savePurchaseQuote() {
   if(typeof renderPQDB === "function") renderPQDB();
   if(typeof renderSLAll === "function") renderSLAll();  // 🆕 구매활동 목록 카운트 갱신
   
+  // 🆕 PR 상태 자동 진행: 견적서 업로드 → "납기확인중"
+  if(typeof advancePRStatusByDoc === "function") {
+    advancePRStatusByDoc("quote", { salesCode: data.salesCode, prCode: data.prCode });
+  }
+  
   const r = await savePQDB();
   if(r.sp) {
     console.log("✅ 매입 견적서 저장 완료");
@@ -7488,6 +7494,11 @@ async function savePurchaseOrder() {
   if(typeof updateAllBadges === "function") updateAllBadges();
   if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
   
+  // 🆕 PR 상태 자동 진행: 발주서 → "발주완료"
+  if(typeof advancePRStatusByDoc === "function") {
+    advancePRStatusByDoc("order", { salesCode: data.salesCode, prCode: data.prCode });
+  }
+  
   const r = await savePORD();
   if(!r.sp) console.warn("⚠️ SP 저장 실패 (localStorage 백업):", r.error || "");
   
@@ -7774,6 +7785,11 @@ async function savePurchaseDelivery() {
   if(typeof updateAllBadges === "function") updateAllBadges();
   if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
   
+  // 🆕 PR 상태 자동 진행: 거래명세서 → "입고확인"
+  if(typeof advancePRStatusByDoc === "function") {
+    advancePRStatusByDoc("delivery", { salesCode: data.salesCode, prCode: data.prCode });
+  }
+  
   const r = await savePDLV();
   if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
 }
@@ -8042,6 +8058,11 @@ async function savePurchaseTax() {
   if(typeof updateAllBadges === "function") updateAllBadges();
   if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
   
+  // 🆕 PR 상태 자동 진행: 세금계산서 → "완료예정"
+  if(typeof advancePRStatusByDoc === "function") {
+    advancePRStatusByDoc("tax", { salesCode: data.salesCode, prCode: data.prCode });
+  }
+  
   const r = await savePTAX();
   if(!r.sp) console.warn("⚠️ SP 저장 실패 (localStorage 백업):", r.error || "");
 }
@@ -8302,6 +8323,67 @@ function renderCategoryDistribution() {
       </div>
     </div>`;
   }).join("");
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔄 PR 상태 자동 진행 - 문서 업로드에 따라 단계 자동 전환
+//
+// 흐름: 구매요청접수 → 납기확인중 → 발주완료 → 입고확인 → 완료예정 → 매입완료
+//   구매요청서 업로드: 구매요청접수
+//   견적서 업로드:     납기확인중
+//   발주서 업로드:     발주완료
+//   거래명세서 업로드: 입고확인
+//   세금계산서 업로드: 완료예정
+//   회계전표 업로드:   매입완료
+//
+// docType: "quote" | "order" | "delivery" | "tax" | "settle"
+// matchKey: PR을 찾을 키 { salesCode, prCode, vendor? }
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function advancePRStatusByDoc(docType, matchKey) {
+  const targetStatus = {
+    "quote":    "납기확인중",
+    "order":    "발주완료",
+    "delivery": "입고확인",
+    "tax":      "완료예정",
+    "settle":   "매입완료",
+  }[docType];
+  if(!targetStatus) return 0;
+  
+  // 상태 우선순위 (뒤로만 이동, 앞으로 뒤집기 안 함)
+  const statusOrder = [
+    "구매요청접수", "납기확인중", "발주완료", "입고확인", "완료예정", "매입완료"
+  ];
+  const targetIdx = statusOrder.indexOf(targetStatus);
+  
+  if(!Array.isArray(_prMaster) || _prMaster.length === 0) return 0;
+  
+  let updated = 0;
+  for(const pr of _prMaster) {
+    // 매칭: salesCode + (prCode 있으면 일치 / 없으면 같은 프로젝트 전체)
+    if(matchKey.salesCode && pr.salesCode !== matchKey.salesCode) continue;
+    if(matchKey.prCode && pr.prCode !== matchKey.prCode) continue;
+    if(matchKey.vendor && pr.vendor && pr.vendor !== matchKey.vendor) continue;
+    
+    // 현재 상태가 목표보다 앞이면 이동 (뒤로 가는 건 금지)
+    const currentIdx = statusOrder.indexOf(pr.status || "구매요청접수");
+    if(currentIdx < targetIdx) {
+      console.log(`🔄 PR ${pr.prCode}: ${pr.status} → ${targetStatus}`);
+      pr.status = targetStatus;
+      pr.updatedAt = new Date().toISOString();
+      updated++;
+    }
+  }
+  
+  if(updated > 0) {
+    console.log(`🔄 ${docType} 업로드 → PR ${updated}건 상태 자동 진행: ${targetStatus}`);
+    // SP 저장 (디바운스)
+    if(typeof savePRMaster === "function") {
+      savePRMaster().catch(e => console.warn("PR 상태 저장 실패:", e.message));
+    }
+    if(typeof renderPRDB === "function") renderPRDB();
+    if(typeof renderSLAll === "function") renderSLAll();
+  }
+  return updated;
 }
 
 // 사이드바 배지 통합 갱신 (모든 DB 데이터 로드 후 호출)
@@ -9527,6 +9609,11 @@ async function saveSettle() {
   if(typeof renderSLAll === "function") renderSLAll();
   if(typeof updateAllBadges === "function") updateAllBadges();
   if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  
+  // 🆕 PR 상태 자동 진행: 회계전표 → "매입완료" (최종)
+  if(typeof advancePRStatusByDoc === "function") {
+    advancePRStatusByDoc("settle", { salesCode: data.salesCode, prCode: data.prCode });
+  }
   
   const r = await savePSTL();
   if(!r.sp) console.warn("⚠️ SP 저장 실패 (localStorage 백업):", r.error || "");
@@ -22655,6 +22742,41 @@ async function saveSLActivity() {
   closeSLModal();
   clearDraft("slModal");  // 🛡️ draft 클리어
   $("slUpd","저장 중...");
+  
+  // 🆕 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 구매요청서 PDF 원본 SharePoint 업로드 (1.구매활동/{프로젝트코드}/구매요청서/)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const prFileEl = document.getElementById("sl-f-prfile");
+  const prFile = prFileEl?.files?.[0];
+  if(prFile && typeof _uploadDocToSP === "function") {
+    try {
+      console.log(`📤 구매요청서 원본 PDF SP 업로드 시작: ${prFile.name}`);
+      const upRes = await _uploadDocToSP(prFile, {
+        projectCode: pjcode,
+        docType: "구매요청서",
+        docNo: `PR-${(new Date()).toISOString().slice(2,10).replace(/-/g,"")}-${String(Date.now()).slice(-3)}`,
+        docDate: act.start || new Date().toISOString().slice(0,10),
+      });
+      if(upRes.ok) {
+        act.prFileUrl = upRes.url;
+        act.prFileName = upRes.filename;
+        act.prFilePath = upRes.path;
+        console.log(`✅ 구매요청서 원본 SP 업로드 완료: ${upRes.path}`);
+      } else {
+        console.warn(`⚠️ 구매요청서 SP 업로드 실패: ${upRes.error}`);
+      }
+    } catch(uperr) {
+      console.warn(`⚠️ 구매요청서 업로드 에러:`, uperr.message);
+    }
+  } else if(slEditId) {
+    // 수정 모드 + 파일 재첨부 안 함 → 기존 파일 정보 유지
+    const old = slData.find(x => x.id === slEditId);
+    if(old?.prFileUrl) {
+      act.prFileUrl = old.prFileUrl;
+      act.prFileName = old.prFileName;
+      act.prFilePath = old.prFilePath;
+    }
+  }
 
   if(slEditId) slData=slData.map(x=>x.id===slEditId?act:x);
   else slData.push(act);
@@ -22751,6 +22873,10 @@ async function saveSLActivity() {
           // 부모 참조
           parentSLId: act.id,                         // 어느 구매활동에서 생성됐는지
           parentPRFile: aiData._fileName || "",       // 원본 PDF 파일명
+          // 🆕 SP에 업로드된 원본 PDF (act에서 상속)
+          fileUrl: act.prFileUrl || "",
+          fileName: act.prFileName || aiData._fileName || "",
+          filePath: act.prFilePath || "",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -26590,15 +26716,18 @@ function go(id, el) {
     }
   }
   
-  // DB 탭으로 이동 시 DB 그룹 자동 펼치기
-  const DB_TABS = ["pr-db","bom-db","quote-db","order-db","delivery-db","tax-db","settle-db"];
+  // DB 탭으로 이동 시 DB 그룹 자동 펼치기 (BOM은 거래처 옆에 있으므로 그룹 펼치기 제외)
+  const DB_TABS = ["pr-db","quote-db","order-db","delivery-db","tax-db","settle-db"];
   if(DB_TABS.includes(id)) {
     openDbGroup();
     // DB 토글 버튼도 on 표시
     const tog = document.getElementById("dbGroupToggle");
     if(tog) tog.classList.add("on");
-    
-    // 🆕 DB 탭 진입 시 데이터 자동 로드 - 비어있거나 5분 지났으면
+  }
+  
+  // 🆕 데이터 자동 로드 (DB 탭 + BOM + 거래처 모두)
+  const ALL_DATA_TABS = ["pr-db","quote-db","order-db","delivery-db","tax-db","settle-db","bom-db","vendor"];
+  if(ALL_DATA_TABS.includes(id)) {
     const lastDbSync = window._lastDbLoad || 0;
     const now = Date.now();
     const isEmpty = (
