@@ -6319,12 +6319,6 @@ async function savePurchaseOrder() {
     createdAt: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-    note: document.getElementById("po-f-note").value.trim(),
-    fileUrl: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileUrl || "") : "",
-    fileName: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileName || "") : "",
-    createdAt: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
   
   // 🆕 PDF 파일이 첨부됐으면 SharePoint에 업로드
   const file = document.getElementById("po-f-file")?.files?.[0];
