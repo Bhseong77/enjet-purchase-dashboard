@@ -4900,6 +4900,192 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 5개 매입 모달 공통 헬퍼 (Quote/Order/Delivery/Tax/Settle)
+// - zoom: PDF 미리보기 확대/축소
+// - calcTotal: 공급가 → VAT 자동 + 총액 = 공급가+VAT
+// - aiParse: PDF 첨부 + AI 파싱 → 폼 자동 채움
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 공통 zoom (prefix별 _previewZoom 사용)
+function _purchaseZoom(prefix, delta) {
+  const containerId = `${prefix}-preview-pane`;
+  window._previewZoom = window._previewZoom || {};
+  const cur = window._previewZoom[containerId] || 1;
+  const newZoom = delta === 0 ? 1 : Math.max(0.3, Math.min(5, cur + delta));
+  window._previewZoom[containerId] = newZoom;
+  if(typeof _previewZoomApply === "function") _previewZoomApply(containerId);
+  const lbl = document.getElementById(`${prefix}-zoom-label`);
+  if(lbl) lbl.textContent = Math.round(newZoom*100) + "%";
+}
+function zoomPQ(d){ _purchaseZoom("pq", d); }
+function zoomPO(d){ _purchaseZoom("po", d); }
+function zoomPDLV(d){ _purchaseZoom("pdlv", d); }
+function zoomPTAX(d){ _purchaseZoom("ptax", d); }
+function zoomStl(d){ _purchaseZoom("stl", d); }
+
+// 공통 calcTotal (공급가 → VAT + 총액)
+function _purchaseCalcTotal(prefix) {
+  const supply = Number(document.getElementById(`${prefix}-f-supply`)?.value || 0);
+  const vatEl = document.getElementById(`${prefix}-f-vat`);
+  const totalEl = document.getElementById(`${prefix}-f-total`);
+  if(!vatEl?.dataset.manual) {
+    if(vatEl) vatEl.value = Math.round(supply * 0.1);
+  }
+  const vat = Number(vatEl?.value || 0);
+  if(totalEl) totalEl.value = supply + vat;
+}
+function calcPQTotal(){ _purchaseCalcTotal("pq"); }
+function calcPOTotal(){ _purchaseCalcTotal("po"); }
+function calcPDLVTotal(){ _purchaseCalcTotal("pdlv"); }
+function calcPTAXTotal(){ _purchaseCalcTotal("ptax"); }
+function calcStlTotal(){ _purchaseCalcTotal("stl"); }
+
+// 공통 PDF 미리보기 (file input change 시 호출)
+async function _purchasePreviewPdf(prefix) {
+  const fileInput = document.getElementById(`${prefix}-f-file`);
+  const file = fileInput?.files?.[0];
+  if(!file) return;
+  const containerId = `${prefix}-preview-pane`;
+  if(typeof renderFilePreview === "function") {
+    try { await renderFilePreview(file, containerId); } catch(e) { console.warn("미리보기 실패:", e); }
+  }
+}
+
+// 5개 모달 모두 파일 input change 이벤트 자동 미리보기 연결
+window.addEventListener("DOMContentLoaded", () => {
+  ["pq","po","pdlv","ptax","stl"].forEach(prefix => {
+    const fInput = document.getElementById(`${prefix}-f-file`);
+    if(fInput) {
+      fInput.addEventListener("change", () => _purchasePreviewPdf(prefix));
+    }
+  });
+});
+
+// 공통 AI 파싱 (PDF 첨부 후 [AI 파싱] 버튼)
+async function _purchaseAIParse(prefix, docType) {
+  const fileInput = document.getElementById(`${prefix}-f-file`);
+  const status = document.getElementById(`${prefix}-parse-status`);
+  const file = fileInput?.files?.[0];
+  if(!file) { alert("PDF 파일을 먼저 첨부해주세요."); return; }
+  
+  const setStatus = (msg, color) => {
+    if(status) {
+      status.textContent = msg;
+      status.style.color = color || "var(--t3)";
+    }
+  };
+  
+  setStatus("🔄 AI 호출 중...", "var(--t2)");
+  
+  try {
+    // base64로 변환
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(",")[1]);
+      r.onerror = () => rej(new Error("파일 읽기 실패"));
+      r.readAsDataURL(file);
+    });
+    
+    // docType별 프롬프트
+    const prompts = {
+      quote: `이 매입 견적서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
+{"vendor":"거래처명","quoteNo":"견적번호","quoteDate":"YYYY-MM-DD","validUntil":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+      order: `이 매입 발주서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
+{"vendor":"거래처명","poDate":"YYYY-MM-DD","deliveryDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자,"payTerm":"결제조건"}`,
+      delivery: `이 거래명세서/입고증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
+{"vendor":"거래처명","dlvDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+      tax: `이 세금계산서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
+{"vendor":"공급자명","taxNo":"승인번호","taxDate":"YYYY-MM-DD","bizNo":"사업자등록번호","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+      settle: `이 회계전표/매입 영수증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
+{"vendor":"거래처명","entryDate":"YYYY-MM-DD","items":"항목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+    };
+    const prompt = prompts[docType] || prompts.quote;
+    
+    // _purchaseBestEngine + _purchaseCallAI 사용 (구매요청서와 동일한 흐름)
+    let result = null;
+    if(typeof _purchaseBestEngine === "function" && typeof _purchaseCallAI === "function") {
+      const engine = _purchaseBestEngine();
+      setStatus(`🤖 ${engine === "gemini" ? "Gemini" : engine === "openai" ? "OpenAI" : "Copilot"} 호출 중...`, "var(--t2)");
+      try {
+        result = await _purchaseCallAI(base64, prompt, engine);
+      } catch(e) {
+        console.warn(`${engine} 실패, 폴백:`, e.message);
+        // 폴백: 다른 엔진들 차례대로
+        const fallbacks = ["gemini", "copilot", "openai"].filter(x => x !== engine);
+        for(const fb of fallbacks) {
+          try {
+            setStatus(`🤖 ${fb} 폴백...`, "var(--t2)");
+            result = await _purchaseCallAI(base64, prompt, fb);
+            if(result) break;
+          } catch(e2) { console.warn(`${fb} 실패:`, e2.message); }
+        }
+      }
+    }
+    
+    if(!result || typeof result !== "object") {
+      setStatus("⚠️ AI 응답 없음 - 수동 입력 필요", "var(--a)");
+      return;
+    }
+    
+    // 결과를 폼에 자동 채움
+    const fillIfEmpty = (id, val) => {
+      const el = document.getElementById(id);
+      if(el && !el.value && val !== undefined && val !== null && val !== "") el.value = val;
+    };
+    const fillForce = (id, val) => {
+      const el = document.getElementById(id);
+      if(el && val !== undefined && val !== null && val !== "") el.value = val;
+    };
+    
+    // 공통 필드
+    if(result.vendor) fillForce(`${prefix}-f-vendor`, result.vendor);
+    if(result.items) fillIfEmpty(`${prefix}-f-items`, result.items);
+    
+    // 금액
+    if(result.supplyAmount) { fillForce(`${prefix}-f-supply`, result.supplyAmount); _purchaseCalcTotal(prefix); }
+    if(result.vatAmount) fillForce(`${prefix}-f-vat`, result.vatAmount);
+    if(result.totalAmount) fillForce(`${prefix}-f-total`, result.totalAmount);
+    
+    // 문서별 필드
+    if(docType === "quote") {
+      if(result.quoteNo) fillForce(`${prefix}-f-quoteno`, result.quoteNo);
+      if(result.quoteDate) fillForce(`${prefix}-f-date`, result.quoteDate);
+      if(result.validUntil) fillForce(`${prefix}-f-valid`, result.validUntil);
+    } else if(docType === "order") {
+      if(result.poDate) fillForce(`${prefix}-f-date`, result.poDate);
+      if(result.deliveryDate) fillForce(`${prefix}-f-delivery`, result.deliveryDate);
+      if(result.payTerm) fillForce(`${prefix}-f-payterm`, result.payTerm);
+    } else if(docType === "delivery") {
+      if(result.dlvDate) fillForce(`${prefix}-f-date`, result.dlvDate);
+    } else if(docType === "tax") {
+      if(result.taxNo) fillForce(`${prefix}-f-taxno`, result.taxNo);
+      if(result.taxDate) fillForce(`${prefix}-f-date`, result.taxDate);
+      if(result.bizNo) fillForce(`${prefix}-f-bizno`, result.bizNo);
+    } else if(docType === "settle") {
+      if(result.entryDate) fillForce(`${prefix}-f-date`, result.entryDate);
+    }
+    
+    setStatus(`✅ AI 파싱 완료: ${file.name}`, "var(--g)");
+    console.log(`✅ ${docType} AI 파싱 결과:`, result);
+  } catch(e) {
+    console.error(`AI 파싱 실패 (${docType}):`, e);
+    setStatus("❌ AI 파싱 실패: " + e.message, "var(--r)");
+  }
+}
+
+function aiPQParse(){ _purchaseAIParse("pq", "quote"); }
+function aiPOParse(){ _purchaseAIParse("po", "order"); }
+function aiPDLVParse(){ _purchaseAIParse("pdlv", "delivery"); }
+function aiPTAXParse(){ _purchaseAIParse("ptax", "tax"); }
+function aiStlParse(){ _purchaseAIParse("stl", "settle"); }
+
+// 모달 close 함수 별칭 (HTML onclick 호환)
+function closePQModal(){ if(typeof closePurchaseQuoteModal==="function") closePurchaseQuoteModal(); else { const m=document.getElementById("purchaseQuoteModal"); if(m) m.style.display="none"; } }
+function closePOModal(){ if(typeof closePurchaseOrderModal==="function") closePurchaseOrderModal(); else { const m=document.getElementById("purchaseOrderModal"); if(m) m.style.display="none"; } }
+function closePDLVModal(){ if(typeof closePurchaseDeliveryModal==="function") closePurchaseDeliveryModal(); else { const m=document.getElementById("purchaseDeliveryModal"); if(m) m.style.display="none"; } }
+function closePTAXModal(){ if(typeof closePurchaseTaxModal==="function") closePurchaseTaxModal(); else { const m=document.getElementById("purchaseTaxModal"); if(m) m.style.display="none"; } }
+
 async function savePurchaseQuote() {
   const prCode = document.getElementById("pq-f-prcode").value.trim();
   const vendor = document.getElementById("pq-f-vendor").value.trim();
@@ -27316,117 +27502,132 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 📄 매입 견적서 모달 (Purchase Quote, 거래처 수신) -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-    <div id="purchaseQuoteModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
-        <button onclick="closePurchaseQuoteModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="pqModalTitle">📄 매입 견적서 수신</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">거래처에서 받은 견적서를 등록합니다 (PDF 업로드 → AI 파싱)</div>
 
-        <!-- PR 코드 + 영업코드 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📄 매입 견적서 수신 (풀스크린 + PDF 미리보기 + AI 파싱) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseQuoteModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+        <!-- 헤더 -->
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#2563eb15 0%,#2563eb30 100%)">
           <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="pq-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
-            <div style="font-size:11px;color:var(--t3);margin-top:3px">관련 구매요청서 코드</div>
+            <div style="font-size:18px;font-weight:900;color:#2563eb" id="pqModalTitle">📄 매입 견적서 수신</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">영업 프로젝트코드 <span style="font-weight:400;color:var(--t3)">(선택)</span></label>
-            <input class="si" type="text" id="pq-f-salescode" placeholder="SL/SP 코드" style="width:100%;font-family:var(--m)">
+          <button onclick="closePQModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        </div>
+        
+        <!-- 본문 2단 -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+          
+          <!-- 좌: PDF 미리보기 -->
+          <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700;color:var(--t2)">📄 PDF 미리보기</div>
+              <button type="button" onclick="zoomPQ(-0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">−</button>
+              <span id="pq-zoom-label" style="font-size:11px;color:var(--t3);font-family:var(--m)">100%</span>
+              <button type="button" onclick="zoomPQ(0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">+</button>
+              <button type="button" onclick="zoomPQ(0)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">초기화</button>
+            </div>
+            <div id="pq-preview-pane" style="flex:1;background:#fff;border-radius:10px;border:1px solid var(--border);overflow:auto;min-height:0">
+              <div style="padding:60px 30px;text-align:center;color:var(--t3)">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+                <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 우: 폼 -->
+          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+            
+            <!-- AI 파싱 영역 -->
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+                <input type="file" id="pq-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
+                <button type="button" onclick="aiPQParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+              </div>
+              <div id="pq-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+            </div>
+            
+            <!-- 기본 정보 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
+                <input type="text" id="pq-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                <input type="text" id="pq-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                <input type="text" id="pq-f-vendor" placeholder="㈜위앤" list="pq-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <datalist id="pq-vendor-list"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">견적 번호</label>
+                <input type="text" id="pq-f-quoteno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">견적일 *</label>
+                <input type="date" id="pq-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
+                <input type="date" id="pq-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">유효기간</label>
+              <input type="date" id="pq-f-valid" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+            </div>
+            </div>
+            
+            <!-- 품목 요약 -->
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
+              <textarea id="pq-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            </div>
+            
+            <!-- 금액 (공급가/VAT/총액) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
+                <input type="number" id="pq-f-supply" placeholder="0" oninput="calcPQTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
+                <input type="number" id="pq-f-vat" placeholder="자동" oninput="calcPQTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
+                <input type="number" id="pq-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              </div>
+            </div>
+            
+            <!-- 상태 / 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
+                <select id="pq-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>검토중</option><option>완료</option><option>보류</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
+                <input type="text" id="pq-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+            </div>
+            
           </div>
         </div>
-
-        <!-- 거래처 + 견적유형 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="pq-f-vendor" list="pq-vendor-list" placeholder="거래처명" style="width:100%">
-            <datalist id="pq-vendor-list"></datalist>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">견적 유형</label>
-            <select class="ss" id="pq-f-type" style="width:100%">
-              <option value="일반견적">일반견적</option>
-              <option value="납기단가확인">납기·단가확인용</option>
-              <option value="긴급">긴급</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 견적번호 + 견적일 + 유효기간 + 납기일 -->
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">견적 번호 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="pq-f-quoteno" placeholder="거래처 견적번호" style="width:100%;font-family:var(--m)">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">견적일 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="date" id="pq-f-date" style="width:100%">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">유효기간</label>
-            <input class="si" type="date" id="pq-f-valid" style="width:100%">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">납기일</label>
-            <input class="si" type="date" id="pq-f-delivery" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 품목 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목 (요약)</label>
-          <textarea class="si" id="pq-f-items" placeholder="제품명/수량/단가 등 (AI 파싱 시 자동 입력)" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
-        </div>
-
-        <!-- 금액 (공급가/VAT/총합) -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
-            <input class="si" type="number" id="pq-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="pqCalcTotal()">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">VAT (10%)</label>
-            <input class="si" type="number" id="pq-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="pqCalcTotal()">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
-            <input class="si" type="number" id="pq-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
-          </div>
-        </div>
-
-        <!-- 상태 + 비고 -->
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">상태 <span style="color:var(--r)">*</span></label>
-            <select class="ss" id="pq-f-status" style="width:100%">
-              <option value="검토중">검토중</option>
-              <option value="발주확정">✅ 발주확정</option>
-              <option value="보류">⏸ 보류</option>
-              <option value="반려">❌ 반려</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
-            <input class="si" type="text" id="pq-f-note" placeholder="특이사항, 조건 등" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 파일 업로드 -->
-        <div style="margin-bottom:14px;padding:12px;background:#fff7ed;border-radius:8px;border:1.5px solid var(--a)">
-          <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">📎 견적서 PDF 첨부 <span style="color:var(--r)">*</span></label>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="file" id="pq-f-file" accept="application/pdf,.pdf,image/*"
-              style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
-            <button type="button" onclick="aiParsePurchaseQuote()"
-              style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
-          </div>
-          <div id="pq-f-file-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
-        </div>
-
-        <!-- 액션 -->
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="closePurchaseQuoteModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-          <button onclick="savePurchaseQuote()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        
+        <!-- 풋터 -->
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button onclick="closePQModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseQuote()" style="padding:9px 22px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
         </div>
       </div>
     </div>
@@ -27434,102 +27635,134 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 📦 매입 발주서 모달 (Purchase Order, ENJET → 거래처 발행) -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-    <div id="purchaseOrderModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
-        <button onclick="closePurchaseOrderModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="poModalTitle">📦 매입 발주서 작성</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">ENJET가 거래처에 발행하는 발주서 (PO코드 자동채번)</div>
 
-        <!-- PO 코드 (자동) + PR 코드 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📦 매입 발주서 작성 (풀스크린 + PDF 미리보기 + AI 파싱) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseOrderModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+        <!-- 헤더 -->
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#ea580c15 0%,#ea580c30 100%)">
           <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PO 코드 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
-            <input class="si" type="text" id="po-f-pocode" placeholder="자동 생성" style="width:100%;font-family:var(--m);background:var(--bg3);color:var(--p);font-weight:700" readonly>
+            <div style="font-size:18px;font-weight:900;color:#ea580c" id="poModalTitle">📦 매입 발주서 작성</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="po-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          <button onclick="closePOModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        </div>
+        
+        <!-- 본문 2단 -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+          
+          <!-- 좌: PDF 미리보기 -->
+          <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700;color:var(--t2)">📄 PDF 미리보기</div>
+              <button type="button" onclick="zoomPO(-0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">−</button>
+              <span id="po-zoom-label" style="font-size:11px;color:var(--t3);font-family:var(--m)">100%</span>
+              <button type="button" onclick="zoomPO(0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">+</button>
+              <button type="button" onclick="zoomPO(0)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">초기화</button>
+            </div>
+            <div id="po-preview-pane" style="flex:1;background:#fff;border-radius:10px;border:1px solid var(--border);overflow:auto;min-height:0">
+              <div style="padding:60px 30px;text-align:center;color:var(--t3)">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+                <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 우: 폼 -->
+          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+            
+            <!-- AI 파싱 영역 -->
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+                <input type="file" id="po-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
+                <button type="button" onclick="aiPOParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+              </div>
+              <div id="po-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+            </div>
+            
+            <!-- 기본 정보 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
+                <input type="text" id="po-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                <input type="text" id="po-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                <input type="text" id="po-f-vendor" placeholder="㈜위앤" list="po-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <datalist id="po-vendor-list"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">발주 번호</label>
+                <input type="text" id="po-f-pocode" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">발주일 *</label>
+                <input type="date" id="po-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
+                <input type="date" id="po-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">결제조건</label>
+              <select id="po-f-payterm" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <option>현금</option><option>30일 어음</option><option>60일 어음</option><option>90일 어음</option>
+              </select>
+            </div>
+            </div>
+            
+            <!-- 품목 요약 -->
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
+              <textarea id="po-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            </div>
+            
+            <!-- 금액 (공급가/VAT/총액) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
+                <input type="number" id="po-f-supply" placeholder="0" oninput="calcPOTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
+                <input type="number" id="po-f-vat" placeholder="자동" oninput="calcPOTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
+                <input type="number" id="po-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              </div>
+            </div>
+            
+            <!-- 상태 / 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
+                <select id="po-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>검토중</option><option>완료</option><option>보류</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
+                <input type="text" id="po-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+            </div>
+            
           </div>
         </div>
-
-        <!-- 거래처 + 발주일 + 납기일 -->
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="po-f-vendor" list="po-vendor-list" placeholder="거래처명" style="width:100%">
-            <datalist id="po-vendor-list"></datalist>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">발주일 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="date" id="po-f-date" style="width:100%">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">납기일 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="date" id="po-f-delivery" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 품목 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목 (요약)</label>
-          <textarea class="si" id="po-f-items" placeholder="제품명/수량/단가" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
-        </div>
-
-        <!-- 금액 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
-            <input class="si" type="number" id="po-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="poCalcTotal()">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">VAT (10%)</label>
-            <input class="si" type="number" id="po-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
-            <input class="si" type="number" id="po-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
-          </div>
-        </div>
-
-        <!-- 결제조건 + 상태 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 조건</label>
-            <select class="ss" id="po-f-payterm" style="width:100%">
-              <option value="현금">현금</option>
-              <option value="외상30일">외상 30일</option>
-              <option value="외상60일">외상 60일</option>
-              <option value="외상90일">외상 90일</option>
-              <option value="선결제">선결제</option>
-              <option value="기타">기타</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">상태 <span style="color:var(--r)">*</span></label>
-            <select class="ss" id="po-f-status" style="width:100%">
-              <option value="발주완료">📦 발주완료</option>
-              <option value="입고대기">⏳ 입고대기</option>
-              <option value="입고완료">✅ 입고완료</option>
-              <option value="취소">❌ 취소</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 비고 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
-          <input class="si" type="text" id="po-f-note" placeholder="배송조건, 특이사항 등" style="width:100%">
-        </div>
-
-        <!-- 파일 -->
-        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 발주서 PDF (선택)</label>
-          <input type="file" id="po-f-file" accept="application/pdf,.pdf" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
-        </div>
-
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="closePurchaseOrderModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-          <button onclick="savePurchaseOrder()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        
+        <!-- 풋터 -->
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button onclick="closePOModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseOrder()" style="padding:9px 22px;border-radius:8px;border:none;background:#ea580c;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
         </div>
       </div>
     </div>
@@ -27537,95 +27770,138 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 🚚 입고 거래명세서 모달 (Purchase Delivery, 거래처 → ENJET 수신) -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-    <div id="purchaseDeliveryModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
-        <button onclick="closePurchaseDeliveryModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="pdlvModalTitle">🚚 입고 거래명세서</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">거래처로부터 받은 입고 거래명세서 + 검수 결과</div>
 
-        <!-- 거래명세번호 + PO 코드 + PR 코드 -->
-        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:12px">
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 🚚 입고 거래명세서 (풀스크린 + PDF 미리보기 + AI 파싱) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseDeliveryModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+        <!-- 헤더 -->
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#0891b215 0%,#0891b230 100%)">
           <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래명세 번호 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="pdlv-f-dlvno" placeholder="거래처 명세번호" style="width:100%;font-family:var(--m)">
+            <div style="font-size:18px;font-weight:900;color:#0891b2" id="pdlvModalTitle">🚚 입고 거래명세서</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PO 코드</label>
-            <input class="si" type="text" id="pdlv-f-pocode" placeholder="PO-260519-01" style="width:100%;font-family:var(--m)">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드</label>
-            <input class="si" type="text" id="pdlv-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
-          </div>
+          <button onclick="closePDLVModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
         </div>
-
-        <!-- 거래처 + 입고일 -->
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="pdlv-f-vendor" list="pdlv-vendor-list" placeholder="거래처명" style="width:100%">
-            <datalist id="pdlv-vendor-list"></datalist>
+        
+        <!-- 본문 2단 -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+          
+          <!-- 좌: PDF 미리보기 -->
+          <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700;color:var(--t2)">📄 PDF 미리보기</div>
+              <button type="button" onclick="zoomPDLV(-0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">−</button>
+              <span id="pdlv-zoom-label" style="font-size:11px;color:var(--t3);font-family:var(--m)">100%</span>
+              <button type="button" onclick="zoomPDLV(0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">+</button>
+              <button type="button" onclick="zoomPDLV(0)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">초기화</button>
+            </div>
+            <div id="pdlv-preview-pane" style="flex:1;background:#fff;border-radius:10px;border:1px solid var(--border);overflow:auto;min-height:0">
+              <div style="padding:60px 30px;text-align:center;color:var(--t3)">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+                <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">입고일 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="date" id="pdlv-f-date" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 품목 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">품목</label>
-          <textarea class="si" id="pdlv-f-items" placeholder="제품명/수량/단가" style="width:100%;height:60px;resize:vertical;font-size:13px"></textarea>
-        </div>
-
-        <!-- 금액 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
-            <input class="si" type="number" id="pdlv-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="pdlvCalcTotal()">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">VAT</label>
-            <input class="si" type="number" id="pdlv-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
-            <input class="si" type="number" id="pdlv-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
-          </div>
-        </div>
-
-        <!-- 검수 결과 -->
-        <div style="margin-bottom:12px;padding:14px;background:#f0fdf4;border-radius:8px;border:1.5px solid var(--g)">
-          <div style="font-size:14px;font-weight:700;color:var(--g);margin-bottom:10px">✅ 검수 결과</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          
+          <!-- 우: 폼 -->
+          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+            
+            <!-- AI 파싱 영역 -->
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+                <input type="file" id="pdlv-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
+                <button type="button" onclick="aiPDLVParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+              </div>
+              <div id="pdlv-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+            </div>
+            
+            <!-- 기본 정보 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
+                <input type="text" id="pdlv-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                <input type="text" id="pdlv-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                <input type="text" id="pdlv-f-vendor" placeholder="㈜위앤" list="pdlv-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <datalist id="pdlv-vendor-list"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래명세 번호</label>
+                <input type="text" id="pdlv-f-dlvno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래명세일 *</label>
+                <input type="date" id="pdlv-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
+                <input type="date" id="pdlv-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              
             <div>
-              <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">검수 상태 <span style="color:var(--r)">*</span></label>
-              <select class="ss" id="pdlv-f-status" style="width:100%">
-                <option value="미검수">⏳ 미검수</option>
-                <option value="검수완료">✅ 검수완료</option>
-                <option value="일부불량">⚠️ 일부불량</option>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">검수상태</label>
+              <select id="pdlv-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <option value="미검수">미검수</option><option value="검수중">검수중</option><option value="합격">합격</option><option value="불량">불량</option>
               </select>
             </div>
             <div>
-              <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">검수자</label>
-              <input class="si" type="text" id="pdlv-f-inspector" placeholder="검수 담당자" style="width:100%">
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">검수자</label>
+              <input type="text" id="pdlv-f-inspector" placeholder="홍용원" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
             </div>
-          </div>
-          <div style="margin-top:10px">
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">검수 비고 (불량 사항 등)</label>
-            <input class="si" type="text" id="pdlv-f-defectnote" placeholder="불량 발견 시 상세 내용" style="width:100%">
+            </div>
+            
+            <!-- 품목 요약 -->
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
+              <textarea id="pdlv-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            </div>
+            
+            <!-- 금액 (공급가/VAT/총액) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
+                <input type="number" id="pdlv-f-supply" placeholder="0" oninput="calcPDLVTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
+                <input type="number" id="pdlv-f-vat" placeholder="자동" oninput="calcPDLVTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
+                <input type="number" id="pdlv-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              </div>
+            </div>
+            
+            <!-- 상태 / 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
+                <select id="pdlv-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>검토중</option><option>완료</option><option>보류</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
+                <input type="text" id="pdlv-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+            </div>
+            
           </div>
         </div>
-
-        <!-- 파일 -->
-        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 거래명세서 PDF (선택)</label>
-          <input type="file" id="pdlv-f-file" accept="application/pdf,.pdf,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
-        </div>
-
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="closePurchaseDeliveryModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-          <button onclick="savePurchaseDelivery()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        
+        <!-- 풋터 -->
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button onclick="closePDLVModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseDelivery()" style="padding:9px 22px;border-radius:8px;border:none;background:#0891b2;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
         </div>
       </div>
     </div>
@@ -27633,108 +27909,138 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 🧾 매입 세금계산서 모달 (Purchase Tax, 매입세금 수신, VAT 환급) -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-    <div id="purchaseTaxModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
-        <button onclick="closePurchaseTaxModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="ptaxModalTitle">🧾 매입 세금계산서</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">거래처에서 받은 매입세금계산서 (부가세 환급 대상)</div>
 
-        <!-- 세금계산서 번호 + PR 코드 -->
-        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-bottom:12px">
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 🧾 매입 세금계산서 (풀스크린 + PDF 미리보기 + AI 파싱) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="purchaseTaxModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+        <!-- 헤더 -->
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#dc262615 0%,#dc262630 100%)">
           <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">세금계산서 번호 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="ptax-f-taxno" placeholder="20260519-12345678" style="width:100%;font-family:var(--m)">
+            <div style="font-size:18px;font-weight:900;color:#dc2626" id="ptaxModalTitle">🧾 매입 세금계산서</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드</label>
-            <input class="si" type="text" id="ptax-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          <button onclick="closePTAXModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        </div>
+        
+        <!-- 본문 2단 -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+          
+          <!-- 좌: PDF 미리보기 -->
+          <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700;color:var(--t2)">📄 PDF 미리보기</div>
+              <button type="button" onclick="zoomPTAX(-0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">−</button>
+              <span id="ptax-zoom-label" style="font-size:11px;color:var(--t3);font-family:var(--m)">100%</span>
+              <button type="button" onclick="zoomPTAX(0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">+</button>
+              <button type="button" onclick="zoomPTAX(0)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">초기화</button>
+            </div>
+            <div id="ptax-preview-pane" style="flex:1;background:#fff;border-radius:10px;border:1px solid var(--border);overflow:auto;min-height:0">
+              <div style="padding:60px 30px;text-align:center;color:var(--t3)">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+                <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 우: 폼 -->
+          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+            
+            <!-- AI 파싱 영역 -->
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+                <input type="file" id="ptax-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
+                <button type="button" onclick="aiPTAXParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+              </div>
+              <div id="ptax-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+            </div>
+            
+            <!-- 기본 정보 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
+                <input type="text" id="ptax-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                <input type="text" id="ptax-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                <input type="text" id="ptax-f-vendor" placeholder="㈜위앤" list="ptax-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <datalist id="ptax-vendor-list"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">세금계산 번호</label>
+                <input type="text" id="ptax-f-taxno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">세금계산일 *</label>
+                <input type="date" id="ptax-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
+                <input type="date" id="ptax-f-paydue" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">전자/수기</label>
+              <select id="ptax-f-etax" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <option value="전자">전자</option><option value="수기">수기</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">사업자번호</label>
+              <input type="text" id="ptax-f-bizno" placeholder="123-45-67890" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+            </div>
+            </div>
+            
+            <!-- 품목 요약 -->
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
+              <textarea id="ptax-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            </div>
+            
+            <!-- 금액 (공급가/VAT/총액) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
+                <input type="number" id="ptax-f-supply" placeholder="0" oninput="calcPTAXTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
+                <input type="number" id="ptax-f-vat" placeholder="자동" oninput="calcPTAXTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
+                <input type="number" id="ptax-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              </div>
+            </div>
+            
+            <!-- 상태 / 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
+                <select id="ptax-f-paystatus" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>검토중</option><option>완료</option><option>보류</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
+                <input type="text" id="ptax-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+            </div>
+            
           </div>
         </div>
-
-        <!-- 거래처 + 사업자번호 -->
-        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="ptax-f-vendor" list="ptax-vendor-list" placeholder="거래처명" style="width:100%">
-            <datalist id="ptax-vendor-list"></datalist>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">사업자번호 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="ptax-f-bizno" placeholder="000-00-00000" style="width:100%;font-family:var(--m)">
-          </div>
-        </div>
-
-        <!-- 발행일 + 결제예정일 + 전자세금 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">발행일 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="date" id="ptax-f-date" style="width:100%">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 예정일</label>
-            <input class="si" type="date" id="ptax-f-paydue" style="width:100%">
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">전자세금</label>
-            <select class="ss" id="ptax-f-etax" style="width:100%">
-              <option value="전자">📧 전자</option>
-              <option value="수기">📄 수기</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 금액 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:#fef3c7;border-radius:8px;border:1.5px solid #fcd34d">
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">공급가액</label>
-            <input class="si" type="number" id="ptax-f-supply" placeholder="0" style="width:100%;text-align:right;font-family:var(--m)" oninput="ptaxCalcTotal()">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:5px">VAT (환급대상)</label>
-            <input class="si" type="number" id="ptax-f-vat" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);background:#fff;font-weight:700">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--p);display:block;margin-bottom:5px">총 금액</label>
-            <input class="si" type="number" id="ptax-f-total" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700;background:var(--pd)">
-          </div>
-        </div>
-
-        <!-- 결제 상태 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 상태 <span style="color:var(--r)">*</span></label>
-            <select class="ss" id="ptax-f-paystatus" style="width:100%">
-              <option value="unpaid">⏳ 결제대기</option>
-              <option value="paid">✅ 결제완료</option>
-              <option value="overdue">⚠️ 지연</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">실 결제일</label>
-            <input class="si" type="date" id="ptax-f-paydate" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 비고 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
-          <input class="si" type="text" id="ptax-f-note" placeholder="특이사항" style="width:100%">
-        </div>
-
-        <!-- 파일 + AI 파싱 -->
-        <div style="margin-bottom:14px;padding:12px;background:#fff7ed;border-radius:8px;border:1.5px solid var(--a)">
-          <label style="font-size:14px;font-weight:700;color:var(--a);display:block;margin-bottom:8px">📎 세금계산서 PDF + 🤖 AI 자동입력</label>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="file" id="ptax-f-file" accept="application/pdf,.pdf,image/*" style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
-            <button type="button" onclick="aiParsePurchaseTax()"
-              style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
-          </div>
-          <div style="font-size:11px;color:var(--t3);margin-top:6px">※ 세금계산서 PDF 업로드 후 AI파싱 → 번호/거래처/사업자번호/금액 자동 추출</div>
-        </div>
-
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="closePurchaseTaxModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-          <button onclick="savePurchaseTax()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        
+        <!-- 풋터 -->
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button onclick="closePTAXModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+          <button onclick="savePurchaseTax()" style="padding:9px 22px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
         </div>
       </div>
     </div>
@@ -27994,94 +28300,128 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 💼 회계전표 (구매입고정산) 모달 -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-    <div id="settleModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative">
-        <button onclick="closeSettleModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
-        <div style="font-size:19px;font-weight:900;color:var(--t);margin-bottom:6px" id="stlModalTitle">💼 회계전표 / 구매입고정산</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:18px">정산번호 자동채번 (ST-YYMMDD-NN) · 매입완료 단계</div>
 
-        <!-- 정산번호 + PR + PO -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 💼 회계전표 등록 (풀스크린 + PDF 미리보기 + AI 파싱) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div id="settleModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+        <!-- 헤더 -->
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#16a34a15 0%,#16a34a30 100%)">
           <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">정산번호 <span style="font-weight:400;color:var(--t3)">(자동)</span></label>
-            <input class="si" type="text" id="stl-f-stcode" placeholder="자동 생성" style="width:100%;font-family:var(--m);background:var(--bg3);color:var(--p);font-weight:700" readonly>
+            <div style="font-size:18px;font-weight:900;color:#16a34a" id="stlModalTitle">💼 회계전표 등록</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PR 코드 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="stl-f-prcode" placeholder="PR-260519-01" style="width:100%;font-family:var(--m)">
+          <button onclick="closeSettleModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        </div>
+        
+        <!-- 본문 2단 -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+          
+          <!-- 좌: PDF 미리보기 -->
+          <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700;color:var(--t2)">📄 PDF 미리보기</div>
+              <button type="button" onclick="zoomStl(-0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">−</button>
+              <span id="stl-zoom-label" style="font-size:11px;color:var(--t3);font-family:var(--m)">100%</span>
+              <button type="button" onclick="zoomStl(0.1)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">+</button>
+              <button type="button" onclick="zoomStl(0)" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:11px;cursor:pointer">초기화</button>
+            </div>
+            <div id="stl-preview-pane" style="flex:1;background:#fff;border-radius:10px;border:1px solid var(--border);overflow:auto;min-height:0">
+              <div style="padding:60px 30px;text-align:center;color:var(--t3)">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+                <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">PO 코드</label>
-            <input class="si" type="text" id="stl-f-pocode" placeholder="PO-260519-01" style="width:100%;font-family:var(--m)">
+          
+          <!-- 우: 폼 -->
+          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+            
+            <!-- AI 파싱 영역 -->
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+                <input type="file" id="stl-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
+                <button type="button" onclick="aiStlParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+              </div>
+              <div id="stl-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+            </div>
+            
+            <!-- 기본 정보 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
+                <input type="text" id="stl-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                <input type="text" id="stl-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                <input type="text" id="stl-f-vendor" placeholder="㈜위앤" list="stl-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <datalist id="stl-vendor-list"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">전표 번호</label>
+                <input type="text" id="stl-f-entryno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">전표일 *</label>
+                <input type="date" id="stl-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
+                <input type="date" id="stl-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              
+            </div>
+            
+            <!-- 품목 요약 -->
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
+              <textarea id="stl-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            </div>
+            
+            <!-- 금액 (공급가/VAT/총액) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
+                <input type="number" id="stl-f-supply" placeholder="0" oninput="calcStlTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
+                <input type="number" id="stl-f-vat" placeholder="자동" oninput="calcStlTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
+                <input type="number" id="stl-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              </div>
+            </div>
+            
+            <!-- 상태 / 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
+                <select id="stl-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>검토중</option><option>완료</option><option>보류</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
+                <input type="text" id="stl-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+            </div>
+            
           </div>
         </div>
-
-        <!-- 거래처 + 정산일 -->
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">거래처 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="text" id="stl-f-vendor" list="stl-vendor-list" placeholder="거래처명" style="width:100%">
-            <datalist id="stl-vendor-list"></datalist>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">정산일 <span style="color:var(--r)">*</span></label>
-            <input class="si" type="date" id="stl-f-date" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 매입금액 + 결제수단 + 결제일 -->
-        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">매입금액 (합계) <span style="color:var(--r)">*</span></label>
-            <input class="si" type="number" id="stl-f-amount" placeholder="0" style="width:100%;text-align:right;font-family:var(--m);font-weight:700">
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 수단</label>
-            <select class="ss" id="stl-f-paymethod" style="width:100%">
-              <option value="계좌이체">계좌이체</option>
-              <option value="카드">카드</option>
-              <option value="현금">현금</option>
-              <option value="어음">어음</option>
-              <option value="기타">기타</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제일</label>
-            <input class="si" type="date" id="stl-f-paydate" style="width:100%">
-          </div>
-        </div>
-
-        <!-- 회계전표 + 결제상태 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">회계전표 번호</label>
-            <input class="si" type="text" id="stl-f-acctno" placeholder="회계 시스템 전표번호" style="width:100%;font-family:var(--m)">
-            <div style="font-size:11px;color:var(--t3);margin-top:3px">※ 회계시스템 연동 시 자동입력</div>
-          </div>
-          <div>
-            <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">결제 상태 <span style="color:var(--r)">*</span></label>
-            <select class="ss" id="stl-f-paystatus" style="width:100%">
-              <option value="unpaid">⏳ 미결제</option>
-              <option value="paid">✅ 결제완료</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 비고 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:5px">비고</label>
-          <input class="si" type="text" id="stl-f-note" placeholder="특이사항" style="width:100%">
-        </div>
-
-        <!-- 파일 -->
-        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:8px">
-          <label style="font-size:14px;font-weight:700;color:var(--t2);display:block;margin-bottom:8px">📎 정산 증빙 PDF (선택)</label>
-          <input type="file" id="stl-f-file" accept="application/pdf,.pdf,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--border2);border-radius:7px;background:#fff;font-size:13px">
-        </div>
-
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="closeSettleModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
-          <button onclick="saveSettle()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        
+        <!-- 풋터 -->
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button onclick="closeSettleModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+          <button onclick="saveSettleEntry()" style="padding:9px 22px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
         </div>
       </div>
     </div>
