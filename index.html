@@ -5193,9 +5193,68 @@ function matchOrCreateBOM(productName, hint) {
   return newBom;
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 💾 즉시 캐시 로드 - localStorage에서 변수에 채워서 UI에 바로 표시
+// 로그인/SP 로드 기다리지 않고 페이지 진입 즉시 동작
+// SP에서 최신 데이터가 오면 덮어씀
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function loadPurchaseDBFromCache() {
+  const cacheMap = [
+    { key: "pa_data",      setter: (d) => { if(typeof slData !== "undefined") slData = d.filter(x => !x._kind || x._kind === "sl" || x._kind === "purchase"); } },
+    { key: "pr_master",    setter: (d) => { _prMaster = d; } },
+    { key: "pqdb_data",    setter: (d) => { _pqdbData = d; } },
+    { key: "pord_data",    setter: (d) => { _pordData = d; } },
+    { key: "pdlv_data",    setter: (d) => { _pdlvData = d; } },
+    { key: "ptax_data",    setter: (d) => { _ptaxData = d; } },
+    { key: "pstl_data",    setter: (d) => { _pstlData = d; } },
+    { key: "bom_data",     setter: (d) => { _bomData = d; } },
+  ];
+  let totalLoaded = 0;
+  for(const c of cacheMap) {
+    try {
+      const cached = localStorage.getItem(c.key);
+      if(cached) {
+        const parsed = JSON.parse(cached);
+        if(Array.isArray(parsed.data) && parsed.data.length > 0) {
+          c.setter(parsed.data);
+          totalLoaded += parsed.data.length;
+          console.log(`💾 캐시 즉시 로드: ${c.key} (${parsed.data.length}건, ${parsed.ts?.substring(0,10)||"?"})`);
+        }
+      }
+    } catch(e) { /* 무시 */ }
+  }
+  if(totalLoaded > 0) {
+    console.log(`💾 캐시 총 ${totalLoaded}건 즉시 로드 - UI 갱신`);
+    // 즉시 UI 갱신
+    if(typeof renderPRDB === "function") renderPRDB();
+    if(typeof renderPQDB === "function") renderPQDB();
+    if(typeof renderPORD === "function") renderPORD();
+    if(typeof renderPDLV === "function") renderPDLV();
+    if(typeof renderPTAX === "function") renderPTAX();
+    if(typeof renderPSTL === "function") renderPSTL();
+    if(typeof renderBOMDB === "function") renderBOMDB();
+    if(typeof renderSLAll === "function") renderSLAll();
+    if(typeof updateAllBadges === "function") updateAllBadges();
+    if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  }
+  return totalLoaded;
+}
+
+// 🆕 DOM 준비되자마자 캐시 즉시 로드 (로그인 전이라도)
+window.addEventListener("DOMContentLoaded", () => {
+  // 약간 지연: 다른 init 코드가 _pqdbData 등 변수를 초기화한 다음에 캐시 채움
+  setTimeout(() => {
+    try { loadPurchaseDBFromCache(); } catch(e) { console.warn("캐시 로드 실패:", e.message); }
+  }, 100);
+});
+
 // ━━ 구매 데이터 일괄 로드 (로그인 후 한 번에) ━━
 async function loadAllPurchaseDB() {
   console.log("🔄 구매 데이터 일괄 로드 시작...");
+  
+  // 🆕 SP 호출 전에 먼저 캐시에서 즉시 보여주기
+  try { loadPurchaseDBFromCache(); } catch(_){}
+  
   await Promise.all([
     loadPRMaster(),
     loadPQDB(),
@@ -9187,6 +9246,14 @@ PD = PD_STATIC.map(r => Object.assign({
 
 async function syncAll() {
   setSS("spin","동기화 중...");
+  
+  // 🆕 캐시 즉시 로드 - 로그인 직후 UI에 데이터 표시 (SP 응답 기다리기 전)
+  try { 
+    if(typeof loadPurchaseDBFromCache === "function") {
+      const cached = loadPurchaseDBFromCache();
+      if(cached > 0) console.log(`⚡ 로그인 직후 캐시 ${cached}건 즉시 표시`);
+    }
+  } catch(_){}
   
   // 🆕 구매 대시보드 데이터는 다른 작업의 에러와 무관하게 먼저/병렬로 로드
   //    (이전엔 syncAll 후반부에서 호출되어 앞 작업 에러 시 함께 실패)
