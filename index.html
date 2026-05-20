@@ -7355,9 +7355,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
 async function savePurchaseDelivery() {
   if(!_purchaseGuardSave("pdlv", "거래명세서")) return;
-  const dlvNo = document.getElementById("pdlv-f-dlvno").value.trim();
-  const vendor = document.getElementById("pdlv-f-vendor").value.trim();
-  const dlvDate = document.getElementById("pdlv-f-date").value;
+  
+  // 🆕 null 안전 헬퍼 (모달에 없거나 숨겨진 필드 대응)
+  const v = (id) => document.getElementById(id)?.value?.trim() || "";
+  const vNum = (id) => Number(document.getElementById(id)?.value || 0);
+  
+  const dlvNo = v("pdlv-f-dlvno");
+  const vendor = v("pdlv-f-vendor");
+  const dlvDate = document.getElementById("pdlv-f-date")?.value || "";
   
   if(!dlvNo) { alert("거래명세 번호를 입력해주세요."); return; }
   if(!vendor) { alert("거래처를 입력해주세요."); return; }
@@ -7366,20 +7371,20 @@ async function savePurchaseDelivery() {
   const data = {
     id: _pdlvEditId || ("pdlv_" + Date.now()),
     parentSLId: window._currentSLActId || (_pdlvEditId ? _pdlvData.find(x=>x.id===_pdlvEditId)?.parentSLId : null),
-    salesCode: document.getElementById("pdlv-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
+    salesCode: v("pdlv-f-salescode") || window._currentSLActPjcode || "",
     dlvNo,
-    poCode: document.getElementById("pdlv-f-pocode").value.trim(),
-    prCode: document.getElementById("pdlv-f-prcode").value.trim(),
+    poCode: v("pdlv-f-pocode"),
+    prCode: v("pdlv-f-prcode"),
     vendor,
     dlvDate,
     paymentDate: document.getElementById("pdlv-f-payment")?.value || "",  // 🆕 지급예정일
-    items: document.getElementById("pdlv-f-items").value.trim(),
-    supplyAmount: Number(document.getElementById("pdlv-f-supply").value || 0),
-    vatAmount: Number(document.getElementById("pdlv-f-vat").value || 0),
-    totalAmount: Number(document.getElementById("pdlv-f-total").value || 0),
-    inspectStatus: document.getElementById("pdlv-f-status").value,
-    inspector: document.getElementById("pdlv-f-inspector").value.trim(),
-    defectNote: document.getElementById("pdlv-f-defectnote").value.trim(),
+    items: v("pdlv-f-items"),
+    supplyAmount: vNum("pdlv-f-supply"),
+    vatAmount: vNum("pdlv-f-vat"),
+    totalAmount: vNum("pdlv-f-total"),
+    inspectStatus: v("pdlv-f-status") || "미검수",
+    inspector: v("pdlv-f-inspector"),
+    defectNote: v("pdlv-f-defectnote") || v("pdlv-f-note"),  // 두 ID 모두 호환
     fileUrl: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.fileUrl || "") : "",
     fileName: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.fileName || "") : "",
     createdAt: _pdlvEditId ? (_pdlvData.find(x=>x.id===_pdlvEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
@@ -30054,8 +30059,8 @@ function deleteTax(id){
             <!-- 상태 / 비고 -->
             <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
-                <select id="pdlv-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">처리상태</label>
+                <select id="pdlv-f-savestatus" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
                   <option>검토중</option><option>완료</option><option>보류</option>
                 </select>
               </div>
