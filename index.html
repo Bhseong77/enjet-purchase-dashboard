@@ -4435,13 +4435,15 @@ function parseENJETPOTextLocally(pdfText) {
 function parseENJETTAXTextLocally(pdfText) {
   if(!pdfText) return null;
   console.log("🧾 세금계산서 로컬 파싱 시작 - 텍스트 길이:", pdfText.length);
+  console.log("🧾 텍스트 샘플 (첫 1500자):\n", pdfText.substring(0, 1500));
   
-  // 시그니처: "전자세금계산서" 또는 "승인번호" + "공급받는자"
-  const isTaxInvoice = /전자세금계산서|세금계산서/.test(pdfText) && /승인번호/.test(pdfText);
+  // 시그니처: "전자세금계산서" 또는 "세금계산서" 단독
+  const isTaxInvoice = /전자세금계산서|세금계산서/.test(pdfText);
   if(!isTaxInvoice) {
     console.log("🧾 세금계산서 시그니처 미발견 - AI에 위임");
     return null;
   }
+  console.log("🧾 시그니처 확인 OK");
   
   const result = {
     vendor: "",        // 거래처(공급자) 상호
@@ -4457,21 +4459,44 @@ function parseENJETTAXTextLocally(pdfText) {
     _engine: "local",
   };
   
-  // ── 1) 승인번호 ──
-  // 예: "승인번호 20260512-41000096-36232975"
-  const taxNoMatch = pdfText.match(/승인번호\s+([\d\-]{20,})/);
-  if(taxNoMatch) {
-    result.taxNo = taxNoMatch[1].trim();
-    // 작성일자 추출: 승인번호 앞 8자리가 YYYYMMDD
-    const datePart = result.taxNo.match(/^(\d{4})(\d{2})(\d{2})/);
-    if(datePart) result.taxDate = `${datePart[1]}-${datePart[2]}-${datePart[3]}`;
+  // ── 1) 승인번호 - 줄바꿈 허용 ──
+  // 예: "승인번호 20260512-41000096-36232975" or "승인번호\n20260512-41000096-36232975"
+  // 32자리 형식: YYYYMMDD-XXXXXXXX-XXXXXXXX
+  const taxNoPatterns = [
+    /승인번호[\s\S]{0,30}?(\d{8}-\d{8}-\d{8})/,
+    /(\d{8}-\d{8}-\d{8})/,  // 단독 패턴
+  ];
+  for(const pat of taxNoPatterns) {
+    const m = pdfText.match(pat);
+    if(m) {
+      result.taxNo = m[1].trim();
+      // 작성일자 추출: 승인번호 앞 8자리 YYYYMMDD
+      const datePart = result.taxNo.match(/^(\d{4})(\d{2})(\d{2})/);
+      if(datePart) result.taxDate = `${datePart[1]}-${datePart[2]}-${datePart[3]}`;
+      console.log(`🧾 승인번호 추출: ${result.taxNo}`);
+      break;
+    }
   }
   
-  // ── 2) 작성일자 (별도 명시된 경우 우선) ──
-  // 예: "작성일자 2026-05-12" 또는 "2026 05 12"
-  const taxDateMatch = pdfText.match(/작성일자\s+(\d{4}[-./\s]\d{1,2}[-./\s]\d{1,2})/);
-  if(taxDateMatch) {
-    result.taxDate = taxDateMatch[1].replace(/[./\s]/g, "-").replace(/-(\d)(?=-|$)/g, "-0$1");
+  // ── 2) 작성일자 - 별도 명시된 경우 우선 ──
+  // 다양한 형식: "2026-05-12", "2026.05.12", "2026 05 12", "2026년05월12일"
+  const taxDatePatterns = [
+    /작성일자[\s\S]{0,30}?(\d{4}[-./]\d{1,2}[-./]\d{1,2})/,
+    /작성일자[\s\S]{0,30}?(\d{4})\s+(\d{1,2})\s+(\d{1,2})/,
+    /작성일자[\s\S]{0,30}?(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+  ];
+  for(const pat of taxDatePatterns) {
+    const m = pdfText.match(pat);
+    if(m) {
+      if(m[2] && m[3]) {
+        // 분리된 경우 YYYY-MM-DD 조합
+        result.taxDate = `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+      } else {
+        result.taxDate = m[1].replace(/[./]/g, "-").replace(/-(\d)(?=-|$)/g, "-0$1");
+      }
+      console.log(`🧾 작성일자: ${result.taxDate}`);
+      break;
+    }
   }
   
   // ── 3) 공급자(거래처) 정보 추출 ──
@@ -4576,9 +4601,229 @@ function parseENJETTAXTextLocally(pdfText) {
     unpaid: result.unpaidAmount,
   });
   
-  // 최소 검증: 승인번호 + 공급가 둘 다 있어야 유효
-  if(!result.taxNo || result.supplyAmount === 0) {
-    console.log("🧾 필수 정보 누락 - AI에 위임");
+  // 최소 검증: 승인번호 OR 공급가 OR vendor 중 하나라도 있으면 유효 (사용자가 나머지 직접 입력 가능)
+  if(!result.taxNo && result.supplyAmount === 0 && !result.vendor) {
+    console.log("🧾 모든 정보 누락 - AI에 위임");
+    return null;
+  }
+  
+  if(!result.taxNo) console.warn("🧾 승인번호 추출 실패 (사용자 직접 입력 필요)");
+  if(result.supplyAmount === 0) console.warn("🧾 공급가액 추출 실패 (사용자 직접 입력 필요)");
+  
+  return result;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 💼 회계전표 로컬 파싱 - ENJET 그룹웨어 회계전표 양식 (고정)
+//
+// 양식 특징:
+//   - "회 계 전 표" 제목
+//   - 기안자, 소속, 기안일, 문서번호 (엔젯-회계전표2-XXXX-XXXXX)
+//   - 회계단위(본사), 전표유형(프로젝트구매매입정산처리)
+//   - 등록부서, 등록자
+//   - 기표일 (회계 처리일, 보통 작성일자), 전표번호
+//   - 회계일, 회계전표번호
+//   - 행번 / 계정과목 / 적요 / 차변 / 대변
+//     001 원재료 ... 거래처 ... 1,012,700 / 0
+//     002 부가세대급금 ... 거래처(사업자번호) ... 101,270 / 0
+//     003 외상매입금 ... 1,113,970 (대변)
+//   - 합계 (차변/대변)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function parseENJETSTLTextLocally(pdfText) {
+  if(!pdfText) return null;
+  console.log("💼 회계전표 로컬 파싱 시작 - 텍스트 길이:", pdfText.length);
+  console.log("💼 텍스트 샘플:\n", pdfText.substring(0, 1500));
+  
+  // 시그니처: "회계전표" + "차변/대변" 또는 "기표일/전표번호"
+  const isSettle = /회\s*계\s*전\s*표|회계전표/.test(pdfText) && 
+                   (/차\s*변|대\s*변|기표일|전표번호/.test(pdfText));
+  if(!isSettle) {
+    console.log("💼 회계전표 시그니처 미발견 - AI에 위임");
+    return null;
+  }
+  console.log("💼 시그니처 확인 OK");
+  
+  const result = {
+    docNo: "",         // 문서번호 (엔젯-회계전표2-2605-00154)
+    stNo: "",          // 전표번호 (20260428-00003)
+    accNo: "",         // 회계전표번호 (20260428-00010)
+    entryDate: "",     // 기표일/회계일 (작성일자) → DB의 entryDate
+    vendor: "",        // 거래처 (적요에서 추출)
+    bizNo: "",         // 거래처 사업자번호
+    accountTitles: "", // 계정과목 요약 (원재료/부가세대급금/외상매입금)
+    taxInvoiceNo: "",  // 세금계산서 번호 (있는 경우)
+    items: "",         // 적요 요약
+    supplyAmount: 0,   // 원재료 차변 = 공급가액
+    vatAmount: 0,      // 부가세대급금 차변 = VAT
+    totalAmount: 0,    // 외상매입금 대변 = 합계 (또는 차변/대변 합계)
+    drafter: "",       // 기안자 (홍용원)
+    deptName: "",      // 소속 (구매감사팀)
+    _engine: "local",
+  };
+  
+  // ── 1) 문서번호 ──
+  // "엔젯-회계전표2-2605-00154"
+  const docNoMatch = pdfText.match(/(엔젯-회계전표[\d]*-\d{4}-\d{5,})/);
+  if(docNoMatch) result.docNo = docNoMatch[1].trim();
+  
+  // ── 2) 기표일 / 회계일 ──
+  // "2026년04월28일" 또는 "2026-04-28"
+  const entryDatePatterns = [
+    /기표일\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+    /기표일\s*(\d{4})[-./](\d{1,2})[-./](\d{1,2})/,
+    /회계일\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+    /회계일\s*(\d{4})[-./](\d{1,2})[-./](\d{1,2})/,
+  ];
+  for(const pat of entryDatePatterns) {
+    const m = pdfText.match(pat);
+    if(m) {
+      result.entryDate = `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+      console.log(`💼 기표일: ${result.entryDate}`);
+      break;
+    }
+  }
+  
+  // ── 3) 전표번호 / 회계전표번호 ──
+  const stNoMatch = pdfText.match(/전표번호\s+(\d{8}-\d{4,})/);
+  if(stNoMatch) result.stNo = stNoMatch[1].trim();
+  
+  const accNoMatch = pdfText.match(/회계전표번호\s+(\d{8}-\d{4,})/);
+  if(accNoMatch) result.accNo = accNoMatch[1].trim();
+  
+  // ── 4) 기안자 / 소속 ──
+  const drafterMatch = pdfText.match(/기안자\s+([가-힣]{2,5})/);
+  if(drafterMatch) result.drafter = drafterMatch[1].trim();
+  
+  const deptMatch = pdfText.match(/소속\s+([가-힣]+(?:팀|부|과|실|본부))/);
+  if(deptMatch) result.deptName = deptMatch[1].trim();
+  
+  // ── 5) 거래처 - (주)서보스타 (119-81-75236) ──
+  // 사업자번호 옆에 있는 거래처가 정확함
+  const vendorWithBizMatch = pdfText.match(/([\(㈜][^)]*\)\s*[^\s(]+|㈜[^\s(]+|[가-힣A-Za-z][가-힣A-Za-z0-9\s]*(?:주식회사|㈜))\s*\(?(\d{3}-\d{2}-\d{5})\)?/);
+  if(vendorWithBizMatch) {
+    result.vendor = vendorWithBizMatch[1].trim();
+    result.bizNo = vendorWithBizMatch[2].trim();
+    console.log(`💼 거래처: ${result.vendor} (${result.bizNo})`);
+  } else {
+    // 사업자번호만 단독으로 추출
+    const bizOnlyMatch = pdfText.match(/(\d{3}-\d{2}-\d{5})/);
+    if(bizOnlyMatch) result.bizNo = bizOnlyMatch[1];
+    // 거래처는 ㈜/(주) 시작 회사명 찾기
+    const vendorOnlyMatch = pdfText.match(/(\(주\)[^\s]+|㈜[^\s]+)/);
+    if(vendorOnlyMatch && !/엔젯|ENJET/i.test(vendorOnlyMatch[1])) {
+      result.vendor = vendorOnlyMatch[1].trim();
+    }
+  }
+  
+  // ── 6) 세금계산서 표시 ──
+  // "전자세금계산서(일반과세)" 등이 있으면 표기
+  if(/전자세금계산서|세금계산서/.test(pdfText)) {
+    result.taxInvoiceNo = "전자세금계산서";
+  }
+  
+  // ── 7) 금액 추출 - 차변/대변 합계가 = 총액 ──
+  // "합계 1,113,970 1,113,970" 패턴 - 차변/대변 합계
+  const totalMatch = pdfText.match(/합\s*계[\s\S]{0,80}?([\d,]+)\s+([\d,]+)/);
+  if(totalMatch) {
+    const debit = Number(totalMatch[1].replace(/,/g, ""));
+    const credit = Number(totalMatch[2].replace(/,/g, ""));
+    if(Math.abs(debit - credit) < 10) {
+      result.totalAmount = debit;  // 차변 = 대변 (정상 분개)
+      console.log(`💼 합계: ${result.totalAmount.toLocaleString()} (차변=대변)`);
+    }
+  }
+  
+  // ── 8) 원재료 (공급가액) ──
+  // "원재료 ... 1,012,700" - 첫 번째 차변 금액
+  const supplyMatch = pdfText.match(/원\s*재\s*료[\s\S]{0,200}?([\d]{1,3}(?:,\d{3})+)/);
+  if(supplyMatch) {
+    result.supplyAmount = Number(supplyMatch[1].replace(/,/g, ""));
+    console.log(`💼 원재료(공급가액): ${result.supplyAmount.toLocaleString()}`);
+  }
+  
+  // ── 9) 부가세대급금 (VAT) ──
+  // "부가세대급금 ... 101,270"
+  const vatMatch = pdfText.match(/부가세대급금[\s\S]{0,200}?([\d]{1,3}(?:,\d{3})+)/);
+  if(vatMatch) {
+    // 부가세대급금 줄에는 (사업자번호 + 공급가) 다음에 VAT가 나옴
+    // "부가세대급금 (주)서보스타 (119-81-75236) 1,012,700 101,270"
+    // → 두 번째 콤마 숫자가 VAT
+    const allNums = vatMatch[0].match(/([\d]{1,3}(?:,\d{3})+)/g);
+    if(allNums && allNums.length >= 2) {
+      // 마지막이 VAT일 가능성 (큰 숫자가 공급가, 작은 숫자가 VAT)
+      const nums = allNums.map(n => Number(n.replace(/,/g, "")));
+      // 작은 값이 VAT
+      result.vatAmount = Math.min(...nums.filter(n => n > 100));
+    } else if(allNums && allNums.length === 1) {
+      result.vatAmount = Number(allNums[0].replace(/,/g, ""));
+    }
+    console.log(`💼 부가세대급금(VAT): ${result.vatAmount.toLocaleString()}`);
+  }
+  
+  // ── 10) 외상매입금 (총액 확인) - 대변 금액 ──
+  // "외상매입금 ... 1,113,970"
+  if(result.totalAmount === 0) {
+    const apMatch = pdfText.match(/외상매입금[\s\S]{0,200}?([\d]{1,3}(?:,\d{3})+)/);
+    if(apMatch) {
+      result.totalAmount = Number(apMatch[1].replace(/,/g, ""));
+      console.log(`💼 외상매입금: ${result.totalAmount.toLocaleString()}`);
+    }
+  }
+  
+  // ── 검증 및 보정 ──
+  // 공급가 + VAT = 합계 확인
+  if(result.supplyAmount > 0 && result.vatAmount > 0) {
+    const calcTotal = result.supplyAmount + result.vatAmount;
+    if(result.totalAmount === 0) result.totalAmount = calcTotal;
+    if(Math.abs(calcTotal - result.totalAmount) > 1) {
+      console.log(`💼 합계 불일치 (${result.totalAmount} vs ${calcTotal}) - 보정`);
+      result.totalAmount = calcTotal;
+    }
+  }
+  // VAT 없으면 공급가 10%
+  if(result.vatAmount === 0 && result.supplyAmount > 0) {
+    result.vatAmount = Math.round(result.supplyAmount * 0.1);
+  }
+  // 공급가 없으면 합계 - VAT
+  if(result.supplyAmount === 0 && result.totalAmount > 0 && result.vatAmount > 0) {
+    result.supplyAmount = result.totalAmount - result.vatAmount;
+  }
+  
+  // ── 계정과목 요약 ──
+  const accountList = [];
+  if(/원\s*재\s*료/.test(pdfText)) accountList.push("원재료");
+  if(/부가세대급금/.test(pdfText)) accountList.push("부가세대급금");
+  if(/외상매입금/.test(pdfText)) accountList.push("외상매입금");
+  if(/소모품/.test(pdfText)) accountList.push("소모품");
+  if(/공구기구/.test(pdfText)) accountList.push("공구기구");
+  result.accountTitles = accountList.join(" / ");
+  
+  // ── 적요 요약 (items) ──
+  // "거래처명 + 일자" 또는 "전자세금계산서(일반과세)"
+  if(result.taxInvoiceNo && result.vendor) {
+    result.items = `${result.taxInvoiceNo} - ${result.vendor}`;
+  } else if(result.vendor) {
+    result.items = result.vendor;
+  } else if(result.accountTitles) {
+    result.items = result.accountTitles;
+  }
+  
+  console.log(`💼 회계전표 로컬 파싱 완료:`, {
+    docNo: result.docNo,
+    stNo: result.stNo,
+    accNo: result.accNo,
+    entryDate: result.entryDate,
+    vendor: result.vendor,
+    bizNo: result.bizNo,
+    accounts: result.accountTitles,
+    supply: result.supplyAmount,
+    vat: result.vatAmount,
+    total: result.totalAmount,
+  });
+  
+  // 최소 검증: 합계 또는 공급가 중 하나라도 있으면 유효
+  if(result.totalAmount === 0 && result.supplyAmount === 0) {
+    console.log("💼 금액 정보 없음 - AI에 위임");
     return null;
   }
   
@@ -6275,6 +6520,73 @@ async function _purchaseAIParse(prefix, docType, auto) {
         }
       } catch(localErr) {
         console.warn("⚡ 세금계산서 로컬 파싱 오류:", localErr.message);
+      }
+      showProgress("🤖 AI 파싱으로 폴백 중...", "#2563eb", true);
+    }
+    
+    // ⚡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 회계전표: ENJET 그룹웨어 양식 고정 - 로컬 파싱 우선
+    // 우선순위: 로컬 → Gemini → OpenAI → Copilot
+    // ⚡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if(docType === "settle") {
+      showProgress("⚡ 회계전표 로컬 파싱 시도...", "#7c3aed", true);
+      try {
+        let pdfText = "";
+        if(typeof extractPdfText === "function") {
+          pdfText = await extractPdfText(base64);
+        }
+        if(pdfText && pdfText.length > 100) {
+          console.log(`⚡ 회계전표 PDF 텍스트 ${pdfText.length}자 추출`);
+          const localResult = parseENJETSTLTextLocally(pdfText);
+          if(localResult && (localResult.totalAmount > 0 || localResult.supplyAmount > 0)) {
+            console.log(`⚡ 회계전표 로컬 파싱 성공: 총액 ${localResult.totalAmount.toLocaleString()}`);
+            
+            const fillForce = (id, val) => {
+              const el = document.getElementById(id);
+              if(el && val !== undefined && val !== null && val !== "") {
+                el.value = val;
+                el.dispatchEvent(new Event("input"));
+              }
+            };
+            
+            // 거래처 보정 (엔젯이면 무시)
+            let useVendor = localResult.vendor;
+            if(useVendor && /^(엔젯|ENJET|Enjet|enjet|㈜엔젯|\(주\)엔젯)/.test(useVendor.trim())) {
+              console.warn(`⚠️ 거래처가 엔젯으로 추출됨 - 무시`);
+              useVendor = "";
+            }
+            
+            if(useVendor) fillForce(`${prefix}-f-vendor`, useVendor);
+            if(localResult.entryDate) fillForce(`${prefix}-f-date`, localResult.entryDate);
+            if(localResult.docNo) fillForce(`${prefix}-f-docno`, localResult.docNo);
+            if(localResult.stNo) fillForce(`${prefix}-f-stno`, localResult.stNo);
+            if(localResult.accNo) fillForce(`${prefix}-f-accno`, localResult.accNo);
+            if(localResult.bizNo) fillForce(`${prefix}-f-bizno`, localResult.bizNo);
+            if(localResult.accountTitles) fillForce(`${prefix}-f-accounts`, localResult.accountTitles);
+            if(localResult.items) fillForce(`${prefix}-f-items`, localResult.items);
+            if(localResult.supplyAmount) fillForce(`${prefix}-f-supply`, localResult.supplyAmount);
+            if(localResult.vatAmount) fillForce(`${prefix}-f-vat`, localResult.vatAmount);
+            if(localResult.totalAmount) fillForce(`${prefix}-f-total`, localResult.totalAmount);
+            if(localResult.taxInvoiceNo) fillForce(`${prefix}-f-taxinvoice`, localResult.taxInvoiceNo);
+            if(localResult.drafter) fillForce(`${prefix}-f-drafter`, localResult.drafter);
+            
+            showProgress(`✅ 회계전표 로컬 파싱 완료 - 결과 확인 후 저장`, "#16a34a", false);
+            window[`_aiParsing_${prefix}`] = false;
+            window[`_aiParsed_${prefix}`] = true;
+            
+            setTimeout(() => {
+              if(typeof _showAIReviewAlert === "function") {
+                _showAIReviewAlert("회계전표", 1, "로컬 파싱");
+              }
+            }, 500);
+            
+            return;
+          } else {
+            console.log("⚡ 회계전표 로컬 파싱 실패 → AI 폴백");
+          }
+        }
+      } catch(localErr) {
+        console.warn("⚡ 회계전표 로컬 파싱 오류:", localErr.message);
       }
       showProgress("🤖 AI 파싱으로 폴백 중...", "#2563eb", true);
     }
@@ -9514,27 +9826,35 @@ function openSettleModal(id) {
     const d = _pstlData.find(x => x.id === id);
     if(!d) { alert("정산 데이터 없음"); return; }
     document.getElementById("stlModalTitle").textContent = "💼 회계전표 수정";
-    setField("stl-f-stcode", d.stCode);
     setField("stl-f-prcode", d.prCode);
-    setField("stl-f-pocode", d.poCode);
+    setField("stl-f-salescode", d.salesCode);
     setField("stl-f-vendor", d.vendor);
     setField("stl-f-date", d.stlDate);
-    setField("stl-f-amount", d.amount);
-    setField("stl-f-paymethod", d.payMethod || "계좌이체");
-    setField("stl-f-paydate", d.payDate);
-    setField("stl-f-acctno", d.acctNo);
-    setField("stl-f-paystatus", d.payStatus || "unpaid");
+    setField("stl-f-supply", d.supplyAmount);
+    setField("stl-f-vat", d.vatAmount);
+    setField("stl-f-total", d.totalAmount || d.amount);
+    setField("stl-f-status", d.payStatus || "완료");
     setField("stl-f-note", d.note);
+    setField("stl-f-items", d.items);
+    // 🆕 회계전표 신규 필드들
+    setField("stl-f-docno", d.docNo);
+    setField("stl-f-stno", d.stNo);
+    setField("stl-f-accno", d.accNo);
+    setField("stl-f-bizno", d.bizNo);
+    setField("stl-f-accounts", d.accountTitles);
+    setField("stl-f-taxinvoice", d.taxInvoiceNo);
+    setField("stl-f-drafter", d.drafter);
   } else {
     document.getElementById("stlModalTitle").textContent = "💼 회계전표 / 구매입고정산";
     const today = new Date().toISOString().slice(0,10);
-    setField("stl-f-stcode", nextSTCode());
-    ["stl-f-prcode","stl-f-pocode","stl-f-vendor","stl-f-acctno","stl-f-note"].forEach(id => setField(id, ""));
+    ["stl-f-prcode","stl-f-vendor","stl-f-note","stl-f-items",
+     "stl-f-docno","stl-f-stno","stl-f-accno","stl-f-bizno","stl-f-accounts","stl-f-taxinvoice","stl-f-drafter"
+    ].forEach(id => setField(id, ""));
     setField("stl-f-date", today);
-    setField("stl-f-amount", "");
-    setField("stl-f-paymethod", "계좌이체");
-    setField("stl-f-paydate", "");
-    setField("stl-f-paystatus", "unpaid");
+    setField("stl-f-supply", "");
+    setField("stl-f-vat", "");
+    setField("stl-f-total", "");
+    setField("stl-f-status", "완료");
   }
   
   modal.style.display = "flex";
@@ -9548,32 +9868,50 @@ function closeSettleModal() {
 
 async function saveSettle() {
   if(!_purchaseGuardSave("stl", "회계전표")) return;
-  const stCode = document.getElementById("stl-f-stcode").value.trim();
-  const prCode = document.getElementById("stl-f-prcode").value.trim();
-  const vendor = document.getElementById("stl-f-vendor").value.trim();
-  const stlDate = document.getElementById("stl-f-date").value;
-  const amount = Number(document.getElementById("stl-f-amount").value || 0);
   
-  if(!prCode) { alert("PR 코드를 입력해주세요."); return; }
+  // 🆕 null 안전 헬퍼
+  const v = (id) => document.getElementById(id)?.value?.trim() || "";
+  const vNum = (id) => Number(document.getElementById(id)?.value || 0);
+  
+  const stCode = v("stl-f-stcode") || v("stl-f-entryno");  // 호환
+  const prCode = v("stl-f-prcode");
+  const vendor = v("stl-f-vendor");
+  const stlDate = document.getElementById("stl-f-date")?.value || "";
+  const supplyAmount = vNum("stl-f-supply");
+  const totalAmount = vNum("stl-f-total");
+  const amount = totalAmount || supplyAmount;  // 총액 또는 공급가
+  
   if(!vendor) { alert("거래처를 입력해주세요."); return; }
-  if(!stlDate) { alert("정산일을 선택해주세요."); return; }
-  if(!amount) { alert("매입금액을 입력해주세요."); return; }
+  if(!stlDate) { alert("기표일(작성일자)을 선택해주세요."); return; }
+  if(!amount) { alert("금액을 입력해주세요."); return; }
   
   const data = {
     id: _stlEditId || ("stl_" + Date.now()),
     parentSLId: window._currentSLActId || (_stlEditId ? _pstlData.find(x=>x.id===_stlEditId)?.parentSLId : null),
-    salesCode: document.getElementById("stl-f-salescode")?.value?.trim() || window._currentSLActPjcode || "",
-    stCode,
+    salesCode: v("stl-f-salescode") || window._currentSLActPjcode || "",
+    stCode,                                                  // 전표번호
     prCode,
-    poCode: document.getElementById("stl-f-pocode").value.trim(),
+    poCode: v("stl-f-pocode"),
     vendor,
-    stlDate,
-    amount,
-    payMethod: document.getElementById("stl-f-paymethod").value,
-    payDate: document.getElementById("stl-f-paydate").value,
-    acctNo: document.getElementById("stl-f-acctno").value.trim(),
-    payStatus: document.getElementById("stl-f-paystatus").value,
-    note: document.getElementById("stl-f-note").value.trim(),
+    stlDate,                                                 // 기표일
+    amount,                                                  // 총액
+    supplyAmount: supplyAmount || (amount > 0 ? Math.round(amount / 1.1) : 0),
+    vatAmount: vNum("stl-f-vat") || (amount > 0 ? amount - Math.round(amount / 1.1) : 0),
+    totalAmount: amount,
+    // 🆕 회계전표 신규 필드
+    docNo: v("stl-f-docno"),                                 // 문서번호 (엔젯-회계전표2-XXXX)
+    stNo: v("stl-f-stno"),                                   // 전표번호 (20260428-00003)
+    accNo: v("stl-f-accno"),                                 // 회계전표번호 (20260428-00010)
+    bizNo: v("stl-f-bizno"),                                 // 거래처 사업자번호
+    accountTitles: v("stl-f-accounts"),                      // 계정과목 (원재료/부가세대급금/외상매입금)
+    taxInvoiceNo: v("stl-f-taxinvoice"),                     // 세금계산서 표시
+    drafter: v("stl-f-drafter"),                             // 기안자
+    items: v("stl-f-items"),                                 // 적요 요약
+    payMethod: v("stl-f-paymethod") || "예금지급",
+    payDate: document.getElementById("stl-f-paydate")?.value || "",
+    acctNo: v("stl-f-acctno"),
+    payStatus: v("stl-f-status") || v("stl-f-paystatus") || "완료",
+    note: v("stl-f-note"),
     fileUrl: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.fileUrl || "") : "",
     fileName: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.fileName || "") : "",
     createdAt: _stlEditId ? (_pstlData.find(x=>x.id===_stlEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
@@ -31135,16 +31473,36 @@ function deleteTax(id){
                 <datalist id="stl-vendor-list"></datalist>
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">전표 번호</label>
-                <input type="text" id="stl-f-entryno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">문서번호</label>
+                <input type="text" id="stl-f-docno" placeholder="엔젯-회계전표2-2605-00154" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">전표일 *</label>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">기표일 (작성일자) *</label>
                 <input type="date" id="stl-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
-                <input type="date" id="stl-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">전표번호</label>
+                <input type="text" id="stl-f-stno" placeholder="20260428-00003" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">회계전표번호</label>
+                <input type="text" id="stl-f-accno" placeholder="20260428-00010" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">사업자번호 (거래처)</label>
+                <input type="text" id="stl-f-bizno" placeholder="119-81-75236" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">계정과목</label>
+                <input type="text" id="stl-f-accounts" placeholder="원재료 / 부가세대급금 / 외상매입금" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">세금계산서</label>
+                <input type="text" id="stl-f-taxinvoice" placeholder="전자세금계산서" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">기안자</label>
+                <input type="text" id="stl-f-drafter" placeholder="홍용원" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
               </div>
               
             </div>
