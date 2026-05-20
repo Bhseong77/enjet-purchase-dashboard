@@ -3770,18 +3770,49 @@ function parseENJETPRTextLocally(pdfText) {
       const unitMatch = rest.match(/\s(EA|SET|개|kg|m|mm)\s/i);
       if(unitMatch) currentItem.unit = unitMatch[1].trim();
       
-      // 품번 패턴 (확장: EPC, HV, BM, BR 등)
-      const partMatch = rest.match(/((?:BM|BR|EPC|HV|MS|NMP|GT|HVPK|SLSBWRK|ARJ|KQ|PS|EHB|LIO|RP|T16)[\d_\-\.]+[A-Za-z0-9_\-\.\(\)]*)/);
+      // 🆕 PDF 컬럼 순서가 뒤죽박죽일 수 있음 - 각 필드를 개별 추출
+      // 품번 패턴
+      const partMatch = rest.match(/((?:BM|BR|EPC|HV|MS|NMP|GT|HVPK|SLSBWRK|ARJ|KQ|PS|EHB|LIO|RP|T16)[\d][_\-\.][A-Za-z0-9_\-\.\(\)]+|(?:BM|BR|EPC)\d+[_\-][A-Za-z0-9][A-Za-z0-9_\-\.\(\)\s]{2,})/);
       if(partMatch) {
-        currentItem.partNo = partMatch[1];
-        const idx = rest.indexOf(partMatch[1]);
-        currentItem.name = rest.substring(0, idx).trim();
-        const afterPart = rest.substring(idx + partMatch[1].length).trim();
-        const specEnd = afterPart.match(/^\s*(.+?)\s+(EA|SET|개)\s/i);
-        if(specEnd) currentItem.spec = specEnd[1].trim();
-      } else {
-        // 품번 패턴 없으면 공백 split 첫 토큰 = 품명
-        currentItem.name = rest.split(/\s{2,}|\t/)[0] || rest.substring(0, 50);
+        currentItem.partNo = partMatch[1].trim();
+      }
+      
+      // 🆕 품명 추출: No 다음의 한글/영문 단어 (2글자 이상)
+      // rest를 토큰으로 쪼개서 첫 한글 또는 영문 단어 찾기
+      const tokens = rest.split(/\s{2,}|\t/).filter(t => t.trim());
+      for(const tok of tokens) {
+        const trimmed = tok.trim();
+        // 숫자만/날짜/단위/품번이면 스킵
+        if(/^\d+$/.test(trimmed)) continue;
+        if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) continue;
+        if(/^(EA|SET|개|kg|m|mm)$/i.test(trimmed)) continue;
+        if(/^(?:BM|BR|EPC|HV|MS|NMP|GT|HVPK|SLSBWRK|ARJ|KQ|PS|EHB|LIO|RP|T16)[\d_]/i.test(trimmed)) continue;
+        // 2글자 이상 한글/영문 시작
+        if(trimmed.length >= 2 && /^[가-힣A-Za-z]/.test(trimmed)) {
+          currentItem.name = trimmed.substring(0, 50);
+          break;
+        }
+      }
+      // 토큰 분리 실패한 경우 (공백 1칸으로만 연결) 단어 단위 추출
+      if(!currentItem.name) {
+        const wordMatch = rest.match(/([가-힣][가-힣\s]+|[A-Z][A-Za-z][A-Za-z\s\-_/]+)/);
+        if(wordMatch && wordMatch[1].length >= 2) {
+          // 품번 prefix 제외
+          const w = wordMatch[1].trim();
+          if(!/^(BM|BR|EPC|HV)\d/.test(w)) {
+            currentItem.name = w.substring(0, 50);
+          }
+        }
+      }
+      
+      // 규격 (단위 직전, 품번 뒤)
+      if(currentItem.partNo) {
+        const idx = rest.indexOf(currentItem.partNo);
+        if(idx >= 0) {
+          const afterPart = rest.substring(idx + currentItem.partNo.length).trim();
+          const specEnd = afterPart.match(/^\s*(.+?)\s+(EA|SET|개)\s/i);
+          if(specEnd) currentItem.spec = specEnd[1].trim();
+        }
       }
     } else if(currentItem) {
       // 다음 라인 - 프로젝트번호 + 수량
@@ -3849,13 +3880,27 @@ function parseENJETPRTextLocally(pdfText) {
       const ctxEnd = Math.min(startIdx + 400, pdfText.length);
       const ctx = pdfText.substring(startIdx, ctxEnd);
       
-      // 품명 보충 (No 다음 단어들)
+      // 품명 보충 (여러 패턴 시도)
       if(!it.name) {
-        // No 1 Harness BM26005_... → "Harness" 추출
-        const nameMatch = m[1].match(/^([가-힣A-Za-z][가-힣A-Za-z\s\-_/()]{0,30}?)\s+(?:BM|BR|EPC|HV|MS|NMP|GT|HVPK|SLSBWRK|ARJ|KQ|PS|EHB|LIO|RP|T16|K|M|TP)/);
-          if(nameMatch) {
-            it.name = nameMatch[1].trim();
-            console.log(`  ✅ No ${it.no} name 보충: "${it.name}"`);
+        const namePatterns = [
+          // 패턴1: "No 1 Harness BM..." (한 줄에 다 있음)
+          new RegExp(`(?:^|\\n)\\s*${it.no}\\s+([가-힣A-Za-z][가-힣A-Za-z0-9\\s\\-_/()]{1,40}?)\\s+(?:BM|BR|EPC|HV|MS|NMP|GT|HVPK|SLSBWRK|ARJ|KQ|PS|EHB|LIO|RP|T16|K|M|TP)`, "m"),
+          // 패턴2: "No 1\nHarness\nBM..." (줄바꿈 있음)
+          new RegExp(`(?:^|\\n)\\s*${it.no}\\s*\\n([가-힣A-Za-z][가-힣A-Za-z0-9\\s\\-_/()]{1,40}?)\\s*\\n`, "m"),
+          // 패턴3: No 다음 첫 번째 한글/영문 단어
+          new RegExp(`(?:^|\\n)\\s*${it.no}\\s+([가-힣][가-힣\\s]{1,20}|[A-Z][A-Za-z\\s\\-]{1,30})`, "m"),
+        ];
+        for(const pat of namePatterns) {
+          const nm = pat.exec(ctx);
+          if(nm && nm[1]) {
+            const candidate = nm[1].trim();
+            // 검증: 너무 짧지 않고 (>=2), 숫자만 아니고, "BM"같은 placeholder 아님
+            if(candidate.length >= 2 && !/^\d+$/.test(candidate) && candidate !== "BM" && candidate !== "BR") {
+              it.name = candidate;
+              console.log(`  ✅ No ${it.no} name 보충: "${it.name}"`);
+              break;
+            }
+          }
         }
       }
       
@@ -25534,6 +25579,9 @@ async function extractPdfText(base64) {
     }
     
     console.log(`📄 PDF ${pdf.numPages}페이지, 총 ${text.length}자 추출 (y좌표 라인 그룹핑)`);
+    // 🆕 디버그용 - 콘솔에서 window._pdfDebugText로 확인 가능
+    window._pdfDebugText = text;
+    console.log("💡 전체 PDF 텍스트 보려면 콘솔에서: window._pdfDebugText  (또는 console.log(window._pdfDebugText))");
     return text;
   } catch(e){
     console.warn("PDF 추출 에러:", e);
