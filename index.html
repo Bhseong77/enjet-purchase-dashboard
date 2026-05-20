@@ -19288,8 +19288,8 @@ function renderSLTablePurchase(data) {
       <td style="text-align:center">${makeUploadCell("tax", "🧾", tCount, "openSLActTaxUploader", tCount > 0)}</td>
       <td style="text-align:center">${makeUploadCell("account", "💰", aCount, "openSLActAccountUploader", aCount > 0)}</td>
       <td style="text-align:center" onclick="event.stopPropagation()">
-        <button onclick="openSLModal(slData.find(x=>x.id==='${r.id}'))" style="border:none;background:transparent;cursor:pointer;color:var(--p);font-size:15px" title="수정">✏️</button>
-        <button onclick="if(confirm('삭제하시겠어요?\\n관련 PR ${prItemCount}건은 그대로 유지됩니다.'))deleteSLActivity('${r.id}')" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px" title="삭제">🗑️</button>
+        <button onclick="openProjectAllFilesModal('${r.id}')" style="border:none;background:transparent;cursor:pointer;color:var(--p);font-size:15px" title="프로젝트 통합 관리 (전체 문서 + 구매활동 편집)">✏️</button>
+        <button onclick="purgeEntireProject('${r.id}')" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px" title="프로젝트 전체 영구 삭제">🗑️</button>
       </td>
     </tr>`;
   }).join("");
@@ -29835,6 +29835,310 @@ async function dmPurgeSPFolder() {
     console.error("폴더 비우기 오류:", e);
     alert(`⚠️ 오류: ${e.message}`);
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🗑️ 프로젝트 전체 영구 삭제 - 구매활동 + PR + 6개 DB + SP 폴더 통째로
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function purgeEntireProject(actId) {
+  const act = (slData||[]).find(x => x.id === actId);
+  if(!act) { alert("구매활동 못 찾음"); return; }
+  
+  const pjcode = act.pjcode || "";
+  
+  // 관련 데이터 카운트
+  const prCount = (_prMaster||[]).filter(p => p.parentSLId === actId || p.salesCode === pjcode).length;
+  const qCount = (_pqdbData||[]).filter(d => d.parentSLId === actId || d.salesCode === pjcode).length;
+  const oCount = (_pordData||[]).filter(d => d.parentSLId === actId || d.salesCode === pjcode).length;
+  const dCount = (_pdlvData||[]).filter(d => d.parentSLId === actId || d.salesCode === pjcode).length;
+  const tCount = (_ptaxData||[]).filter(d => d.parentSLId === actId || d.salesCode === pjcode).length;
+  const sCount = (_pstlData||[]).filter(d => d.parentSLId === actId || d.salesCode === pjcode).length;
+  
+  // 1단계 확인
+  if(!confirm(
+    `⚠️ 프로젝트 전체 영구 삭제\n\n` +
+    `프로젝트: ${pjcode || "(코드없음)"}\n` +
+    `고객사: ${act.company || "-"}\n\n` +
+    `다음 데이터가 모두 삭제됩니다:\n` +
+    `• 구매활동 1건\n` +
+    `• 구매요청서(PR) ${prCount}건\n` +
+    `• 견적서 ${qCount}건\n` +
+    `• 발주서 ${oCount}건\n` +
+    `• 거래명세서 ${dCount}건\n` +
+    `• 세금계산서 ${tCount}건\n` +
+    `• 회계전표 ${sCount}건\n` +
+    `• SharePoint 폴더 전체 (모든 파일 + 하위폴더)\n` +
+    `• 캘린더 일정 전부\n\n` +
+    `❗ 이 작업은 되돌릴 수 없어요. 계속할까요?`
+  )) return;
+  
+  // 2단계 확인
+  if(!confirm(`정말 ${pjcode} 프로젝트를 통째로 삭제할까요?\n\n타이핑 확인 대신 한 번 더 클릭으로 진행합니다.`)) return;
+  
+  try {
+    console.log(`🗑️ 프로젝트 전체 삭제 시작: ${pjcode}`);
+    
+    // ── 1) SP 폴더 통째로 삭제 ──
+    if(pjcode && typeof _deleteSPFolder === "function") {
+      const projectFolder = `🏭 구매/1.구매활동/${pjcode}`;
+      console.log(`🗑️ SP 폴더 삭제: ${projectFolder}`);
+      await _deleteSPFolder(projectFolder).catch(e => console.warn("SP 폴더 삭제:", e.message));
+    }
+    
+    // ── 2) 캘린더 일정 삭제 ──
+    if(act._scheduleIds || act.teamsEventId) {
+      try {
+        if(!teamsGroupId) await findTeamsGroup();
+        const gid = teamsGroupId || sessionStorage.getItem("enjet_teams_group_id");
+        const t = await getToken();
+        if(gid && t) {
+          const evtIds = new Set();
+          if(act.teamsEventId) evtIds.add(act.teamsEventId);
+          if(act._scheduleIds) {
+            Object.values(act._scheduleIds).forEach(byDate => {
+              Object.values(byDate || {}).forEach(eid => { if(eid) evtIds.add(eid); });
+            });
+          }
+          for(const eid of evtIds) {
+            try {
+              await fetch(`https://graph.microsoft.com/v1.0/groups/${gid}/events/${eid}`, {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + t }
+              });
+            } catch(_) {}
+          }
+          console.log(`🗑️ 캘린더 일정 ${evtIds.size}건 삭제`);
+        }
+      } catch(e) { console.warn("캘린더 삭제:", e.message); }
+    }
+    
+    // ── 3) 메모리에서 모든 관련 데이터 제거 ──
+    const matchFn = (x) => (x.parentSLId === actId || x.salesCode === pjcode);
+    _prMaster = (_prMaster||[]).filter(p => !matchFn(p));
+    _pqdbData = (_pqdbData||[]).filter(d => !matchFn(d));
+    _pordData = (_pordData||[]).filter(d => !matchFn(d));
+    _pdlvData = (_pdlvData||[]).filter(d => !matchFn(d));
+    _ptaxData = (_ptaxData||[]).filter(d => !matchFn(d));
+    _pstlData = (_pstlData||[]).filter(d => !matchFn(d));
+    slData = (slData||[]).filter(a => a.id !== actId);
+    
+    // ── 4) 명시적 삭제 플래그 (빈 배열 차단 우회) ──
+    if(_prMaster.length === 0) window._intentionalDelete_pr_master = true;
+    if(_pqdbData.length === 0) window._intentionalDelete_pqdb_data = true;
+    if(_pordData.length === 0) window._intentionalDelete_pord_data = true;
+    if(_pdlvData.length === 0) window._intentionalDelete_pdlv_data = true;
+    if(_ptaxData.length === 0) window._intentionalDelete_ptax_data = true;
+    if(_pstlData.length === 0) window._intentionalDelete_pstl_data = true;
+    if(slData.length === 0) window._intentionalDelete_pa_data = true;
+    
+    // ── 5) SP DB 저장 ──
+    await Promise.all([
+      typeof savePRMaster === "function" ? savePRMaster() : Promise.resolve(),
+      typeof savePQDB === "function" ? savePQDB() : Promise.resolve(),
+      typeof savePORD === "function" ? savePORD() : Promise.resolve(),
+      typeof savePDLV === "function" ? savePDLV() : Promise.resolve(),
+      typeof savePTAX === "function" ? savePTAX() : Promise.resolve(),
+      typeof savePSTL === "function" ? savePSTL() : Promise.resolve(),
+      typeof saveSLToSP === "function" ? saveSLToSP() : Promise.resolve(),
+    ].map(p => p.catch(e => console.warn("저장 실패:", e.message))));
+    
+    // ── 6) UI 갱신 ──
+    if(typeof renderPRDB === "function") renderPRDB();
+    if(typeof renderPQDB === "function") renderPQDB();
+    if(typeof renderPORD === "function") renderPORD();
+    if(typeof renderPDLV === "function") renderPDLV();
+    if(typeof renderPTAX === "function") renderPTAX();
+    if(typeof renderPSTL === "function") renderPSTL();
+    if(typeof renderSLAll === "function") renderSLAll();
+    if(typeof updateAllBadges === "function") updateAllBadges();
+    
+    alert(`✅ 프로젝트 ${pjcode} 영구 삭제 완료\n\n• 구매활동: 1건\n• PR: ${prCount}건\n• 견적/발주/명세/세금/회계: ${qCount+oCount+dCount+tCount+sCount}건\n• SP 폴더 + 캘린더 일정 정리\n\n새로고침하면 완전히 사라집니다.`);
+    
+    console.log(`✅ 프로젝트 ${pjcode} 전체 삭제 완료`);
+  } catch(e) {
+    console.error("프로젝트 삭제 오류:", e);
+    alert("⚠️ 오류: " + e.message);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📋 프로젝트 통합 관리 모달 - 한 화면에서 6개 문서 카테고리 모두 관리
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function openProjectAllFilesModal(actId) {
+  const act = (slData||[]).find(x => x.id === actId);
+  if(!act) { alert("구매활동 못 찾음"); return; }
+  
+  window._papContext = { actId, pjcode: act.pjcode, act };
+  window._currentSLActId = actId;
+  window._currentSLActPjcode = act.pjcode || "";
+  
+  // 모달 동적 생성 (없으면)
+  let modal = document.getElementById("projectAllFilesModal");
+  if(!modal) {
+    modal = document.createElement("div");
+    modal.id = "projectAllFilesModal";
+    modal.style.cssText = "display:flex;position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:10009;align-items:center;justify-content:center;backdrop-filter:blur(6px)";
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;width:96vw;max-width:1300px;height:92vh;max-height:920px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+        <div style="padding:14px 22px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div>
+            <div id="papTitle" style="font-size:17px;font-weight:900;color:#1e40af">📋 프로젝트 통합 관리</div>
+            <div id="papSubtitle" style="font-size:12px;color:var(--t3);margin-top:2px">구매요청서 + 견적서 + 발주서 + 거래명세서 + 세금계산서 + 회계전표 한 번에 관리</div>
+          </div>
+          <button onclick="closeProjectAllFilesModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        </div>
+        <!-- 본문: 좌 탭 + 우 컨텐츠 -->
+        <div style="flex:1;display:grid;grid-template-columns:200px 1fr;overflow:hidden;min-height:0">
+          <!-- 좌측 탭 -->
+          <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:12px 8px">
+            <div style="font-size:11px;font-weight:800;color:var(--t3);padding:4px 10px;margin-bottom:6px">📁 문서 카테고리</div>
+            <div id="papTabs"></div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border2)">
+              <button onclick="papOpenActModal()" style="width:100%;padding:9px 12px;border-radius:7px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:12px;cursor:pointer;font-weight:700;font-family:var(--s);text-align:left">
+                ⚙️ 구매활동 기본정보 편집
+              </button>
+            </div>
+          </div>
+          <!-- 우측 컨텐츠 -->
+          <div style="overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:10px;min-height:0">
+            <div id="papHeader"></div>
+            <div id="papFileList" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;min-height:200px"></div>
+            <button id="papAddBtn" onclick="papAddNew()" style="margin-top:auto;padding:12px 16px;border-radius:9px;border:2px dashed var(--p);background:var(--pd);color:var(--p);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--s);display:flex;align-items:center;justify-content:center;gap:8px">
+              <span style="font-size:18px">➕</span> 새 파일 추가
+            </button>
+          </div>
+        </div>
+        <div style="padding:10px 22px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">
+          <button onclick="closeProjectAllFilesModal()" style="padding:8px 22px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:14px;cursor:pointer;font-family:var(--s)">닫기</button>
+        </div>
+      </div>
+    `;
+    modal.onclick = (e) => { if(e.target === modal) closeProjectAllFilesModal(); };
+    document.body.appendChild(modal);
+  } else {
+    if(modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.style.display = "flex";
+  }
+  
+  // 헤더
+  document.getElementById("papTitle").textContent = `📋 ${act.pjcode || "(코드없음)"} 통합 관리`;
+  document.getElementById("papSubtitle").textContent = `${act.company || "-"} · 요청일: ${act.start || "-"} · ${act.status || ""}`;
+  
+  // 탭 렌더 + 기본 선택 (구매요청서)
+  papRenderTabs();
+  papSelectTab("pr");
+}
+
+function closeProjectAllFilesModal() {
+  const modal = document.getElementById("projectAllFilesModal");
+  if(modal) modal.style.display = "none";
+  window._papContext = null;
+  window._papActiveTab = null;
+}
+
+window._papActiveTab = null;
+
+function papRenderTabs() {
+  const ctx = window._papContext;
+  if(!ctx) return;
+  
+  const types = ["pr","quote","order","delivery","tax","settle"];
+  const tabsEl = document.getElementById("papTabs");
+  if(!tabsEl) return;
+  
+  tabsEl.innerHTML = types.map(type => {
+    const cfg = _DM_CONFIG[type];
+    const items = cfg.getItems(ctx.actId, ctx.pjcode) || [];
+    const isActive = window._papActiveTab === type;
+    
+    return `<button onclick="papSelectTab('${type}')" 
+      style="width:100%;text-align:left;padding:9px 12px;border-radius:7px;border:1px solid ${isActive?'var(--p)':'transparent'};background:${isActive?'var(--pd)':'transparent'};color:${isActive?'var(--p)':'var(--t)'};font-size:13px;cursor:pointer;font-weight:${isActive?'800':'600'};font-family:var(--s);display:flex;align-items:center;gap:8px;margin-bottom:3px">
+      <span style="font-size:17px">${cfg.icon}</span>
+      <span style="flex:1">${cfg.label}</span>
+      <span style="background:${isActive?'var(--p)':'var(--bg3)'};color:${isActive?'#fff':'var(--t3)'};padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700">${items.length}</span>
+    </button>`;
+  }).join("");
+}
+
+function papSelectTab(type) {
+  window._papActiveTab = type;
+  papRenderTabs();
+  papRenderContent();
+}
+
+function papRenderContent() {
+  const ctx = window._papContext;
+  if(!ctx) return;
+  const type = window._papActiveTab;
+  const cfg = _DM_CONFIG[type];
+  if(!cfg) return;
+  
+  const items = cfg.getItems(ctx.actId, ctx.pjcode) || [];
+  
+  // 헤더
+  const headerEl = document.getElementById("papHeader");
+  if(headerEl) {
+    headerEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${cfg.iconBg};border-radius:9px">
+      <span style="font-size:24px">${cfg.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:800;color:${cfg.iconColor}">${cfg.label}</div>
+        <div style="font-size:11px;color:${cfg.iconColor};opacity:0.7">총 ${items.length}건 · 클릭하여 편집/미리보기/이름변경/삭제</div>
+      </div>
+    </div>`;
+  }
+  
+  // 파일 목록 (dmRenderList와 동일한 형식)
+  const listEl = document.getElementById("papFileList");
+  if(!listEl) return;
+  
+  if(items.length === 0) {
+    listEl.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--t3)">
+      <div style="font-size:42px;margin-bottom:10px;opacity:0.4">📂</div>
+      <div style="font-weight:700;color:var(--t2);font-size:13px">아직 ${cfg.label} 없음</div>
+      <div style="font-size:11px;margin-top:6px">하단 [+ 새 파일 추가] 버튼으로 첫 파일 업로드</div>
+    </div>`;
+    return;
+  }
+  
+  items.sort((a,b) => (b.uploadedAt||"").localeCompare(a.uploadedAt||""));
+  
+  listEl.innerHTML = items.map((it, i) => {
+    const safeName = (it.fileName||"file").replace(/'/g,"\\'");
+    const safeUrl = (it.fileUrl||"").replace(/'/g,"%27");
+    const dateLabel = it.uploadedAt ? new Date(it.uploadedAt).toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "-";
+    return `<div style="padding:11px 14px;border-bottom:${i===items.length-1?"none":"1px solid var(--border)"};display:flex;align-items:center;gap:10px;background:${i%2?"#fafbfc":"#fff"}">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:var(--t);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(it.fileName)}">📄 ${escapeHtml(it.fileName)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:3px">${escapeHtml(it.info||"")} · 🕐 ${dateLabel}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        ${it.fileUrl ? `<button onclick="openPDFPreviewModal('${safeUrl}','${safeName}')" title="미리보기" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:12px">🔍</button>` : ""}
+        <button onclick="papOpenEdit('${it.id||""}')" title="데이터 수정" style="padding:5px 8px;border-radius:5px;border:1px solid var(--p);background:var(--pd);color:var(--p);cursor:pointer;font-size:12px">✏️</button>
+        <button onclick="papRenameFile('${it.id||""}')" title="파일명 변경" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:12px">📝</button>
+        <button onclick="papDeleteFile('${it.id||""}')" title="영구 삭제" style="padding:5px 8px;border-radius:5px;border:1px solid #fecaca;background:#fff5f5;color:var(--r);cursor:pointer;font-size:12px">🗑️</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// 모든 papXxx 함수는 _papContext의 actId/docType을 dmContext로 위임
+function _papToDM() {
+  const ctx = window._papContext;
+  if(!ctx || !window._papActiveTab) return false;
+  window._dmContext = { actId: ctx.actId, pjcode: ctx.pjcode, docType: window._papActiveTab, act: ctx.act };
+  return true;
+}
+
+function papOpenEdit(itemId)  { if(_papToDM()) dmOpenEdit(itemId); }
+async function papRenameFile(itemId) { if(_papToDM()) { await dmRenameFile(itemId); papRenderContent(); papRenderTabs(); } }
+async function papDeleteFile(itemId) { if(_papToDM()) { await dmDeleteFile(itemId); papRenderContent(); papRenderTabs(); } }
+function papAddNew() { if(_papToDM()) dmAddNew(); }
+
+function papOpenActModal() {
+  const ctx = window._papContext;
+  if(!ctx) return;
+  closeProjectAllFilesModal();
+  setTimeout(() => openSLModal(ctx.act), 100);
 }
 
 // "수정" 버튼 - 기존 모달 열기 (파일 그대로 유지, 데이터만 편집)
