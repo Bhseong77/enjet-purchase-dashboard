@@ -5049,8 +5049,35 @@ async function savePRMaster() {
     }, 500);
   });
 }
+// 🛡️ SP 로드 결과 안전 적용 헬퍼:
+//    - SP가 빈 배열인데 메모리 또는 캐시에 데이터가 있으면 → 메모리 데이터 유지 (덮어쓰기 차단)
+//    - 정상 데이터면 적용
+function _applyDBLoadSafely(dataKey, current, fromSP) {
+  if(!Array.isArray(fromSP)) fromSP = [];
+  const currentLen = Array.isArray(current) ? current.length : 0;
+  // SP 결과가 비어있고 메모리에 데이터가 있으면 → 메모리 유지
+  if(fromSP.length === 0 && currentLen > 0) {
+    console.warn(`🛡️ ${dataKey}: SP 빈 결과 - 메모리 ${currentLen}건 유지 (덮어쓰기 차단)`);
+    return current;
+  }
+  // SP 결과가 캐시보다 적으면 (>=5건 기준) → 의심 → 메모리 유지
+  try {
+    const cached = localStorage.getItem(dataKey);
+    if(cached) {
+      const parsed = JSON.parse(cached);
+      const cachedLen = Array.isArray(parsed.data) ? parsed.data.length : 0;
+      if(cachedLen >= 5 && fromSP.length === 0) {
+        console.warn(`🛡️ ${dataKey}: SP 빈 결과지만 캐시 ${cachedLen}건 있음 → 캐시 유지`);
+        return parsed.data;
+      }
+    }
+  } catch(_){}
+  return fromSP;
+}
+
 async function loadPRMaster() {
-  _prMaster = await safeLoadDB("pr_master", PR_SP_PATH);
+  const fromSP = await safeLoadDB("pr_master", PR_SP_PATH);
+  _prMaster = _applyDBLoadSafely("pr_master", _prMaster, fromSP);
   console.log(`📥 PR Master 로드: ${_prMaster.length}건`);
   if(typeof renderPRDB === "function") renderPRDB();
   return _prMaster;
@@ -5063,7 +5090,8 @@ async function savePQDB() {
   return r;
 }
 async function loadPQDB() {
-  _pqdbData = await safeLoadDB("pqdb_data", PQDB_SP_PATH);
+  const fromSP = await safeLoadDB("pqdb_data", PQDB_SP_PATH);
+  _pqdbData = _applyDBLoadSafely("pqdb_data", _pqdbData, fromSP);
   console.log(`📥 매입견적 로드: ${_pqdbData.length}건`);
   if(typeof renderPQDB === "function") renderPQDB();
   return _pqdbData;
@@ -5076,7 +5104,8 @@ async function savePORD() {
   return r;
 }
 async function loadPORD() {
-  _pordData = await safeLoadDB("pord_data", PORD_SP_PATH);
+  const fromSP = await safeLoadDB("pord_data", PORD_SP_PATH);
+  _pordData = _applyDBLoadSafely("pord_data", _pordData, fromSP);
   console.log(`📥 매입발주 로드: ${_pordData.length}건`);
   if(typeof renderPORD === "function") renderPORD();
   return _pordData;
@@ -5089,7 +5118,8 @@ async function savePDLV() {
   return r;
 }
 async function loadPDLV() {
-  _pdlvData = await safeLoadDB("pdlv_data", PDLV_SP_PATH);
+  const fromSP = await safeLoadDB("pdlv_data", PDLV_SP_PATH);
+  _pdlvData = _applyDBLoadSafely("pdlv_data", _pdlvData, fromSP);
   console.log(`📥 입고 거래명세 로드: ${_pdlvData.length}건`);
   if(typeof renderPDLV === "function") renderPDLV();
   return _pdlvData;
@@ -5102,7 +5132,8 @@ async function savePTAX() {
   return r;
 }
 async function loadPTAX() {
-  _ptaxData = await safeLoadDB("ptax_data", PTAX_SP_PATH);
+  const fromSP = await safeLoadDB("ptax_data", PTAX_SP_PATH);
+  _ptaxData = _applyDBLoadSafely("ptax_data", _ptaxData, fromSP);
   console.log(`📥 매입세금 로드: ${_ptaxData.length}건`);
   if(typeof renderPTAX === "function") renderPTAX();
   return _ptaxData;
@@ -5115,7 +5146,8 @@ async function savePSTL() {
   return r;
 }
 async function loadPSTL() {
-  _pstlData = await safeLoadDB("pstl_data", PSTL_SP_PATH);
+  const fromSP = await safeLoadDB("pstl_data", PSTL_SP_PATH);
+  _pstlData = _applyDBLoadSafely("pstl_data", _pstlData, fromSP);
   console.log(`📥 회계전표 로드: ${_pstlData.length}건`);
   if(typeof renderPSTL === "function") renderPSTL();
   return _pstlData;
@@ -5157,7 +5189,8 @@ async function saveBOMDB() {
   });
 }
 async function loadBOMDB() {
-  _bomData = await safeLoadDB("bom_data", BOM_SP_PATH);
+  const fromSP = await safeLoadDB("bom_data", BOM_SP_PATH);
+  _bomData = _applyDBLoadSafely("bom_data", _bomData, fromSP);
   console.log(`📥 BOM 로드: ${_bomData.length}건`);
   if(typeof renderBOMDB === "function") renderBOMDB();
   return _bomData;
@@ -7194,9 +7227,14 @@ async function savePurchaseOrder() {
   }
   
   closePurchaseOrderModal();
+  // 🆕 UI 즉시 다중 갱신
   if(typeof renderPORD === "function") renderPORD();
+  if(typeof renderSLAll === "function") renderSLAll();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  
   const r = await savePORD();
-  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+  if(!r.sp) console.warn("⚠️ SP 저장 실패 (localStorage 백업):", r.error || "");
   
   // 🆕 발주서 납기 일정 자동 생성 (라벨: 구매)
   // 단일 PO이므로 1건만 생성 (PR과 달리)
@@ -7475,7 +7513,12 @@ async function savePurchaseDelivery() {
   }
   
   closePurchaseDeliveryModal();
+  // 🆕 UI 즉시 다중 갱신 (DB 탭/구매활동 목록/사이드바 배지 모두)
   if(typeof renderPDLV === "function") renderPDLV();
+  if(typeof renderSLAll === "function") renderSLAll();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  
   const r = await savePDLV();
   if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
 }
@@ -7691,8 +7734,12 @@ async function savePurchaseTax() {
   
   closePurchaseTaxModal();
   if(typeof renderPTAX === "function") renderPTAX();
+  if(typeof renderSLAll === "function") renderSLAll();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  
   const r = await savePTAX();
-  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+  if(!r.sp) console.warn("⚠️ SP 저장 실패 (localStorage 백업):", r.error || "");
 }
 
 function renderPTAX() {
@@ -9162,8 +9209,12 @@ async function saveSettle() {
   
   closeSettleModal();
   if(typeof renderPSTL === "function") renderPSTL();
+  if(typeof renderSLAll === "function") renderSLAll();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  
   const r = await savePSTL();
-  if(!r.sp) alert("⚠️ SP 저장 실패 (localStorage 백업)\n" + (r.error || ""));
+  if(!r.sp) console.warn("⚠️ SP 저장 실패 (localStorage 백업):", r.error || "");
 }
 
 function renderPSTL() {
@@ -12159,6 +12210,31 @@ function dbExtractSaveData(dbType) {
 // 반환: {sp:true/false, local:true/false}
 async function safeSaveDB(dataKey, spPath, data) {
   const result = { sp: false, local: false, error: null };
+  
+  // 🛡️ 데이터 손실 방지: 빈 배열이거나 캐시보다 적은 데이터로 덮어쓰려 하면 차단
+  //    (변수 초기화 직후 SP 호출되는 경우 방지)
+  if(Array.isArray(data)) {
+    try {
+      const cached = localStorage.getItem(dataKey);
+      if(cached) {
+        const parsed = JSON.parse(cached);
+        const cachedLen = Array.isArray(parsed.data) ? parsed.data.length : 0;
+        const newLen = data.length;
+        // 빈 데이터 또는 캐시보다 절반 이하로 줄어들면 → 사용자 의도 아닌 데이터 손실 의심 → 차단
+        if(cachedLen > 0 && newLen === 0) {
+          console.error(`🛡️ DATA LOSS BLOCKED: ${dataKey} - 빈 배열 덮어쓰기 차단 (캐시 ${cachedLen}건 vs 새 0건)`);
+          result.sp = false;
+          result.local = false;
+          result.error = `데이터 손실 방지: 빈 배열로 ${cachedLen}건 덮어쓰기 차단`;
+          return result;
+        }
+        if(cachedLen >= 5 && newLen < cachedLen * 0.5) {
+          console.warn(`⚠️ ${dataKey} 저장 데이터가 캐시의 절반 미만 (${newLen}/${cachedLen}) - 의도된 변경인지 확인 필요. 일단 진행.`);
+        }
+      }
+    } catch(_){}
+  }
+  
   // 1. localStorage 백업 먼저 (즉시 안전)
   try {
     localStorage.setItem(dataKey, JSON.stringify({
