@@ -3710,6 +3710,14 @@ function parseENJETPRTextLocally(pdfText) {
   
   for(let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    
+    // 🆕 페이지 마커 인식 - 페이지 경계에서 currentItem이 미완성이면 저장
+    if(/^=== PAGE \d+\/\d+ ===$/.test(line)) {
+      console.log(`📋 페이지 경계 ${i}: ${line}`);
+      // 미완성 currentItem이 있어도 다음 페이지에서 partNo/qty 보충 받을 수 있게 유지
+      continue;
+    }
+    
     // 🆕 합계 라인 만나도 break 안 함 (다음 페이지에서도 품목 계속 나올 수 있음)
     // 진짜 끝은 "총수량" 또는 "특이사항" 같은 패턴이거나 파일 끝
     if(/^합계\s*\d+/.test(line)) { 
@@ -3723,14 +3731,18 @@ function parseENJETPRTextLocally(pdfText) {
         foundHeader = true;
         console.log(`📋 품목 헤더 발견 (${i}번째): ${line.substring(0,80)}`);
       } else {
-        console.log(`📋 헤더 재발견 (페이지 경계, ${i}번째) - 무시`);
+        console.log(`📋 헤더 재발견 (페이지 경계, ${i}번째) - 무시하고 계속`);
       }
       continue; 
     }
     if(!inItemSection) continue;
     
-    // 🆕 페이지 헤더/푸터 패턴 스킵 (전자결재, ENJET Groupware, 페이지번호 등)
-    if(/전자결재|ENJET Groupware|^\d+\s*\/\s*\d+\s*$|^\d{1,2}\s*\.?\s*\d{1,2}\s*\.\s*\d{1,2}/.test(line)) continue;
+    // 🆕 페이지 헤더/푸터/컬럼명 스킵 (다양한 패턴)
+    if(/전자결재|ENJET Groupware|구매요청서|gw\.enjet\.co\.kr|popup\/print/.test(line)) continue;
+    if(/^\d+\s*\/\s*\d+\s*$/.test(line)) continue;  // 페이지 번호 1/3
+    if(/^\d{1,2}\s*\.?\s*\d{1,2}\s*\.\s*\d{1,2}/.test(line)) continue;  // 날짜 헤더 26.5.19
+    if(/^프로젝트명\s+프로젝트번호|^구매거래처\s+수량/.test(line)) continue;  // 컬럼 헤더 (서브)
+    if(/^단위\s+납기요청일|^규격\s+단위|^품명\s+품번/.test(line)) continue;
     
     // 라인이 숫자로 시작하면 새 품목 (No)
     const noMatch = line.match(/^(\d+)\s+(.+)/);
@@ -15983,10 +15995,12 @@ async function createPRDueDateEvents(items, act, kind) {
           body: { contentType: "HTML", content: body },
           start: { dateTime: `${date}T09:00:00`, timeZone: "Asia/Seoul" },
           end:   { dateTime: `${date}T10:00:00`, timeZone: "Asia/Seoul" },
-          isAllDay: false,
-          showAs: "tentative",
-          categories: [`${cfg.label}`],
+          // 🔧 isAllDay 제거 (시작/종료 시간이 다르면 자동), categories 제거 (그룹에 없으면 400)
+          // showAs도 안전하게 free로 (busy면 충돌 가능)
+          showAs: "free",
         };
+        
+        console.log(`  📤 일정 생성 시도: POST /groups/${gid.substring(0,8)}.../events`, { subject: title.substring(0,60), date });
         
         const r = await fetch(
           `https://graph.microsoft.com/v1.0/groups/${gid}/events`,
@@ -15994,10 +16008,12 @@ async function createPRDueDateEvents(items, act, kind) {
         );
         if(r.ok) {
           success++;
-          console.log(`  ✅ ${date} 일정 생성: ${dateItems.length}품목 (${title.substring(0,40)}...)`);
+          console.log(`  ✅ ${date} 일정 생성 성공: ${dateItems.length}품목 (${title.substring(0,40)}...)`);
         } else {
-          const err = await r.json().catch(()=>({}));
-          console.warn(`  ⚠️ ${date} 일정 생성 실패:`, err.error?.message || r.status);
+          const errText = await r.text().catch(()=>"");
+          let errMsg = "";
+          try { errMsg = JSON.parse(errText)?.error?.message || errText; } catch { errMsg = errText; }
+          console.warn(`  ⚠️ ${date} 일정 생성 실패 (${r.status}):`, errMsg.substring(0,300));
         }
       } catch(e) {
         console.warn(`  ⚠️ ${date} 처리 에러:`, e.message);
@@ -19889,10 +19905,11 @@ async function saveSLActivity() {
   renderSLAll();
   await saveSLToSP();
 
-  // 🆕 AI 파싱 결과가 있고 신규 생성인 경우 → 품목별 PR 자동 생성
-  if(!slEditId && _slAIParseResult && Array.isArray(_slAIParseResult.items) && _slAIParseResult.items.length > 0) {
+  // 🆕 AI 파싱 결과가 있으면 → 품목별 PR 자동 생성 (신규/수정 모드 모두)
+  // 수정 모드에서도 PDF 재첨부 + AI 파싱하면 새 PR 생성 가능
+  if(_slAIParseResult && Array.isArray(_slAIParseResult.items) && _slAIParseResult.items.length > 0) {
     try {
-      console.log(`🔄 AI 파싱 결과로 PR ${_slAIParseResult.items.length}건 자동 생성 시작...`);
+      console.log(`🔄 AI 파싱 결과로 PR ${_slAIParseResult.items.length}건 자동 생성 시작... (모드: ${slEditId ? "수정" : "신규"})`);
       const aiData = _slAIParseResult;
       const items = aiData.items;
       const now = new Date();
@@ -19992,6 +20009,7 @@ async function saveSLActivity() {
       ]).then(() => {
         console.log(`✅ PR ${newPRs.length}건 자동 생성 완료`);
         if(typeof renderPRDB === "function") renderPRDB();
+        if(typeof renderSLAll === "function") renderSLAll();  // 🆕 구매활동 목록 카운트 갱신
         if(typeof updateAllBadges === "function") updateAllBadges();
         
         // 🆕 품목별 납기 일정 자동 생성 (라벨: 요청)
@@ -25371,10 +25389,55 @@ async function extractPdfText(base64) {
     }
     const arr=new Uint8Array(atob(base64).split("").map(c=>c.charCodeAt(0)));
     const pdf=await window.pdfjsLib.getDocument({data:arr}).promise;
-    let text="";
-    for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p);const c=await page.getTextContent();text+=c.items.map(i=>i.str).join(" ")+"\n";}
+    
+    // 🚀 y좌표 기반 라인 그룹핑 - 페이지가 잘려도 안 잃어버림
+    let text = "";
+    for(let p = 1; p <= pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const c = await page.getTextContent();
+      
+      // 각 텍스트 항목의 좌표 추출
+      // item.transform = [scaleX, skewY, skewX, scaleY, x, y]
+      const items = c.items.map(it => ({
+        str: it.str,
+        x: it.transform[4],
+        y: Math.round(it.transform[5]),  // y좌표 (소수점 제거로 같은 라인 그룹핑)
+        width: it.width || 0,
+      }));
+      
+      // y 좌표로 그룹핑 (PDF는 위→아래로 가면서 y 값이 줄어듦)
+      const lineMap = new Map();
+      items.forEach(it => {
+        // 같은 라인으로 간주하는 y 오차 허용 (3px)
+        let foundY = null;
+        for(const ly of lineMap.keys()) {
+          if(Math.abs(ly - it.y) <= 3) { foundY = ly; break; }
+        }
+        const key = foundY !== null ? foundY : it.y;
+        if(!lineMap.has(key)) lineMap.set(key, []);
+        lineMap.get(key).push(it);
+      });
+      
+      // y 큰 순(위에서 아래로) 정렬
+      const sortedYs = Array.from(lineMap.keys()).sort((a,b) => b - a);
+      
+      // 페이지 시작 마커 추가 (디버깅 + 라인 파싱이 헤더 다시 안 찾게)
+      text += `\n=== PAGE ${p}/${pdf.numPages} ===\n`;
+      
+      // 각 라인 → x 좌표 순으로 정렬해서 출력
+      for(const y of sortedYs) {
+        const lineItems = lineMap.get(y).sort((a,b) => a.x - b.x);
+        const lineText = lineItems.map(it => it.str).join(" ").replace(/\s+/g, " ").trim();
+        if(lineText) text += lineText + "\n";
+      }
+    }
+    
+    console.log(`📄 PDF ${pdf.numPages}페이지, 총 ${text.length}자 추출 (y좌표 라인 그룹핑)`);
     return text;
-  } catch(e){return "(PDF 텍스트 추출 실패)";}
+  } catch(e){
+    console.warn("PDF 추출 에러:", e);
+    return "(PDF 텍스트 추출 실패)";
+  }
 }
 
 async function parseDlvPdf(file) {
