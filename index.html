@@ -7843,6 +7843,8 @@ function renderPQDB() {
       <td style="text-align:center" onclick="event.stopPropagation()"><button onclick="deleteDBRowById('quote','${d.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button></td>
     </tr>`;
   }).join("");
+  
+  const cnt = document.getElementById("qdb-cnt");
   if(cnt) cnt.textContent = `${filtered.length}/${_pqdbData.length}건 표시`;
   const upd = document.getElementById("qdb-upd");
   if(upd) upd.textContent = `최종 업데이트: ${new Date().toLocaleTimeString()}`;
@@ -29302,7 +29304,14 @@ function openDocManagerModal(actId, docType) {
   
   // 헤더 갱신
   const modal = document.getElementById("docManagerModal");
-  if(!modal) return;
+  if(!modal) { alert("docManagerModal DOM 없음"); return; }
+  
+  // 🔧 모달을 document.body 직속으로 이동 (다른 모달 안에 nested된 경우 해결)
+  if(modal.parentElement !== document.body) {
+    document.body.appendChild(modal);
+    console.log("📁 docManagerModal을 body 직속으로 이동");
+  }
+  
   document.getElementById("dmModalIcon").textContent = cfg.icon;
   document.getElementById("dmModalTitle").textContent = `${cfg.icon} ${cfg.label} 파일 관리`;
   document.getElementById("dmModalSubtitle").textContent = `${act.pjcode || "(코드없음)"} · ${act.company || ""}`;
@@ -29311,6 +29320,7 @@ function openDocManagerModal(actId, docType) {
   dmRenderList();
   
   modal.style.display = "flex";
+  console.log(`📁 파일 관리 모달 열림: ${cfg.label} (${act.pjcode})`);
 }
 
 function closeDocManagerModal() {
