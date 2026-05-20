@@ -740,7 +740,8 @@
         <div class="cn">※ 구매활동 [프로젝트코드 생성/요청]에서 신규 요청 → 발급 완료 시 [✅ 완료] 클릭 (누구나 처리 가능)</div>
       </div>
 
-      <div class="card">
+      <!-- 🚫 영업 프로젝트 조회 모듈 숨김 (구매 페이지엔 불필요 - 영업 대시보드 전용) -->
+      <div class="card" style="display:none">
         <div class="ch">
           <div class="ct"><div class="ci c1">🔄</div>프로젝트 조회 <span id="pl-lbl" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">SharePoint 연동 대기</span></div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -5262,19 +5263,30 @@ async function _purchaseAIParse(prefix, docType, auto) {
   "vatMode": "separate(VAT별도) 또는 included(VAT포함)",
   "payTerm": "결제조건 (현금/30일어음/60일어음/90일어음/월말결제 중 하나)",
   "itemList": [
-    {"name":"품명1","partNo":"품번/품목코드","unit":"EA","qty":1,"unitPrice":400000},
-    {"name":"품명2","partNo":"품번","unit":"EA","qty":1,"unitPrice":290000}
+    {"name":"품명1","partNo":"품번/품목코드","unit":"EA","qty":1,"unitPrice":4000000,"vat":400000},
+    {"name":"품명2","partNo":"품번","unit":"EA","qty":1,"unitPrice":2900000,"vat":290000}
   ],
-  "supplyAmount": 공급가합계 (모든 행의 qty*unitPrice 합),
-  "vatAmount": VAT숫자(별도면 공급가의10%, 포함이면 0),
-  "totalAmount": 총금액(공급가+VAT)
+  "supplyAmount": 공급가합계 (= Σ qty × unitPrice, VAT 제외),
+  "vatAmount": VAT합계 (= Σ 각행 VAT, 보통 공급가의 10%),
+  "totalAmount": 총금액 (= 공급가 + VAT)
 }
-⚠️ 주의사항 (양식마다 다름 - 잘 읽어내야 함):
-1. "규격" 컬럼에 거래처가 들어있을 수 있음 → 그건 vendor (절대 spec 아님)
-2. "단가" 아래 숫자 = 단가, "금액" 아래 숫자 = 합계(qty*단가). VAT가 아니라 행별 합계!
-3. 총합계와 VAT 분리 - "총금액"이 supplyAmount이고 VAT가 따로 있는지 PDF에서 확인
-4. 품번에는 "BP26004_xxx" 같은 코드만, 거래처(㈜위앤)는 포함하지 말 것
-5. itemList의 각 행은 PDF 표에서 한 행씩. 빠짐없이 전부 추출.`,
+
+⚠️ 중요한 주의사항 (양식마다 다양함 - 신중히 읽어내야 함):
+
+1. **'규격' 컬럼 함정**: '규격' 컬럼에 거래처(㈜위앤 등)가 들어있을 수 있음 → 그건 vendor (절대 spec 아님)
+
+2. **'단가'/'금액' 컬럼 함정 (중요!)**: PDF마다 헤더 위치가 다를 수 있음. 
+   - 일반적: '단가' = 실제 단가, '금액' = 단가×수량 합계
+   - 그런데 어떤 양식은 '단가' 컬럼에 작은 숫자(VAT 같은), '금액' 컬럼에 큰 숫자(실제 단가)가 들어있음
+   - 예: 작은 숫자 400,000 + 큰 숫자 4,000,000 가 있으면 → 큰 게 실제 단가(unitPrice=4000000), 작은 게 VAT(vat=400000)
+   - **판단 기준**: vat = unitPrice × 0.1 인지 검증해서 확실히 구분할 것
+   - **본문 행 헤더가 단가/금액**이지만 **숫자 비율이 1:10 (큰값:작은값)**이면 큰값=단가, 작은값=VAT
+
+3. **품번 분리**: 품번에는 "BP26004_xxx" 같은 코드만, 거래처(㈜위앤)는 포함하지 말 것
+
+4. **itemList 빠짐없이 추출**: PDF 표의 각 행은 한 행씩, 빈 행/소계 행은 제외
+
+5. **납기일 행마다 다른 경우**: 행마다 납기일이 다르면 deliveryDate는 가장 늦은 날짜 또는 첫번째 행 기준`,
       delivery: `이 거래명세서/입고증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
 {"vendor":"거래처명","dlvDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
       tax: `이 세금계산서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
@@ -5634,11 +5646,14 @@ function renderPOItems() {
   body.innerHTML = _poItems.map((it, i) => {
     const qty = Number(it.qty) || 0;
     const unitPrice = Number(it.unitPrice) || 0;
-    const total = qty * unitPrice;
+    const supply = qty * unitPrice;  // 행별 공급가 (= 수량×단가)
+    // 행별 VAT: 명시되면 사용, 아니면 공급가의 10% 자동
+    const vat = (it.vat !== undefined && it.vat !== null && it.vat !== "") ? Number(it.vat) : Math.round(supply * 0.1);
+    const total = supply + vat;
     const safeName = (it.name || "").replace(/"/g, "&quot;");
     const safePartNo = (it.partNo || "").replace(/"/g, "&quot;");
     const safeUnit = (it.unit || "EA").replace(/"/g, "&quot;");
-    return `<div style="display:grid;grid-template-columns:30px 1fr 110px 60px 60px 90px 100px 30px;gap:4px;align-items:center;padding:4px 10px;border-bottom:1px solid var(--border);${i%2 ? 'background:#fafbfc' : ''}">
+    return `<div style="display:grid;grid-template-columns:30px 1fr 110px 50px 55px 85px 75px 90px 25px;gap:3px;align-items:center;padding:4px 10px;border-bottom:1px solid var(--border);${i%2 ? 'background:#fafbfc' : ''}">
       <div style="text-align:center;font-size:10px;color:var(--t3);font-weight:700">${i+1}</div>
       <input type="text" value="${safeName}" oninput="updatePOItem(${i},'name',this.value)" 
         placeholder="품명" style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;font-weight:600">
@@ -5650,7 +5665,10 @@ function renderPOItems() {
         style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);font-weight:700">
       <input type="number" value="${unitPrice||''}" min="0" step="1" placeholder="단가" oninput="updatePOItem(${i},'unitPrice',this.value)" 
         style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);background:${unitPrice>0 ? '#fef9c3' : '#fff'}">
-      <div style="padding:4px 6px;text-align:right;font-family:var(--m);font-size:11px;font-weight:700;color:${total>0 ? '#9a3412' : 'var(--t3)'};background:#f8fafc;border-radius:4px">${total > 0 ? total.toLocaleString() : '-'}</div>
+      <input type="number" value="${vat||''}" min="0" step="1" placeholder="자동10%" oninput="updatePOItem(${i},'vat',this.value)" 
+        title="VAT 자동=공급가×10%, 직접 수정 가능"
+        style="padding:4px 6px;border:1px solid #fed7aa;border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);background:#fff7ed;color:#9a3412">
+      <div style="padding:4px 6px;text-align:right;font-family:var(--m);font-size:11px;font-weight:700;color:${total>0 ? '#9a3412' : 'var(--t3)'};background:#f8fafc;border-radius:4px" title="공급가+VAT">${total > 0 ? total.toLocaleString() : '-'}</div>
       <button type="button" onclick="removePOItem(${i})" title="이 행 삭제" style="border:none;background:transparent;color:var(--r);cursor:pointer;font-size:13px;padding:0;font-weight:700">×</button>
     </div>`;
   }).join("");
@@ -5658,9 +5676,26 @@ function renderPOItems() {
   const ic = document.getElementById("poItemCount"); if(ic) ic.textContent = _poItems.length;
   
   const totalQty = _poItems.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  // 공급가 합계 = Σ(수량 × 단가)
   const totalSupply = _poItems.reduce((s, it) => s + (Number(it.qty)||0) * (Number(it.unitPrice)||0), 0);
+  // VAT 합계 = 행별 VAT 합 (명시 안 됐으면 자동 10%)
+  const totalVat = _poItems.reduce((s, it) => {
+    const rowSupply = (Number(it.qty)||0) * (Number(it.unitPrice)||0);
+    const rowVat = (it.vat !== undefined && it.vat !== null && it.vat !== "") ? Number(it.vat) : Math.round(rowSupply * 0.1);
+    return s + rowVat;
+  }, 0);
   const tq = document.getElementById("poTotalQty"); if(tq) tq.textContent = totalQty;
   const supplyEl = document.getElementById("po-f-supply"); if(supplyEl) supplyEl.value = totalSupply;
+  
+  // 🆕 행별 VAT 합계를 상단 VAT 입력란에 자동 반영 (VAT 별도 모드일 때)
+  const vatModeEl = document.getElementById("po-f-vat-mode");
+  const vatInputEl = document.getElementById("po-f-vat");
+  if(vatModeEl?.value === "separate" && vatInputEl) {
+    // 사용자가 직접 수정 안 했으면 행별 합계 사용
+    if(!vatInputEl.dataset.manual) {
+      vatInputEl.value = totalVat;
+    }
+  }
   
   recalcPOTotal();
   
@@ -5673,8 +5708,13 @@ function renderPOItems() {
 
 function updatePOItem(idx, field, value) {
   if(!_poItems[idx]) return;
-  if(field === "qty" || field === "unitPrice") {
-    _poItems[idx][field] = Number(value) || 0;
+  if(field === "qty" || field === "unitPrice" || field === "vat") {
+    // vat가 빈문자열이면 자동 계산 모드 (undefined로 저장)
+    if(field === "vat" && (value === "" || value === null)) {
+      _poItems[idx].vat = undefined;
+    } else {
+      _poItems[idx][field] = Number(value) || 0;
+    }
     renderPOItems();
   } else {
     _poItems[idx][field] = value;
@@ -5687,7 +5727,7 @@ function removePOItem(idx) {
 }
 
 function addPOItem() {
-  _poItems.push({ name: "", partNo: "", unit: "EA", qty: 1, unitPrice: 0 });
+  _poItems.push({ name: "", partNo: "", unit: "EA", qty: 1, unitPrice: 0, vat: undefined });
   renderPOItems();
 }
 
@@ -5750,6 +5790,7 @@ function initPOItems(items) {
     unit: it.unit || "EA",
     qty: Number(it.qty) || 1,
     unitPrice: Number(it.unitPrice || it.price) || 0,
+    vat: (it.vat !== undefined && it.vat !== null && it.vat !== "") ? Number(it.vat) : undefined,  // 🆕 행별 VAT
   })) : [];
   renderPOItems();
 }
@@ -6306,7 +6347,9 @@ async function savePurchaseOrder() {
       unit: it.unit || "EA",
       qty: Number(it.qty) || 0,
       unitPrice: Number(it.unitPrice) || 0,
-      total: (Number(it.qty)||0) * (Number(it.unitPrice)||0),
+      vat: (it.vat !== undefined && it.vat !== null && it.vat !== "") ? Number(it.vat) : Math.round((Number(it.qty)||0) * (Number(it.unitPrice)||0) * 0.1),  // 🆕 행별 VAT (자동 10%)
+      supply: (Number(it.qty)||0) * (Number(it.unitPrice)||0),  // 🆕 행별 공급가
+      total: (Number(it.qty)||0) * (Number(it.unitPrice)||0) + ((it.vat !== undefined && it.vat !== null && it.vat !== "") ? Number(it.vat) : Math.round((Number(it.qty)||0) * (Number(it.unitPrice)||0) * 0.1)),  // 🆕 행별 총액
     })) : [],
     supplyAmount: Number(document.getElementById("po-f-supply").value || 0),
     vatAmount: Number(document.getElementById("po-f-vat").value || 0),
@@ -28787,13 +28830,14 @@ function deleteTax(id){
                 <span style="font-size:11px;font-weight:400;opacity:0.9">PDF에서 AI가 자동으로 채움</span>
               </div>
               <!-- 그리드 헤더 -->
-              <div style="display:grid;grid-template-columns:30px 1fr 110px 60px 60px 90px 100px 30px;gap:4px;padding:6px 10px;background:#fff7ed;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t2)">
+              <div style="display:grid;grid-template-columns:30px 1fr 110px 50px 55px 85px 75px 90px 25px;gap:3px;padding:6px 10px;background:#fff7ed;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t2)">
                 <div style="text-align:center">#</div>
                 <div>품명</div>
                 <div>품번</div>
                 <div style="text-align:center">단위</div>
                 <div style="text-align:right">수량</div>
                 <div style="text-align:right">단가(₩)</div>
+                <div style="text-align:right" title="이 행의 VAT (10% 자동)">VAT(₩)</div>
                 <div style="text-align:right">합계(₩)</div>
                 <div></div>
               </div>
