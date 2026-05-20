@@ -1273,13 +1273,12 @@
               </div>
 
               <!-- 품목 리스트 헤더 -->
-              <div style="padding:7px 8px;background:#1e40af;color:#fff;font-size:11px;font-weight:700;display:grid;grid-template-columns:30px 50px 100px 1fr 1.1fr 0.9fr 50px 60px 0.9fr 80px 40px 30px;gap:4px;flex-shrink:0">
+              <div style="padding:7px 8px;background:#1e40af;color:#fff;font-size:11px;font-weight:700;display:grid;grid-template-columns:30px 50px 100px 1fr 1.1fr 50px 60px 0.9fr 80px 40px 30px;gap:4px;flex-shrink:0">
                 <div style="text-align:center">선택</div>
                 <div style="text-align:center">#</div>
                 <div>PR 코드</div>
                 <div>품명</div>
                 <div>품번</div>
-                <div>규격</div>
                 <div style="text-align:center">단위</div>
                 <div style="text-align:right">수량</div>
                 <div>거래처</div>
@@ -2440,9 +2439,10 @@
                   <th style="min-width:110px;text-align:right">합계(VAT포함)</th>
                   <th style="min-width:90px">상태</th>
                   <th style="min-width:80px;text-align:center">파일</th>
+                  <th style="min-width:50px;text-align:center">삭제</th>
                 </tr></thead>
                 <tbody id="qdbBody">
-                  <tr><td colspan="12"><div class="empty"><div class="ei">📄</div><div class="et">매입 견적서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처로부터 받은 견적서를 업로드하면 AI가 자동 파싱합니다</div></div></td></tr>
+                  <tr><td colspan="13"><div class="empty"><div class="ei">📄</div><div class="et">매입 견적서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처로부터 받은 견적서를 업로드하면 AI가 자동 파싱합니다</div></div></td></tr>
                 </tbody>
               </table>
             </div>
@@ -2495,9 +2495,10 @@
                 <th style="min-width:90px">결제조건</th>
                 <th style="min-width:90px">상태</th>
                 <th style="min-width:80px;text-align:center">파일</th>
+                <th style="min-width:50px;text-align:center">삭제</th>
               </tr></thead>
               <tbody id="ordBody">
-                <tr><td colspan="11"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PO코드 자동채번: PO-YYMMDD-NN</div></div></td></tr>
+                <tr><td colspan="12"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PO코드 자동채번: PO-YYMMDD-NN</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -2549,9 +2550,10 @@
                 <th style="min-width:110px;text-align:right">총금액</th>
                 <th style="min-width:90px">검수상태</th>
                 <th style="min-width:80px;text-align:center">파일</th>
+                <th style="min-width:50px;text-align:center">삭제</th>
               </tr></thead>
               <tbody id="dlvBody">
-                <tr><td colspan="11"><div class="empty"><div class="ei">🚚</div><div class="et">입고 거래명세서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처로부터 받은 입고 거래명세서 업로드 시 자동 파싱</div></div></td></tr>
+                <tr><td colspan="12"><div class="empty"><div class="ei">🚚</div><div class="et">입고 거래명세서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처로부터 받은 입고 거래명세서 업로드 시 자동 파싱</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -2605,9 +2607,10 @@
                 <th style="min-width:90px">지급예정일</th>
                 <th style="min-width:90px">지급상태</th>
                 <th style="min-width:60px;text-align:center">파일</th>
+                <th style="min-width:50px;text-align:center">삭제</th>
               </tr></thead>
               <tbody id="taxBody">
-                <tr><td colspan="12"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처에서 받은 매입세금계산서 업로드 시 자동 파싱</div></div></td></tr>
+                <tr><td colspan="13"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">거래처에서 받은 매입세금계산서 업로드 시 자동 파싱</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -2668,12 +2671,12 @@
                 <th style="min-width:80px">납기요청</th>
                 <th style="min-width:110px">요청담당자</th>
                 <th style="min-width:240px">품목 (대표 + 건수)</th>
-                <th style="min-width:110px">규격</th>
                 <th style="min-width:90px;text-align:right">수량</th>
                 <th style="min-width:100px">프로젝트번호</th>
                 <th style="min-width:140px">거래처</th>
                 <th style="min-width:80px">진행상태</th>
                 <th style="min-width:80px;text-align:center">관리</th>
+                <th style="min-width:50px;text-align:center">삭제</th>
               </tr></thead>
               <tbody id="prTableBody">
                 <tr><td colspan="12"><div class="empty"><div class="ei">📝</div><div class="et">구매요청서 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매활동에서 구매요청서 PDF 업로드 → AI 파싱 → 품목별 PR 자동 생성</div></div></td></tr>
@@ -2726,9 +2729,10 @@
                 <th style="min-width:85px">최종견적일</th>
                 <th style="min-width:90px">관련 PR</th>
                 <th style="min-width:60px;text-align:center">관리</th>
+                <th style="min-width:50px;text-align:center">삭제</th>
               </tr></thead>
               <tbody id="bomTableBody">
-                <tr><td colspan="11"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>
+                <tr><td colspan="12"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -2776,9 +2780,10 @@
                 <th style="min-width:90px">회계전표No</th>
                 <th style="min-width:70px">결제상태</th>
                 <th style="min-width:60px">파일</th>
+                <th style="min-width:50px;text-align:center">삭제</th>
               </tr></thead>
               <tbody id="stlTableBody">
-                <tr><td colspan="10"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">우측 상단 [+ 정산 추가] 버튼으로 추가하세요</div></div></td></tr>
+                <tr><td colspan="11"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">우측 상단 [+ 정산 추가] 버튼으로 추가하세요</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -5053,6 +5058,10 @@ async function aiParsePR() {
     if(!confirm("⚠️ 파일이 10MB를 초과합니다. 진행하시겠어요?")) return;
   }
   
+  // 🆕 파일 객체 백업 - saveSLActivity에서 input 비었을 경우 fallback
+  window._aiParsedFile_pr = file;
+  console.log(`💾 구매요청서 AI 파싱 파일 백업: ${file.name} (${file.size}B)`);
+  
   const info = document.getElementById("sl-f-prfile-info");
   if(info) {
     info.style.display = "block";
@@ -5991,6 +6000,11 @@ function openPurchaseQuoteModal(id) {
     // 🆕 품목 배열 + VAT 모드 복원
     initPQItems(d.itemList || []);
     setPQVatMode(d.vatMode || "separate");
+    
+    // 🆕 저장된 PDF 자동 미리보기 (인라인)
+    if(d.fileUrl && typeof renderUrlPreview === "function") {
+      setTimeout(() => renderUrlPreview(d.fileUrl, d.fileName || "견적서.pdf", "pq-preview-pane"), 100);
+    }
   } else {
     // 신규 모드
     document.getElementById("pqModalTitle").textContent = "📄 매입 견적서 수신";
@@ -6032,6 +6046,7 @@ function closePurchaseQuoteModal() {
   if(typeof clearPQItems === "function") clearPQItems();
   window._aiParsed_pq = false;
   window._aiParsing_pq = false;
+  window._aiParsedFile_pq = null;  // 🆕 AI 파싱 백업 파일 클리어
 }
 
 // 공급가 입력 시 VAT 자동 계산 (10%)
@@ -6568,6 +6583,11 @@ async function _purchaseAIParse(prefix, docType, auto) {
     if(!auto) alert("PDF 파일을 먼저 첨부해주세요.");
     return;
   }
+  
+  // 🆕 파일 객체를 window 변수에 백업 (저장 시점에 input이 비어있어도 SP 업로드 가능)
+  // 키: _aiParsedFile_pq / _aiParsedFile_po / _aiParsedFile_pdlv / _aiParsedFile_ptax / _aiParsedFile_stl
+  window[`_aiParsedFile_${prefix}`] = file;
+  console.log(`💾 ${prefix} AI 파싱 파일 백업: ${file.name} (${file.size}B)`);
   
   // 🆕 진행 상태 UI 표시 (큰 배너)
   const showProgress = (msg, color, withSpinner) => {
@@ -7520,24 +7540,50 @@ async function savePurchaseQuote() {
   };
   
   // 🆕 PDF 파일이 첨부됐으면 SharePoint에 업로드
-  const file = document.getElementById("pq-f-file")?.files?.[0];
+  const fileInput = document.getElementById("pq-f-file");
+  // 우선 input에서 가져옴, 없으면 AI 파싱 시 백업한 파일 사용
+  let file = fileInput?.files?.[0];
+  if(!file && window._aiParsedFile_pq) {
+    file = window._aiParsedFile_pq;
+    console.log(`📥 견적서: input에 파일 없음 → AI 파싱 백업 사용: ${file.name}`);
+  }
+  console.log(`📤 견적서 SP 업로드 체크:`, {
+    fileInputExists: !!fileInput,
+    fileFound: !!file,
+    fileName: file?.name || "(없음)",
+    fileSize: file?.size || 0,
+    salesCode: data.salesCode || "(빈값)",
+    quoteNo: data.quoteNo || "(빈값)",
+    source: fileInput?.files?.[0] ? "input" : (window._aiParsedFile_pq ? "AI 파싱 백업" : "(없음)"),
+  });
+  
   if(file && data.salesCode) {
-    const upRes = await _uploadDocToSP(file, {
-      projectCode: data.salesCode,  // 영업프로젝트코드 (예: BM26005)
-      docType: "견적서",
-      docNo: data.quoteNo,
-      docDate: data.quoteDate,
-    });
-    if(upRes.ok) {
-      data.fileUrl = upRes.url;
-      data.fileName = upRes.filename;
-      data.filePath = upRes.path;
-      console.log(`✅ 견적서 PDF 업로드: ${upRes.filename}`);
-    } else {
-      console.warn(`⚠️ PDF 업로드 실패: ${upRes.error} (데이터는 저장됨)`);
+    try {
+      console.log(`📤 견적서 SP 업로드 시도: ${file.name} (${file.size}B) → BM26005...`);
+      const upRes = await _uploadDocToSP(file, {
+        projectCode: data.salesCode,
+        docType: "견적서",
+        docNo: data.quoteNo || ("Q-" + Date.now()),
+        docDate: data.quoteDate || new Date().toISOString().slice(0,10),
+      });
+      if(upRes.ok) {
+        data.fileUrl = upRes.url;
+        data.fileName = upRes.filename;
+        data.filePath = upRes.path;
+        console.log(`✅ 견적서 PDF 업로드 성공: ${upRes.path}`);
+      } else {
+        console.warn(`⚠️ 견적서 PDF 업로드 실패: ${upRes.error || "(에러 메시지 없음)"}`);
+      }
+    } catch(uperr) {
+      console.error(`❌ 견적서 PDF 업로드 예외:`, uperr.message);
     }
   } else if(file && !data.salesCode) {
-    console.warn("⚠️ 프로젝트코드가 없어 SP 폴더 업로드 스킵 (영업코드 입력 권장)");
+    console.warn("⚠️ 견적서: 영업프로젝트코드 없어 SP 업로드 스킵");
+  } else if(!file && _pqEditId) {
+    // 수정 모드 - 파일 없으면 기존 fileUrl 유지 (이미 위에서 했음)
+    console.log("📝 견적서 수정 모드 - 파일 재첨부 안 함, 기존 URL 유지");
+  } else if(!file && !_pqEditId) {
+    console.warn("⚠️ 견적서: 신규인데 PDF 파일 없음 (AI 파싱 결과만 사용?)");
   }
   
   if(_pqEditId) {
@@ -7740,7 +7786,7 @@ function renderPQDB() {
   if(!tbody) return;
   
   if(!_pqdbData.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">📄</div><div class="et">매입 견적서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 견적서 수신] 버튼으로 추가</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty"><div class="ei">📄</div><div class="et">매입 견적서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">우측 상단 [+ 견적서 수신] 버튼으로 추가</div></div></td></tr>`;
     // KPI
     ["qdb-tot","qdb-amt","qdb-converted","qdb-pending"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
@@ -7794,11 +7840,9 @@ function renderPQDB() {
       <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
       <td style="text-align:center">${statusBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()" style="text-decoration:none">📎</a>` : "-"}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()"><button onclick="deleteDBRowById('quote','${d.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button></td>
     </tr>`;
   }).join("");
-  
-  // 카운트
-  const cnt = document.getElementById("qdb-cnt");
   if(cnt) cnt.textContent = `${filtered.length}/${_pqdbData.length}건 표시`;
   const upd = document.getElementById("qdb-upd");
   if(upd) upd.textContent = `최종 업데이트: ${new Date().toLocaleTimeString()}`;
@@ -7888,6 +7932,11 @@ function openPurchaseOrderModal(id) {
     // 🆕 품목 + VAT 모드 복원
     if(typeof initPOItems === "function") initPOItems(d.itemList || []);
     if(typeof setPOVatMode === "function") setPOVatMode(d.vatMode || "separate");
+    
+    // 🆕 저장된 PDF 자동 미리보기
+    if(d.fileUrl && typeof renderUrlPreview === "function") {
+      setTimeout(() => renderUrlPreview(d.fileUrl, d.fileName || "발주서.pdf", "po-preview-pane"), 100);
+    }
   } else {
     document.getElementById("poModalTitle").textContent = "📦 매입 발주서 작성";
     const today = new Date().toISOString().slice(0,10);
@@ -8057,7 +8106,7 @@ function renderPORD() {
   if(!tbody) return;
   
   if(!_pordData.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PO코드 자동채번: PO-YYMMDD-NN</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">📦</div><div class="et">발주서 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">PO코드 자동채번: PO-YYMMDD-NN</div></div></td></tr>`;
     ["ord-tot","ord-month-amt","ord-vendor-cnt","ord-avg-lead"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
   }
@@ -8112,6 +8161,7 @@ function renderPORD() {
       <td style="text-align:center;font-size:12px;color:var(--t2)">${escapeHtml(d.payTerm||"-")}</td>
       <td style="text-align:center">${statusBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()"><button onclick="deleteDBRowById('order','${d.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button></td>
     </tr>`;
   }).join("");
   
@@ -8160,6 +8210,11 @@ function openPurchaseDeliveryModal(id) {
     // 저장된 지급예정일이 없으면 거래명세일 기준 자동 계산
     if(!d.paymentDate && d.dlvDate) {
       setTimeout(() => updatePDLVPaymentDate(true), 50);
+    }
+    
+    // 🆕 저장된 PDF 자동 미리보기
+    if(d.fileUrl && typeof renderUrlPreview === "function") {
+      setTimeout(() => renderUrlPreview(d.fileUrl, d.fileName || "거래명세서.pdf", "pdlv-preview-pane"), 100);
     }
   } else {
     document.getElementById("pdlvModalTitle").textContent = "🚚 입고 거래명세서";
@@ -8324,7 +8379,7 @@ function renderPDLV() {
   if(!tbody) return;
   
   if(!_pdlvData.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">🚚</div><div class="et">입고 거래명세서 없음</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">🚚</div><div class="et">입고 거래명세서 없음</div></div></td></tr>`;
     ["dlv-tot","dlv-month-amt","dlv-verified","dlv-pending"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
   }
@@ -8371,6 +8426,7 @@ function renderPDLV() {
       <td style="text-align:right;font-family:var(--m);font-weight:600;color:var(--p)">${(d.totalAmount||0).toLocaleString()}</td>
       <td style="text-align:center">${statusBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()"><button onclick="deleteDBRowById('delivery','${d.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button></td>
     </tr>`;
   }).join("");
   
@@ -8420,6 +8476,11 @@ function openPurchaseTaxModal(id) {
     // 지급예정일 비어있으면 자동 계산
     if(!d.payDue && d.taxDate) {
       setTimeout(() => updatePTAXPaymentDate(true), 50);
+    }
+    
+    // 🆕 저장된 PDF 자동 미리보기
+    if(d.fileUrl && typeof renderUrlPreview === "function") {
+      setTimeout(() => renderUrlPreview(d.fileUrl, d.fileName || "세금계산서.pdf", "ptax-preview-pane"), 100);
     }
   } else {
     document.getElementById("ptaxModalTitle").textContent = "🧾 매입 세금계산서";
@@ -8597,7 +8658,7 @@ function renderPTAX() {
   if(!tbody) return;
   
   if(!_ptaxData.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty"><div class="ei">🧾</div><div class="et">매입 세금계산서 없음</div></div></td></tr>`;
     ["tax-tot","tax-month-amt","tax-vat-sum","tax-unpaid"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
   }
@@ -8657,6 +8718,7 @@ function renderPTAX() {
       <td style="color:var(--t2)">${escapeHtml(d.payDue||"-")}</td>
       <td style="text-align:center">${payBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()"><button onclick="deleteDBRowById('tax','${d.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button></td>
     </tr>`;
   }).join("");
   
@@ -9422,7 +9484,6 @@ function renderPRDB() {
         ${rep.reqDept ? `<div style="font-size:10px;color:var(--t3)">${escapeHtml(rep.reqDept)}</div>` : ""}
       </td>
       <td style="font-size:12px;max-width:320px" title="${escapeHtml(rep.itemName||rep.items||"")}">${itemDisplay}</td>
-      <td style="font-size:11px;color:var(--t3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(rep.spec||"")}">${isSolo?escapeHtml(rep.spec||"-"):"-"}</td>
       <td style="text-align:right;font-family:var(--m);font-weight:600">${qtyDisplay}</td>
       <td style="font-family:var(--m);font-size:11px;color:var(--p);font-weight:600">${escapeHtml(rep.projectNo||"-")}</td>
       <td>${isSolo ? vendorDisplay : `<span style="color:var(--t3);font-size:11px">${[...new Set(items.map(it=>it.vendor).filter(Boolean))].length}곳</span>`}</td>
@@ -9431,6 +9492,12 @@ function renderPRDB() {
         ${isSolo 
           ? `<button onclick="deleteSinglePR('${rep.id}')" title="삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:13px">🗑️</button>`
           : `<button onclick="deletePRGroup('${key.replace(/'/g,"\\'")}')" title="그룹 전체 삭제 (${itemCount}건)" style="padding:2px 8px;border-radius:5px;border:1px solid var(--r);background:#fff;color:var(--r);font-size:11px;cursor:pointer;font-weight:700">🗑️ ${itemCount}건</button>`
+        }
+      </td>
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        ${isSolo
+          ? `<button onclick="deleteDBRowById('pr','${rep.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button>`
+          : `<span style="color:var(--t3);font-size:10px">그룹</span>`
         }
       </td>
     </tr>`;
@@ -9575,14 +9642,39 @@ function renderPRGroupModalItems() {
   const totalEl = document.getElementById("prGroupTotal");
   if(totalEl) totalEl.textContent = groupPRs.length;
   
-  // PDF 미리보기 (parentPRFile - 파일명만 표시. 실제 파일은 SP에서 fetch 필요)
+  // PDF 미리보기 카드 (클릭 → 새 모달로 PDF 표시)
   const previewEl = document.getElementById("prGroupPreview");
   if(previewEl) {
-    if(rep.parentPRFile) {
+    // fileUrl 우선, 없으면 parentPRFile (파일명만)
+    const fileUrl = rep.fileUrl || "";
+    const fileName = rep.fileName || rep.parentPRFile || "";
+    
+    if(fileUrl) {
+      // 클릭 가능한 카드 - 클릭 시 새 모달로 PDF 미리보기
+      const safeUrl = (fileUrl || "").replace(/'/g, "%27");
+      const safeName = (fileName || "구매요청서.pdf").replace(/'/g, "\\'");
+      previewEl.innerHTML = `<div style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px">
+        <div onclick="openPDFPreviewModal('${safeUrl}', '${safeName}')" 
+          style="background:#fff;border:2px solid var(--p);border-radius:12px;padding:30px 20px;text-align:center;cursor:pointer;width:100%;box-shadow:0 4px 12px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s"
+          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.12)'"
+          onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.06)'"
+          title="클릭하여 PDF 미리보기">
+          <div style="font-size:56px;margin-bottom:14px">📄</div>
+          <div style="font-weight:800;color:var(--t);font-size:14px;margin-bottom:8px;word-break:break-all">${escapeHtml(fileName)}</div>
+          <div style="display:inline-block;padding:6px 14px;background:var(--p);color:#fff;border-radius:6px;font-size:12px;font-weight:700;margin-top:6px">🔍 클릭하여 미리보기</div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);text-align:center;line-height:1.5">
+          원본 구매요청서가 SharePoint에 저장되어 있어요<br>
+          클릭하면 새 창에서 PDF를 볼 수 있습니다
+        </div>
+      </div>`;
+    } else if(rep.parentPRFile) {
+      // 파일명만 있음 (SP 업로드 안 됨)
       previewEl.innerHTML = `<div style="padding:30px;text-align:center;color:var(--t3)">
-        <div style="font-size:48px;margin-bottom:10px">📄</div>
+        <div style="font-size:48px;margin-bottom:10px;opacity:0.5">📄</div>
         <div style="font-weight:700;color:var(--t2);font-size:14px;margin-bottom:6px">${escapeHtml(rep.parentPRFile)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:8px">원본 PDF는 SharePoint 1.구매활동 폴더에서 확인</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;background:#fef3c7;padding:6px 10px;border-radius:6px;display:inline-block">💡 파일 URL 정보 없음 - 구매활동 재저장 시 자동 연결</div>
       </div>`;
     } else {
       previewEl.innerHTML = `<div style="padding:30px;text-align:center;color:var(--t3);font-size:13px">PDF 정보 없음</div>`;
@@ -9617,13 +9709,12 @@ function renderPRGroupModalItems() {
       ? `<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">🏭 ${escapeHtml(d.vendor||"엔젯(재고)")}</span>`
       : `<span style="font-size:11px">${escapeHtml(d.vendor||"-")}</span>`;
     
-    return `<div style="display:grid;grid-template-columns:30px 50px 100px 1fr 1.1fr 0.9fr 50px 60px 0.9fr 80px 40px 30px;gap:4px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--border);${isSel?"background:#fef3c7":(i%2?"background:#fafbfc":"")};cursor:pointer" onclick="event.target.tagName==='INPUT'||event.target.tagName==='BUTTON'||openPRModal('${d.id}')">
+    return `<div style="display:grid;grid-template-columns:30px 50px 100px 1fr 1.1fr 50px 60px 0.9fr 80px 40px 30px;gap:4px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--border);${isSel?"background:#fef3c7":(i%2?"background:#fafbfc":"")};cursor:pointer" onclick="event.target.tagName==='INPUT'||event.target.tagName==='BUTTON'||openPRModal('${d.id}')">
       <input type="checkbox" ${isSel?"checked":""} onclick="event.stopPropagation();togglePRSelect('${d.id}')" style="cursor:pointer">
       <div style="font-size:10px;color:var(--t3);text-align:center;font-weight:700">${i+1}</div>
       <div style="font-family:var(--m);color:var(--p);font-weight:700;font-size:11px">${escapeHtml(d.prCode||"")}</div>
       <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.itemName||"")}">${escapeHtml(d.itemName||"-")}</div>
       <div style="font-family:var(--m);font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.partNo||"")}">${escapeHtml(d.partNo||"-")}</div>
-      <div style="font-size:10px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(d.spec||"-")}</div>
       <div style="text-align:center;font-family:var(--m);font-size:11px">${escapeHtml(d.unit||"EA")}</div>
       <div style="text-align:right;font-family:var(--m);font-weight:700;font-size:12px">${d.qty||0}</div>
       <div>${vendorDisplay}</div>
@@ -9756,7 +9847,7 @@ function renderBOMDB() {
   if(!tbody) return;
   
   if(!_bomData.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:13px;color:var(--t3);margin-top:6px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>`;
     ["bom-kpi-total","bom-kpi-finished","bom-kpi-assembly","bom-kpi-semi"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
   }
@@ -9833,6 +9924,9 @@ function renderBOMDB() {
       <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
         <button onclick="openBOMModal('${d.bomCode}')" style="border:none;background:transparent;cursor:pointer;color:var(--p);font-size:14px" title="수정">✏️</button>
         <button onclick="if(confirm('🗑️ BOM 삭제\\n\\n${escapeHtml(d.productName||d.bomCode||"")}\\n견적 이력도 함께 삭제됩니다.\\n\\n계속?')) deleteBOMItem('${d.bomCode}')" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:13px" title="삭제">🗑️</button>
+      </td>
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <button onclick="deleteDBRowById('bom','${d.bomCode}')" title="영구 삭제 (2단 확인)" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button>
       </td>
     </tr>`;
   }).join("");
@@ -10078,6 +10172,11 @@ function openSettleModal(id) {
     setField("stl-f-accounts", d.accountTitles);
     setField("stl-f-taxinvoice", d.taxInvoiceNo);
     setField("stl-f-drafter", d.drafter);
+    
+    // 🆕 저장된 PDF 자동 미리보기
+    if(d.fileUrl && typeof renderUrlPreview === "function") {
+      setTimeout(() => renderUrlPreview(d.fileUrl, d.fileName || "회계전표.pdf", "stl-preview-pane"), 100);
+    }
   } else {
     document.getElementById("stlModalTitle").textContent = "💼 회계전표 / 구매입고정산";
     const today = new Date().toISOString().slice(0,10);
@@ -10196,7 +10295,7 @@ function renderPSTL() {
   if(!tbody) return;
   
   if(!_pstlData.length) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="ei">💼</div><div class="et">회계전표 데이터 없음</div></div></td></tr>`;
     ["stl-kpi-total","stl-kpi-amount","stl-kpi-paid","stl-kpi-unpaid"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent="0"; });
     return;
   }
@@ -10237,6 +10336,7 @@ function renderPSTL() {
       <td style="font-family:var(--m);font-size:12px;color:var(--t2)">${escapeHtml(d.acctNo||"-")}</td>
       <td style="text-align:center">${payBadge}</td>
       <td style="text-align:center">${d.fileUrl ? `<a href="${d.fileUrl}" target="_blank" onclick="event.stopPropagation()">📎</a>` : "-"}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()"><button onclick="deleteDBRowById('settle','${d.id}')" title="영구 삭제" style="border:none;background:transparent;cursor:pointer;color:var(--r);font-size:14px;padding:2px 4px;line-height:1">🗑️</button></td>
     </tr>`;
   }).join("");
   
@@ -23205,6 +23305,8 @@ function openCustMgrPickerForModal() {
 }
 function closeSLModal(){
   document.getElementById("slModal").style.display="none";
+  // 🆕 AI 파싱 백업 파일 클리어
+  window._aiParsedFile_pr = null;
 }
 
 // ─── 신규 차수 자동 부여 헬퍼 ───
@@ -23324,7 +23426,21 @@ async function saveSLActivity() {
   // 구매요청서 PDF 원본 SharePoint 업로드 (1.구매활동/{프로젝트코드}/구매요청서/)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const prFileEl = document.getElementById("sl-f-prfile");
-  const prFile = prFileEl?.files?.[0];
+  // 우선 input → 없으면 AI 파싱 백업 사용
+  let prFile = prFileEl?.files?.[0];
+  if(!prFile && window._aiParsedFile_pr) {
+    prFile = window._aiParsedFile_pr;
+    console.log(`📥 구매요청서: input에 파일 없음 → AI 파싱 백업 사용: ${prFile.name}`);
+  }
+  console.log(`📤 구매요청서 SP 업로드 체크:`, {
+    fileInputExists: !!prFileEl,
+    fileFound: !!prFile,
+    fileName: prFile?.name || "(없음)",
+    pjcode: pjcode || "(빈값)",
+    hasUploadFn: typeof _uploadDocToSP === "function",
+    source: prFileEl?.files?.[0] ? "input" : (window._aiParsedFile_pr ? "AI 파싱 백업" : "(없음)"),
+  });
+  
   if(prFile && typeof _uploadDocToSP === "function") {
     try {
       console.log(`📤 구매요청서 원본 PDF SP 업로드 시작: ${prFile.name}`);
@@ -23340,18 +23456,21 @@ async function saveSLActivity() {
         act.prFilePath = upRes.path;
         console.log(`✅ 구매요청서 원본 SP 업로드 완료: ${upRes.path}`);
       } else {
-        console.warn(`⚠️ 구매요청서 SP 업로드 실패: ${upRes.error}`);
+        console.warn(`⚠️ 구매요청서 SP 업로드 실패: ${upRes.error || "(에러 없음)"}`);
       }
     } catch(uperr) {
-      console.warn(`⚠️ 구매요청서 업로드 에러:`, uperr.message);
+      console.error(`❌ 구매요청서 업로드 예외:`, uperr.message);
     }
-  } else if(slEditId) {
+  } else if(!prFile && !slEditId) {
+    console.warn(`⚠️ 구매요청서: 신규인데 PDF 파일 없음 (백업도 없음)`);
+  } else if(!prFile && slEditId) {
     // 수정 모드 + 파일 재첨부 안 함 → 기존 파일 정보 유지
     const old = slData.find(x => x.id === slEditId);
     if(old?.prFileUrl) {
       act.prFileUrl = old.prFileUrl;
       act.prFileName = old.prFileName;
       act.prFilePath = old.prFilePath;
+      console.log(`📝 구매요청서 수정 모드 - 기존 파일 정보 유지: ${old.prFileName}`);
     }
   }
 
@@ -28892,6 +29011,238 @@ async function renderFilePreview(file, containerId) {
 // 모달 미리보기 초기화
 function clearFilePreview(containerId) {
   renderFilePreview(null, containerId);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 저장된 SP URL로 미리보기 로드 (인라인 패널용)
+// containerId: pq-preview-pane / order-preview-pane / pdlv-preview-pane / ptax-preview-pane / stl-preview-pane
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function renderUrlPreview(fileUrl, fileName, containerId) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  if(!fileUrl) {
+    renderFilePreview(null, containerId);
+    return;
+  }
+  
+  // 로딩 표시
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--t3);font-size:13px">
+    <div class="spr" style="margin-right:8px"></div>저장된 PDF 로딩 중...
+  </div>`;
+  
+  try {
+    // SharePoint URL은 인증 필요 - Graph API로 파일 받아서 Blob → File 객체로 변환 후 renderFilePreview
+    const t = await getToken();
+    
+    // fileUrl이 SharePoint webUrl이면 Graph API 경로로 변환 필요
+    // 우선 fetch 시도 (CORS 가능하면)
+    let blob = null;
+    try {
+      // Graph API로 시도 - sharePoint 파일은 보통 SharePoint API 사용
+      // webUrl로 직접 fetch 시도 → 실패 시 iframe으로 폴백
+      const r = await fetch(fileUrl, {
+        headers: t ? { "Authorization": "Bearer " + t } : {},
+        credentials: "include"
+      });
+      if(r.ok) {
+        blob = await r.blob();
+      }
+    } catch(e) {
+      console.warn("fetch 실패, iframe 폴백:", e.message);
+    }
+    
+    if(blob && blob.size > 0) {
+      // 성공 → File 객체로 변환 후 renderFilePreview
+      const file = new File([blob], fileName || "file.pdf", { type: blob.type || "application/pdf" });
+      await renderFilePreview(file, containerId);
+    } else {
+      // iframe 폴백
+      const displayName = fileName || "PDF";
+      container.innerHTML = `
+        <div style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:11px;color:var(--t3);font-weight:700;display:flex;align-items:center;gap:6px">
+          <span style="max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${escapeHtml(displayName)}</span>
+          <a href="${fileUrl}" target="_blank" style="margin-left:auto;color:var(--p);font-size:11px;font-weight:700;background:var(--pd);padding:3px 8px;border-radius:6px;text-decoration:none;white-space:nowrap">🔗 새창에서 열기</a>
+        </div>
+        <iframe src="${fileUrl}" style="width:100%;height:calc(100% - 32px);border:none;background:#fff" loading="lazy"></iframe>
+      `;
+    }
+  } catch(e) {
+    console.warn("URL 미리보기 실패:", e.message);
+    container.innerHTML = `
+      <div style="padding:30px;text-align:center;color:var(--t3)">
+        <div style="font-size:36px;margin-bottom:10px;opacity:0.5">📄</div>
+        <div style="font-weight:700;color:var(--t2);font-size:13px;margin-bottom:6px">${escapeHtml(fileName||"저장된 파일")}</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:10px">미리보기 로드 실패</div>
+        <a href="${fileUrl}" target="_blank" style="display:inline-block;padding:7px 14px;background:var(--p);color:#fff;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700">🔗 SharePoint에서 열기</a>
+      </div>
+    `;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 공용 PDF 미리보기 모달 (구매요청서 PDF 별도 창으로 띄우기)
+// 사용: openPDFPreviewModal("https://...", "1.구매요청서.pdf")
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function openPDFPreviewModal(fileUrl, fileName) {
+  if(!fileUrl) { alert("파일 URL이 없습니다."); return; }
+  let modal = document.getElementById("commonPDFPreviewModal");
+  if(!modal) {
+    modal = document.createElement("div");
+    modal.id = "commonPDFPreviewModal";
+    modal.style.cssText = "display:flex;position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:10010;align-items:center;justify-content:center;backdrop-filter:blur(6px)";
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;width:90vw;max-width:1100px;height:90vh;max-height:900px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+        <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+            <span style="font-size:22px">📄</span>
+            <div style="min-width:0">
+              <div style="font-size:15px;font-weight:900;color:#1e40af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="commonPDFPreviewName">파일</div>
+              <div style="font-size:11px;color:var(--t3)">SharePoint에 저장된 원본 PDF</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+            <a id="commonPDFPreviewOpenLink" href="#" target="_blank" style="padding:6px 12px;background:var(--p);color:#fff;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700">🔗 새창에서 열기</a>
+            <button onclick="closePDFPreviewModal()" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:var(--t3)">✕</button>
+          </div>
+        </div>
+        <div id="commonPDFPreviewPane" style="flex:1;background:#f8fafc;overflow:auto;min-height:0;display:flex;flex-direction:column">
+        </div>
+      </div>
+    `;
+    modal.onclick = (e) => { if(e.target === modal) closePDFPreviewModal(); };
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = "flex";
+  }
+  document.getElementById("commonPDFPreviewName").textContent = fileName || "PDF";
+  document.getElementById("commonPDFPreviewOpenLink").href = fileUrl;
+  // 컨테이너로 미리보기 로드
+  renderUrlPreview(fileUrl, fileName, "commonPDFPreviewPane");
+}
+
+function closePDFPreviewModal() {
+  const modal = document.getElementById("commonPDFPreviewModal");
+  if(modal) modal.style.display = "none";
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 DB 행 영구 삭제 공용 함수
+// dbType: "pr" | "quote" | "order" | "delivery" | "tax" | "settle" | "bom"
+// itemId: 삭제할 ID
+// itemLabel: 사용자에게 보여줄 식별자 (예: PR 코드, 발주번호)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function deleteDBRow(dbType, itemId, itemLabel) {
+  const labelMap = {
+    "pr": "구매요청서",
+    "quote": "견적서",
+    "order": "발주서",
+    "delivery": "거래명세서",
+    "tax": "세금계산서",
+    "settle": "회계전표",
+    "bom": "BOM",
+  };
+  const label = labelMap[dbType] || dbType;
+  
+  if(!confirm(`⚠️ ${label} "${itemLabel || itemId}" 항목을 영구 삭제할까요?\n\n이 작업은 되돌릴 수 없으며, SharePoint의 DB에서도 제거됩니다.\n(원본 PDF 파일은 SP에 그대로 남아있습니다)`)) {
+    return false;
+  }
+  
+  // 두 번째 확인
+  if(!confirm(`정말 삭제하시겠어요?\n\n"${itemLabel || itemId}"`)) {
+    return false;
+  }
+  
+  try {
+    // 메모리 배열에서 제거
+    const arrayMap = {
+      "pr":       () => _prMaster,
+      "quote":    () => _pqdbData,
+      "order":    () => _pordData,
+      "delivery": () => _pdlvData,
+      "tax":      () => _ptaxData,
+      "settle":   () => _pstlData,
+      "bom":      () => _bomData,
+    };
+    const setterMap = {
+      "pr":       (v) => { _prMaster = v; },
+      "quote":    (v) => { _pqdbData = v; },
+      "order":    (v) => { _pordData = v; },
+      "delivery": (v) => { _pdlvData = v; },
+      "tax":      (v) => { _ptaxData = v; },
+      "settle":   (v) => { _pstlData = v; },
+      "bom":      (v) => { _bomData = v; },
+    };
+    const arr = arrayMap[dbType]?.();
+    if(!arr || !Array.isArray(arr)) { alert("DB 배열을 찾을 수 없어요"); return false; }
+    
+    const idField = dbType === "pr" ? "prCode" : (dbType === "bom" ? "bomCode" : "id");
+    const filtered = arr.filter(x => (x.id !== itemId && x[idField] !== itemId));
+    if(filtered.length === arr.length) { console.warn(`${dbType}: 삭제 대상 못 찾음:`, itemId); }
+    setterMap[dbType](filtered);
+    
+    // SP 저장
+    const saveMap = {
+      "pr":       () => savePRMaster(),
+      "quote":    () => savePQDB(),
+      "order":    () => savePORD(),
+      "delivery": () => savePDLV(),
+      "tax":      () => savePTAX(),
+      "settle":   () => savePSTL(),
+      "bom":      () => saveBOMDB(),
+    };
+    if(saveMap[dbType]) {
+      await saveMap[dbType]();
+    }
+    
+    // 렌더 갱신
+    const renderMap = {
+      "pr":       () => typeof renderPRDB === "function" && renderPRDB(),
+      "quote":    () => typeof renderPQDB === "function" && renderPQDB(),
+      "order":    () => typeof renderPORD === "function" && renderPORD(),
+      "delivery": () => typeof renderPDLV === "function" && renderPDLV(),
+      "tax":      () => typeof renderPTAX === "function" && renderPTAX(),
+      "settle":   () => typeof renderPSTL === "function" && renderPSTL(),
+      "bom":      () => typeof renderBOMDB === "function" && renderBOMDB(),
+    };
+    if(renderMap[dbType]) renderMap[dbType]();
+    if(typeof updateAllBadges === "function") updateAllBadges();
+    if(typeof renderSLAll === "function") renderSLAll();  // 구매활동 목록 카운트 갱신
+    
+    console.log(`✅ ${label} 삭제 완료: ${itemLabel || itemId}`);
+    return true;
+  } catch(e) {
+    console.error("삭제 실패:", e);
+    alert("⚠️ 삭제 실패: " + e.message);
+    return false;
+  }
+}
+
+// 🆕 ID만으로 삭제 (라벨 자동 추출)
+async function deleteDBRowById(dbType, itemId) {
+  const arrMap = {
+    "pr":       () => _prMaster,
+    "quote":    () => _pqdbData,
+    "order":    () => _pordData,
+    "delivery": () => _pdlvData,
+    "tax":      () => _ptaxData,
+    "settle":   () => _pstlData,
+    "bom":      () => _bomData,
+  };
+  const arr = arrMap[dbType]?.();
+  if(!arr) { alert("DB 배열 없음"); return; }
+  const item = arr.find(x => x.id === itemId || x.prCode === itemId || x.bomCode === itemId);
+  // 라벨은 DB별로 가장 식별성 있는 필드
+  const labelMap = {
+    "pr":       (x) => x?.prCode || x?.itemName,
+    "quote":    (x) => x?.quoteNo || x?.vendor,
+    "order":    (x) => x?.poCode || x?.vendor,
+    "delivery": (x) => x?.dlvNo || x?.vendor,
+    "tax":      (x) => x?.taxNo || x?.vendor,
+    "settle":   (x) => x?.docNo || x?.stNo || x?.vendor,
+    "bom":      (x) => x?.bomCode || x?.bomName,
+  };
+  const label = labelMap[dbType]?.(item) || itemId;
+  return deleteDBRow(dbType, itemId, label);
 }
 
 async function extractPdfText(base64) {
