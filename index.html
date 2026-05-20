@@ -4808,6 +4808,9 @@ function openPurchaseQuoteModal(id) {
   const modal = document.getElementById("purchaseQuoteModal");
   if(!modal) { alert("모달 DOM 없음"); return; }
   
+  // 🆕 모달 body 직속으로 이동 (nesting 문제 방지)
+  if(modal.parentElement !== document.body) document.body.appendChild(modal);
+  
   // 거래처 datalist 채우기 (vendorData에서)
   const vlist = document.getElementById("pq-vendor-list");
   if(vlist && Array.isArray(vendorData)) {
@@ -4818,6 +4821,22 @@ function openPurchaseQuoteModal(id) {
   
   // 필드 초기화 또는 기존 데이터 로드
   const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
+  
+  // 🆕 AI 파싱 상태 초기화
+  window._aiParsed_pq = false;
+  window._aiParsing_pq = false;
+  const statusEl = document.getElementById("pq-parse-status");
+  if(statusEl) statusEl.innerHTML = "";
+  
+  // 🆕 미리보기 영역 초기화
+  const previewPane = document.getElementById("pq-preview-pane");
+  if(previewPane) {
+    previewPane.innerHTML = `<div style="padding:60px 30px;text-align:center;color:var(--t3)">
+      <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+      <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+      <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면<br>여기에 표시되고 AI 파싱이 자동 시작됩니다</div>
+    </div>`;
+  }
   
   if(id) {
     // 수정 모드
@@ -4832,17 +4851,21 @@ function openPurchaseQuoteModal(id) {
     setField("pq-f-date", d.quoteDate);
     setField("pq-f-valid", d.validUntil);
     setField("pq-f-delivery", d.deliveryDate);
+    setField("pq-f-leaddays", d.leadDays || "");
     setField("pq-f-items", d.items);
     setField("pq-f-supply", d.supplyAmount);
     setField("pq-f-vat", d.vatAmount);
     setField("pq-f-total", d.totalAmount);
     setField("pq-f-status", d.status || "검토중");
     setField("pq-f-note", d.note);
+    // 🆕 품목 배열 + VAT 모드 복원
+    initPQItems(d.itemList || []);
+    setPQVatMode(d.vatMode || "separate");
   } else {
     // 신규 모드
     document.getElementById("pqModalTitle").textContent = "📄 매입 견적서 수신";
     const today = new Date().toISOString().slice(0,10);
-    ["pq-f-prcode","pq-f-salescode","pq-f-vendor","pq-f-quoteno","pq-f-items","pq-f-note"].forEach(id => setField(id, ""));
+    ["pq-f-prcode","pq-f-salescode","pq-f-vendor","pq-f-quoteno","pq-f-items","pq-f-note","pq-f-leaddays"].forEach(id => setField(id, ""));
     setField("pq-f-date", today);
     setField("pq-f-valid", "");
     setField("pq-f-delivery", "");
@@ -4856,6 +4879,10 @@ function openPurchaseQuoteModal(id) {
     if(window._currentSLActPjcode) {
       setField("pq-f-salescode", window._currentSLActPjcode);
     }
+    
+    // 🆕 품목 그리드 + VAT 모드 초기화
+    initPQItems([]);
+    setPQVatMode("separate");
   }
   
   // 파일 정보 초기화
@@ -4871,6 +4898,10 @@ function closePurchaseQuoteModal() {
   const modal = document.getElementById("purchaseQuoteModal");
   if(modal) modal.style.display = "none";
   _pqEditId = null;
+  // 🆕 품목 + AI 파싱 상태 초기화
+  if(typeof clearPQItems === "function") clearPQItems();
+  window._aiParsed_pq = false;
+  window._aiParsing_pq = false;
 }
 
 // 공급가 입력 시 VAT 자동 계산 (10%)
@@ -4952,31 +4983,60 @@ async function _purchasePreviewPdf(prefix) {
   }
 }
 
-// 5개 모달 모두 파일 input change 이벤트 자동 미리보기 연결
+// 5개 모달 모두 파일 input change 이벤트 - 미리보기 + AI 파싱 자동
 window.addEventListener("DOMContentLoaded", () => {
-  ["pq","po","pdlv","ptax","stl"].forEach(prefix => {
-    const fInput = document.getElementById(`${prefix}-f-file`);
+  const modalConfig = [
+    { prefix: "pq", docType: "quote", label: "견적서" },
+    { prefix: "po", docType: "order", label: "발주서" },
+    { prefix: "pdlv", docType: "delivery", label: "거래명세서" },
+    { prefix: "ptax", docType: "tax", label: "세금계산서" },
+    { prefix: "stl", docType: "settle", label: "회계전표" },
+  ];
+  modalConfig.forEach(cfg => {
+    const fInput = document.getElementById(`${cfg.prefix}-f-file`);
     if(fInput) {
-      fInput.addEventListener("change", () => _purchasePreviewPdf(prefix));
+      fInput.addEventListener("change", async () => {
+        const file = fInput.files?.[0];
+        if(!file) return;
+        // 🆕 AI 파싱 안 한 상태 표시 초기화
+        window[`_aiParsed_${cfg.prefix}`] = false;
+        // 1. PDF 미리보기 즉시
+        await _purchasePreviewPdf(cfg.prefix);
+        // 2. AI 파싱 자동 시작
+        await _purchaseAIParse(cfg.prefix, cfg.docType, true);  // 3번째 인자: auto=true
+      });
     }
   });
 });
 
-// 공통 AI 파싱 (PDF 첨부 후 [AI 파싱] 버튼)
-async function _purchaseAIParse(prefix, docType) {
+// 공통 AI 파싱 (파일 첨부 시 자동 호출 또는 [AI 파싱] 버튼)
+async function _purchaseAIParse(prefix, docType, auto) {
   const fileInput = document.getElementById(`${prefix}-f-file`);
   const status = document.getElementById(`${prefix}-parse-status`);
   const file = fileInput?.files?.[0];
-  if(!file) { alert("PDF 파일을 먼저 첨부해주세요."); return; }
+  if(!file) { 
+    if(!auto) alert("PDF 파일을 먼저 첨부해주세요.");
+    return;
+  }
   
-  const setStatus = (msg, color) => {
+  // 🆕 진행 상태 UI 표시 (큰 배너)
+  const showProgress = (msg, color, withSpinner) => {
     if(status) {
-      status.textContent = msg;
-      status.style.color = color || "var(--t3)";
+      const spinner = withSpinner ? '<span style="display:inline-block;animation:spin 1s linear infinite">⏳</span> ' : '';
+      status.innerHTML = `<div style="padding:8px 12px;background:${color}15;border-left:3px solid ${color};border-radius:6px;font-size:12px;color:${color};font-weight:700">${spinner}${msg}</div>`;
     }
   };
   
-  setStatus("🔄 AI 호출 중...", "var(--t2)");
+  // 🆕 CSS spin 애니메이션 (한 번만)
+  if(!document.getElementById("_spinKeyframes")) {
+    const styleEl = document.createElement("style");
+    styleEl.id = "_spinKeyframes";
+    styleEl.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+    document.head.appendChild(styleEl);
+  }
+  
+  showProgress("🔄 AI 파싱 중... (3~10초 소요)", "#2563eb", true);
+  window[`_aiParsing_${prefix}`] = true;
   
   try {
     // base64로 변환
@@ -4989,8 +5049,23 @@ async function _purchaseAIParse(prefix, docType) {
     
     // docType별 프롬프트
     const prompts = {
-      quote: `이 매입 견적서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
-{"vendor":"거래처명","quoteNo":"견적번호","quoteDate":"YYYY-MM-DD","validUntil":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+      quote: `이 매입 견적서 PDF에서 정보를 JSON으로 추출. 반드시 JSON만 출력 (코드블록/주석 없이):
+{
+  "vendor": "거래처명(공급자/Sender)",
+  "quoteNo": "견적번호(Quotation No)",
+  "quoteDate": "YYYY-MM-DD (견적일/Quotation Date)",
+  "validUntil": "YYYY-MM-DD (유효기간, 없으면 null)",
+  "leadDays": 숫자 (PO 이후 N일 납기, 예: '주문 후 14일'→14. 명시 없으면 null),
+  "vatMode": "separate(VAT별도) 또는 included(VAT포함)",
+  "itemList": [
+    {"name":"품명1","unit":"EA","qty":2,"unitPrice":400000},
+    {"name":"품명2","unit":"식","qty":2,"unitPrice":290000}
+  ],
+  "supplyAmount": 공급가액숫자,
+  "vatAmount": VAT숫자(별도면 공급가의10%, 포함이면 0),
+  "totalAmount": 총액숫자
+}
+주의: itemList는 PDF 표의 모든 행을 빠짐없이 추출. 수량(Quantity)과 단가(Price)는 숫자만 (콤마 제거). 합계(Amount)는 qty*unitPrice로 자동 계산되므로 itemList엔 포함 안 함.`,
       order: `이 매입 발주서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
 {"vendor":"거래처명","poDate":"YYYY-MM-DD","deliveryDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자,"payTerm":"결제조건"}`,
       delivery: `이 거래명세서/입고증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
@@ -5004,19 +5079,24 @@ async function _purchaseAIParse(prefix, docType) {
     
     // _purchaseBestEngine + _purchaseCallAI 사용 (구매요청서와 동일한 흐름)
     let result = null;
+    let usedEngine = "";
     if(typeof _purchaseBestEngine === "function" && typeof _purchaseCallAI === "function") {
       const engine = _purchaseBestEngine();
-      setStatus(`🤖 ${engine === "gemini" ? "Gemini" : engine === "openai" ? "OpenAI" : "Copilot"} 호출 중...`, "var(--t2)");
+      const engineName = engine === "gemini" ? "Gemini Flash" : engine === "openai" ? "OpenAI" : "Copilot";
+      showProgress(`🤖 ${engineName} 호출 중...`, "#2563eb", true);
       try {
         result = await _purchaseCallAI(base64, prompt, engine);
+        usedEngine = engineName;
       } catch(e) {
         console.warn(`${engine} 실패, 폴백:`, e.message);
         // 폴백: 다른 엔진들 차례대로
         const fallbacks = ["gemini", "copilot", "openai"].filter(x => x !== engine);
         for(const fb of fallbacks) {
           try {
-            setStatus(`🤖 ${fb} 폴백...`, "var(--t2)");
+            const fbName = fb === "gemini" ? "Gemini" : fb === "openai" ? "OpenAI" : "Copilot";
+            showProgress(`🔄 ${fbName} 폴백 중...`, "#f59e0b", true);
             result = await _purchaseCallAI(base64, prompt, fb);
+            usedEngine = fbName;
             if(result) break;
           } catch(e2) { console.warn(`${fb} 실패:`, e2.message); }
         }
@@ -5024,18 +5104,20 @@ async function _purchaseAIParse(prefix, docType) {
     }
     
     if(!result || typeof result !== "object") {
-      setStatus("⚠️ AI 응답 없음 - 수동 입력 필요", "var(--a)");
+      showProgress("⚠️ AI 응답 없음 - 직접 입력해주세요", "#f59e0b", false);
+      window[`_aiParsing_${prefix}`] = false;
+      window[`_aiParsed_${prefix}`] = false;
       return;
     }
     
     // 결과를 폼에 자동 채움
-    const fillIfEmpty = (id, val) => {
-      const el = document.getElementById(id);
-      if(el && !el.value && val !== undefined && val !== null && val !== "") el.value = val;
-    };
     const fillForce = (id, val) => {
       const el = document.getElementById(id);
       if(el && val !== undefined && val !== null && val !== "") el.value = val;
+    };
+    const fillIfEmpty = (id, val) => {
+      const el = document.getElementById(id);
+      if(el && !el.value && val !== undefined && val !== null && val !== "") el.value = val;
     };
     
     // 공통 필드
@@ -5043,8 +5125,8 @@ async function _purchaseAIParse(prefix, docType) {
     if(result.items) fillIfEmpty(`${prefix}-f-items`, result.items);
     
     // 금액
-    if(result.supplyAmount) { fillForce(`${prefix}-f-supply`, result.supplyAmount); _purchaseCalcTotal(prefix); }
-    if(result.vatAmount) fillForce(`${prefix}-f-vat`, result.vatAmount);
+    if(result.supplyAmount) { fillForce(`${prefix}-f-supply`, result.supplyAmount); }
+    if(result.vatAmount !== undefined && result.vatAmount !== null) fillForce(`${prefix}-f-vat`, result.vatAmount);
     if(result.totalAmount) fillForce(`${prefix}-f-total`, result.totalAmount);
     
     // 문서별 필드
@@ -5052,6 +5134,17 @@ async function _purchaseAIParse(prefix, docType) {
       if(result.quoteNo) fillForce(`${prefix}-f-quoteno`, result.quoteNo);
       if(result.quoteDate) fillForce(`${prefix}-f-date`, result.quoteDate);
       if(result.validUntil) fillForce(`${prefix}-f-valid`, result.validUntil);
+      // 🆕 견적서 - 품목 배열 + 납기일 + VAT 모드
+      if(result.leadDays !== undefined && result.leadDays !== null) {
+        fillForce(`${prefix}-f-leaddays`, result.leadDays);
+      }
+      if(result.vatMode && typeof setPQVatMode === "function") {
+        setPQVatMode(result.vatMode === "included" ? "included" : "separate");
+      }
+      if(Array.isArray(result.itemList) && result.itemList.length > 0 && typeof initPQItems === "function") {
+        initPQItems(result.itemList);
+        console.log(`✅ 견적 품목 ${result.itemList.length}건 자동 입력`);
+      }
     } else if(docType === "order") {
       if(result.poDate) fillForce(`${prefix}-f-date`, result.poDate);
       if(result.deliveryDate) fillForce(`${prefix}-f-delivery`, result.deliveryDate);
@@ -5066,12 +5159,73 @@ async function _purchaseAIParse(prefix, docType) {
       if(result.entryDate) fillForce(`${prefix}-f-date`, result.entryDate);
     }
     
-    setStatus(`✅ AI 파싱 완료: ${file.name}`, "var(--g)");
+    // 견적서가 아닌 경우만 _purchaseCalcTotal 호출 (견적서는 renderPQItems가 처리)
+    if(docType !== "quote" && result.supplyAmount) {
+      _purchaseCalcTotal(prefix);
+    }
+    
+    showProgress(`✅ AI 파싱 완료 (${usedEngine}) - 아래 결과를 면밀히 검토 후 저장하세요`, "#16a34a", false);
+    window[`_aiParsing_${prefix}`] = false;
+    window[`_aiParsed_${prefix}`] = true;
     console.log(`✅ ${docType} AI 파싱 결과:`, result);
+    
+    // 🆕 검토 알림 (modal 띄움)
+    setTimeout(() => {
+      _showAIReviewAlert(prefix, docType, result);
+    }, 300);
   } catch(e) {
     console.error(`AI 파싱 실패 (${docType}):`, e);
-    setStatus("❌ AI 파싱 실패: " + e.message, "var(--r)");
+    showProgress("❌ AI 파싱 실패: " + e.message + " - 직접 입력해주세요", "#dc2626", false);
+    window[`_aiParsing_${prefix}`] = false;
+    window[`_aiParsed_${prefix}`] = false;
   }
+}
+
+// 🆕 AI 판독 결과 검토 알림 모달
+function _showAIReviewAlert(prefix, docType, result) {
+  const labels = {
+    quote: "견적서", order: "발주서", delivery: "거래명세서",
+    tax: "세금계산서", settle: "회계전표",
+  };
+  const label = labels[docType] || "문서";
+  
+  // 기존 모달 있으면 제거
+  const existing = document.getElementById("_aiReviewAlertModal");
+  if(existing) existing.remove();
+  
+  const modal = document.createElement("div");
+  modal.id = "_aiReviewAlertModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)";
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:32px 36px;max-width:480px;width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="text-align:center">
+        <div style="font-size:56px;margin-bottom:14px">⚠️</div>
+        <div style="font-size:22px;font-weight:900;color:var(--t);margin-bottom:10px">AI 판독 결과를 면밀히 검토하세요</div>
+        <div style="font-size:14px;color:var(--t2);line-height:1.6;margin-bottom:20px">
+          AI가 ${label} PDF에서 정보를 추출했습니다.<br>
+          <b style="color:var(--r)">반드시 직접 확인하고 수정</b>한 후 저장해주세요.
+        </div>
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:left">
+          <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:6px">📋 확인 항목</div>
+          <div style="font-size:12px;color:#78350f;line-height:1.7">
+            ✓ 거래처명이 정확한가요?<br>
+            ✓ 번호/날짜가 PDF와 일치하나요?<br>
+            ✓ <b>금액 (공급가/VAT/총액)이 정확한가요?</b><br>
+            ✓ 품목 정보가 빠짐없이 들어갔나요?
+          </div>
+        </div>
+        <button onclick="document.getElementById('_aiReviewAlertModal').remove()" 
+          style="padding:11px 32px;border-radius:10px;border:none;background:var(--p);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">
+          확인 - 검토 시작
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  // 배경 클릭으로 닫기
+  modal.addEventListener("click", (e) => {
+    if(e.target === modal) modal.remove();
+  });
 }
 
 function aiPQParse(){ _purchaseAIParse("pq", "quote"); }
@@ -5080,13 +5234,212 @@ function aiPDLVParse(){ _purchaseAIParse("pdlv", "delivery"); }
 function aiPTAXParse(){ _purchaseAIParse("ptax", "tax"); }
 function aiStlParse(){ _purchaseAIParse("stl", "settle"); }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📄 매입 견적서 - 품목 그리드 + VAT 토글 + 자동 합계
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 견적서 품목 배열 (전역)
+let _pqItems = [];
+
+// 품목 그리드 렌더링
+function renderPQItems() {
+  const body = document.getElementById("pq-items-body");
+  if(!body) return;
+  
+  if(!_pqItems.length) {
+    body.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--t3);font-size:12px">
+      <div style="font-size:36px;margin-bottom:8px;opacity:0.4">📦</div>
+      품목이 없습니다<br>
+      <span style="font-size:11px">PDF 첨부 → AI 파싱이 자동으로 품목을 채웁니다</span>
+    </div>`;
+    document.getElementById("pqItemCount").textContent = "0";
+    document.getElementById("pqTotalQty").textContent = "0";
+    return;
+  }
+  
+  body.innerHTML = _pqItems.map((it, i) => {
+    const qty = Number(it.qty) || 0;
+    const unitPrice = Number(it.unitPrice) || 0;
+    const total = qty * unitPrice;
+    const safeName = (it.name || "").replace(/"/g, "&quot;");
+    const safeUnit = (it.unit || "EA").replace(/"/g, "&quot;");
+    return `<div style="display:grid;grid-template-columns:30px 1fr 60px 70px 90px 100px 30px;gap:4px;align-items:center;padding:4px 10px;border-bottom:1px solid var(--border);${i%2 ? 'background:#fafbfc' : ''}">
+      <div style="text-align:center;font-size:10px;color:var(--t3);font-weight:700">${i+1}</div>
+      <input type="text" value="${safeName}" oninput="updatePQItem(${i},'name',this.value)" 
+        placeholder="품명" style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;font-weight:600">
+      <input type="text" value="${safeUnit}" oninput="updatePQItem(${i},'unit',this.value)" 
+        style="padding:4px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:center;box-sizing:border-box;font-family:var(--m)">
+      <input type="number" value="${qty}" min="0" step="1" oninput="updatePQItem(${i},'qty',this.value)" 
+        style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);font-weight:700">
+      <input type="number" value="${unitPrice||''}" min="0" step="1" placeholder="단가" oninput="updatePQItem(${i},'unitPrice',this.value)" 
+        style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);background:${unitPrice>0 ? '#fef9c3' : '#fff'}">
+      <div style="padding:4px 6px;text-align:right;font-family:var(--m);font-size:11px;font-weight:700;color:${total>0 ? 'var(--p)' : 'var(--t3)'};background:#f8fafc;border-radius:4px">${total > 0 ? total.toLocaleString() : '-'}</div>
+      <button type="button" onclick="removePQItem(${i})" title="이 행 삭제" style="border:none;background:transparent;color:var(--r);cursor:pointer;font-size:13px;padding:0;font-weight:700">×</button>
+    </div>`;
+  }).join("");
+  
+  document.getElementById("pqItemCount").textContent = _pqItems.length;
+  
+  // 합계 계산
+  const totalQty = _pqItems.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  const totalSupply = _pqItems.reduce((s, it) => s + (Number(it.qty)||0) * (Number(it.unitPrice)||0), 0);
+  document.getElementById("pqTotalQty").textContent = totalQty;
+  document.getElementById("pq-f-supply").value = totalSupply;
+  
+  // VAT 모드에 따라 VAT 자동
+  recalcPQTotal();
+  
+  // 호환용 items 텍스트 필드 자동 채움
+  const itemsText = _pqItems.map(it => it.name).filter(Boolean).slice(0,3).join(", ") + 
+                    (_pqItems.length > 3 ? ` 외 ${_pqItems.length-3}품목` : "");
+  const itemsHidden = document.getElementById("pq-f-items");
+  if(itemsHidden) itemsHidden.value = itemsText;
+}
+
+function updatePQItem(idx, field, value) {
+  if(!_pqItems[idx]) return;
+  if(field === "qty" || field === "unitPrice") {
+    _pqItems[idx][field] = Number(value) || 0;
+    // 합계 갱신 (해당 행만 자동 표시 + 전체 합계 갱신)
+    renderPQItems();
+  } else {
+    _pqItems[idx][field] = value;
+  }
+}
+
+function removePQItem(idx) {
+  _pqItems.splice(idx, 1);
+  renderPQItems();
+}
+
+function addPQItem() {
+  _pqItems.push({ name: "", unit: "EA", qty: 1, unitPrice: 0 });
+  renderPQItems();
+}
+
+// VAT 토글
+function setPQVatMode(mode) {
+  document.getElementById("pq-f-vat-mode").value = mode;
+  const sepBtn = document.getElementById("pq-vat-mode-separate");
+  const incBtn = document.getElementById("pq-vat-mode-included");
+  const vatLabel = document.getElementById("pq-vat-label");
+  const vatInput = document.getElementById("pq-f-vat");
+  
+  if(mode === "separate") {
+    sepBtn.style.background = "#dc2626"; sepBtn.style.color = "#fff";
+    incBtn.style.background = "transparent"; incBtn.style.color = "var(--t2)";
+    if(vatLabel) vatLabel.textContent = "VAT 10% (별도)";
+    if(vatInput) vatInput.readOnly = false;
+  } else {
+    sepBtn.style.background = "transparent"; sepBtn.style.color = "var(--t2)";
+    incBtn.style.background = "#16a34a"; incBtn.style.color = "#fff";
+    if(vatLabel) vatLabel.textContent = "VAT 포함 (0)";
+    if(vatInput) { vatInput.value = 0; vatInput.readOnly = true; }
+  }
+  recalcPQTotal();
+}
+
+// 총액 재계산 (공급가 + VAT)
+function recalcPQTotal() {
+  const supply = Number(document.getElementById("pq-f-supply")?.value || 0);
+  const vatMode = document.getElementById("pq-f-vat-mode")?.value || "separate";
+  const vatEl = document.getElementById("pq-f-vat");
+  const totalEl = document.getElementById("pq-f-total");
+  
+  let vat = 0;
+  if(vatMode === "separate") {
+    // 별도 모드: VAT 입력란이 비어있으면 자동 10%
+    if(vatEl && !vatEl.dataset.manual && (!vatEl.value || Number(vatEl.value) === 0)) {
+      vat = Math.round(supply * 0.1);
+      vatEl.value = vat;
+    } else {
+      vat = Number(vatEl?.value || 0);
+    }
+  } else {
+    // 포함 모드: VAT 0
+    vat = 0;
+    if(vatEl) vatEl.value = 0;
+  }
+  
+  if(totalEl) totalEl.value = supply + vat;
+}
+
+// VAT 수동 수정 감지
+window.addEventListener("DOMContentLoaded", () => {
+  const vatEl = document.getElementById("pq-f-vat");
+  if(vatEl) {
+    vatEl.addEventListener("input", () => {
+      vatEl.dataset.manual = "1";
+    });
+  }
+});
+
+// 견적서 모달 초기화 (open 시 호출)
+function initPQItems(items) {
+  _pqItems = Array.isArray(items) ? items.map(it => ({
+    name: it.name || it.itemName || "",
+    unit: it.unit || "EA",
+    qty: Number(it.qty) || 1,
+    unitPrice: Number(it.unitPrice || it.price) || 0,
+  })) : [];
+  renderPQItems();
+}
+
+// 견적서 모달 비우기 (close 시)
+function clearPQItems() {
+  _pqItems = [];
+  const vatEl = document.getElementById("pq-f-vat");
+  if(vatEl) delete vatEl.dataset.manual;
+  setPQVatMode("separate");
+  renderPQItems();
+}
+
+
 // 모달 close 함수 별칭 (HTML onclick 호환)
 function closePQModal(){ if(typeof closePurchaseQuoteModal==="function") closePurchaseQuoteModal(); else { const m=document.getElementById("purchaseQuoteModal"); if(m) m.style.display="none"; } }
 function closePOModal(){ if(typeof closePurchaseOrderModal==="function") closePurchaseOrderModal(); else { const m=document.getElementById("purchaseOrderModal"); if(m) m.style.display="none"; } }
 function closePDLVModal(){ if(typeof closePurchaseDeliveryModal==="function") closePurchaseDeliveryModal(); else { const m=document.getElementById("purchaseDeliveryModal"); if(m) m.style.display="none"; } }
 function closePTAXModal(){ if(typeof closePurchaseTaxModal==="function") closePurchaseTaxModal(); else { const m=document.getElementById("purchaseTaxModal"); if(m) m.style.display="none"; } }
 
+// 🆕 save 가드 - AI 파싱 안 했으면 저장 차단 (수정 모드는 통과)
+function _purchaseGuardSave(prefix, label) {
+  // 수정 모드(_pqEditId, _poEditId 등) 있으면 가드 해제
+  const editIdVars = { pq: "_pqEditId", po: "_poEditId", pdlv: "_pdlvEditId", ptax: "_ptaxEditId", stl: "_stlEditId" };
+  const editIdVar = editIdVars[prefix];
+  if(editIdVar && window[editIdVar]) return true;  // 수정 모드 - 통과
+  
+  // AI 파싱 중이면 차단
+  if(window[`_aiParsing_${prefix}`]) {
+    alert(`⏳ AI 파싱이 진행 중입니다.\n잠시 후 다시 시도해주세요.`);
+    return false;
+  }
+  
+  // 파일 첨부됐는데 AI 파싱 안 했으면 차단
+  const fileInput = document.getElementById(`${prefix}-f-file`);
+  const hasFile = fileInput?.files?.[0];
+  const isParsed = window[`_aiParsed_${prefix}`];
+  
+  if(hasFile && !isParsed) {
+    alert(`⚠️ ${label} PDF가 첨부됐지만 AI 파싱이 완료되지 않았습니다.\n\n[🤖 AI 파싱] 버튼을 눌러 파싱을 완료한 후 저장해주세요.\n또는 파일을 다시 선택하면 자동으로 파싱됩니다.`);
+    return false;
+  }
+  
+  // 파일 없이 저장 시도하는 경우 - 한 번 더 확인
+  if(!hasFile) {
+    if(!confirm(`📎 ${label} PDF가 첨부되지 않았습니다.\n\n파일 없이 직접 입력한 정보만으로 저장하시겠어요?`)) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// saveSettleEntry는 saveSettle의 별칭 (HTML onclick 호환)
+function saveSettleEntry() { return saveSettle(); }
+
 async function savePurchaseQuote() {
+  // 🆕 AI 파싱 안 했으면 저장 차단
+  if(!_purchaseGuardSave("pq", "견적서")) return;
   const prCode = document.getElementById("pq-f-prcode").value.trim();
   const vendor = document.getElementById("pq-f-vendor").value.trim();
   const quoteNo = document.getElementById("pq-f-quoteno").value.trim();
@@ -5115,7 +5468,16 @@ async function savePurchaseQuote() {
     quoteDate,
     validUntil: document.getElementById("pq-f-valid").value,
     deliveryDate: document.getElementById("pq-f-delivery").value,
+    leadDays: Number(document.getElementById("pq-f-leaddays")?.value || 0),  // 🆕 D(PO)+N일
+    vatMode: document.getElementById("pq-f-vat-mode")?.value || "separate",  // 🆕 VAT 별도/포함
     items: document.getElementById("pq-f-items").value.trim(),
+    itemList: Array.isArray(_pqItems) ? _pqItems.map(it => ({  // 🆕 품목 상세 배열
+      name: it.name || "",
+      unit: it.unit || "EA",
+      qty: Number(it.qty) || 0,
+      unitPrice: Number(it.unitPrice) || 0,
+      total: (Number(it.qty)||0) * (Number(it.unitPrice)||0),
+    })) : [],
     supplyAmount: Number(document.getElementById("pq-f-supply").value || 0),
     vatAmount: Number(document.getElementById("pq-f-vat").value || 0),
     totalAmount: Number(document.getElementById("pq-f-total").value || 0),
@@ -5154,7 +5516,74 @@ async function savePurchaseQuote() {
 async function addBOMPriceHistory(quoteData) {
   if(!quoteData || !quoteData.prCode) return;
   
-  // PR 찾기
+  // 🆕 itemList가 있으면 각 품목별로 BOM 매칭 시도
+  if(Array.isArray(quoteData.itemList) && quoteData.itemList.length > 0) {
+    let matched = 0;
+    for(const item of quoteData.itemList) {
+      const name = (item.name || "").trim();
+      const unitPrice = Number(item.unitPrice) || 0;
+      if(!name || unitPrice <= 0) continue;
+      
+      // BOM 매칭: 품명/품번 부분 일치
+      const bom = (_bomData||[]).find(b => {
+        const bomName = (b.name || "").toLowerCase();
+        const bomCode = (b.bomCode || "").toLowerCase();
+        const itemName = name.toLowerCase();
+        return bomName.includes(itemName) || itemName.includes(bomName) || 
+               bomCode.includes(itemName) || itemName.includes(bomCode);
+      });
+      
+      if(!bom) {
+        console.log(`📋 BOM 매칭 실패: ${name}`);
+        continue;
+      }
+      
+      // 이력 추가
+      const historyItem = {
+        quoteId: `${quoteData.id}_item${matched}`,
+        quoteNo: quoteData.quoteNo,
+        quoteDate: quoteData.quoteDate,
+        vendor: quoteData.vendor,
+        itemName: name,
+        unitPrice: unitPrice,
+        qty: Number(item.qty) || 1,
+        supplyAmount: unitPrice * (Number(item.qty)||1),
+        totalAmount: unitPrice * (Number(item.qty)||1),
+        prCode: quoteData.prCode,
+        addedAt: new Date().toISOString(),
+      };
+      
+      if(!Array.isArray(bom.priceHistory)) bom.priceHistory = [];
+      const existingIdx = bom.priceHistory.findIndex(h => h.quoteId === historyItem.quoteId);
+      if(existingIdx >= 0) bom.priceHistory[existingIdx] = historyItem;
+      else bom.priceHistory.push(historyItem);
+      
+      // 정렬 + 네고율 갱신
+      bom.priceHistory.sort((a,b) => (a.quoteDate||"").localeCompare(b.quoteDate||""));
+      const first = bom.priceHistory[0];
+      const latest = bom.priceHistory[bom.priceHistory.length-1];
+      if(first && latest && first.unitPrice > 0) {
+        bom.currentPrice = latest.unitPrice;
+        bom.currentVendor = latest.vendor;
+        bom.lastQuoteDate = latest.quoteDate;
+        bom.negoRate = first === latest ? 0 : ((first.unitPrice - latest.unitPrice) / first.unitPrice * 100);
+      }
+      bom.updatedAt = new Date().toISOString();
+      matched++;
+      console.log(`📋 BOM ${bom.bomCode} 이력 추가: ${name} ${unitPrice.toLocaleString()}원`);
+    }
+    
+    if(matched > 0) {
+      console.log(`✅ BOM 가격 이력 ${matched}건 누적 완료`);
+      if(typeof saveBOMDB === "function") await saveBOMDB();
+      if(typeof renderBOMDB === "function") renderBOMDB();
+    } else {
+      console.log(`📋 BOM 매칭된 품목 없음 (총 ${quoteData.itemList.length}개 시도)`);
+    }
+    return;
+  }
+  
+  // 폴백: 기존 방식 (PR 1건 = BOM 1건)
   const pr = (_prMaster||[]).find(p => p.prCode === quoteData.prCode);
   if(!pr) {
     console.log(`📋 BOM 가격 이력 스킵: PR ${quoteData.prCode} 없음`);
@@ -5401,6 +5830,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 async function savePurchaseOrder() {
+  if(!_purchaseGuardSave("po", "발주서")) return;
   const poCode = document.getElementById("po-f-pocode").value.trim();
   const prCode = document.getElementById("po-f-prcode").value.trim();
   const vendor = document.getElementById("po-f-vendor").value.trim();
@@ -5609,6 +6039,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 async function savePurchaseDelivery() {
+  if(!_purchaseGuardSave("pdlv", "거래명세서")) return;
   const dlvNo = document.getElementById("pdlv-f-dlvno").value.trim();
   const vendor = document.getElementById("pdlv-f-vendor").value.trim();
   const dlvDate = document.getElementById("pdlv-f-date").value;
@@ -5798,6 +6229,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 async function savePurchaseTax() {
+  if(!_purchaseGuardSave("ptax", "세금계산서")) return;
   const taxNo = document.getElementById("ptax-f-taxno").value.trim();
   const vendor = document.getElementById("ptax-f-vendor").value.trim();
   const bizNo = document.getElementById("ptax-f-bizno").value.trim();
@@ -7247,6 +7679,7 @@ function closeSettleModal() {
 }
 
 async function saveSettle() {
+  if(!_purchaseGuardSave("stl", "회계전표")) return;
   const stCode = document.getElementById("stl-f-stcode").value.trim();
   const prCode = document.getElementById("stl-f-prcode").value.trim();
   const vendor = document.getElementById("stl-f-vendor").value.trim();
@@ -27506,19 +27939,27 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 📄 매입 견적서 수신 (풀스크린 + PDF 미리보기 + AI 파싱) -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📄 매입 견적서 모달 (구매요청서와 동일 패턴: 풀스크린 + PDF + 품목 그리드) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <div id="purchaseQuoteModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="background:#fff;border-radius:16px;width:97vw;max-width:1700px;height:95vh;max-height:95vh;display:flex;flex-direction:column;overflow:hidden">
+        
         <!-- 헤더 -->
-        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#2563eb15 0%,#2563eb30 100%)">
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%)">
           <div>
-            <div style="font-size:18px;font-weight:900;color:#2563eb" id="pqModalTitle">📄 매입 견적서 수신</div>
-            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
+            <div style="font-size:18px;font-weight:900;color:#1e40af" id="pqModalTitle">📄 매입 견적서 수신</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF · 우측 폼 + 품목별 단가/수량 입력 · AI 파싱 자동 (BOM 가격이력 자동 누적)</div>
           </div>
-          <button onclick="closePQModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;color:var(--t2)">품목 <b id="pqItemCount" style="color:#1e40af;font-size:15px">0</b>건</span>
+            <button onclick="closePurchaseQuoteModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+          </div>
         </div>
         
         <!-- 본문 2단 -->
-        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+        <div style="flex:1;display:grid;grid-template-columns:1fr 720px;gap:0;overflow:hidden;min-height:0">
           
           <!-- 좌: PDF 미리보기 -->
           <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
@@ -27533,104 +27974,160 @@ function deleteTax(id){
               <div style="padding:60px 30px;text-align:center;color:var(--t3)">
                 <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
                 <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
-                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면<br>여기에 표시되고 AI 파싱이 자동 시작됩니다</div>
               </div>
             </div>
           </div>
           
-          <!-- 우: 폼 -->
-          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+          <!-- 우: 폼 (스크롤 가능) -->
+          <div style="overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;min-height:0">
             
             <!-- AI 파싱 영역 -->
-            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
-              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
-              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:10px 12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">🤖 PDF 업로드 → AI 자동 파싱</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <input type="file" id="pq-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
-                <button type="button" onclick="aiPQParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+                <button type="button" onclick="aiPQParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱 (수동)</button>
               </div>
-              <div id="pq-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+              <div id="pq-parse-status" style="margin-top:6px;min-height:18px"></div>
             </div>
             
             <!-- 기본 정보 -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
-                <input type="text" id="pq-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+            <div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">
+              <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px">📋 기본 정보</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
+                  <input type="text" id="pq-f-prcode" placeholder="PR-260519-01" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                  <input type="text" id="pq-f-salescode" placeholder="BM26005" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;background:#fff;font-family:var(--m);font-weight:700">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                  <input type="text" id="pq-f-vendor" placeholder="㈜위앤" list="pq-vendor-list" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                  <datalist id="pq-vendor-list"></datalist>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">견적 번호</label>
+                  <input type="text" id="pq-f-quoteno" placeholder="WR260213-001" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">견적일 *</label>
+                  <input type="date" id="pq-f-date" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px" title="주문일로부터 N일 후 납품">납기 (D(PO)+N일)</label>
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <span style="font-size:11px;color:var(--t3);font-family:var(--m)">D(PO)+</span>
+                    <input type="number" id="pq-f-leaddays" placeholder="14" min="0" max="365" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:60px;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
+                    <span style="font-size:11px;color:var(--t3)">일</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
-                <input type="text" id="pq-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
-                <input type="text" id="pq-f-vendor" placeholder="㈜위앤" list="pq-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-                <datalist id="pq-vendor-list"></datalist>
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">견적 번호</label>
-                <input type="text" id="pq-f-quoteno" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">견적일 *</label>
-                <input type="date" id="pq-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
-                <input type="date" id="pq-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-              </div>
-              
-            <div>
-              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">유효기간</label>
-              <input type="date" id="pq-f-valid" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-            </div>
-            </div>
-            
-            <!-- 품목 요약 -->
-            <div>
-              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
-              <textarea id="pq-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
-            </div>
-            
-            <!-- 금액 (공급가/VAT/총액) -->
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
-              <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
-                <input type="number" id="pq-f-supply" placeholder="0" oninput="calcPQTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
-                <input type="number" id="pq-f-vat" placeholder="자동" oninput="calcPQTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
-                <input type="number" id="pq-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+              <!-- 유효기간 + 호환용 hidden 필드 -->
+              <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">유효기간 (선택)</label>
+                  <input type="date" id="pq-f-valid" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                </div>
+                <input type="hidden" id="pq-f-delivery">
+                <input type="hidden" id="pq-f-type" value="일반견적">
               </div>
             </div>
             
-            <!-- 상태 / 비고 -->
-            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+            <!-- 품목 그리드 -->
+            <div style="background:#fff;border:1.5px solid var(--p);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-height:200px">
+              <div style="padding:8px 12px;background:#1e40af;color:#fff;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+                <span>📦 견적 품목 (행마다 단가×수량=합계 자동)</span>
+                <span style="font-size:11px;font-weight:400;opacity:0.9">PDF에서 AI가 자동으로 채움</span>
+              </div>
+              <!-- 그리드 헤더 -->
+              <div style="display:grid;grid-template-columns:30px 1fr 60px 70px 90px 100px 30px;gap:4px;padding:6px 10px;background:#eff6ff;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t2)">
+                <div style="text-align:center">#</div>
+                <div>품명</div>
+                <div style="text-align:center">단위</div>
+                <div style="text-align:right">수량</div>
+                <div style="text-align:right">단가(₩)</div>
+                <div style="text-align:right">합계(₩)</div>
+                <div></div>
+              </div>
+              <!-- 그리드 본문 (스크롤) -->
+              <div id="pq-items-body" style="max-height:220px;overflow-y:auto;background:#fff">
+                <div style="padding:30px 20px;text-align:center;color:var(--t3);font-size:12px">
+                  <div style="font-size:36px;margin-bottom:8px;opacity:0.4">📦</div>
+                  품목이 없습니다<br>
+                  <span style="font-size:11px">PDF 첨부 → AI 파싱이 자동으로 품목을 채웁니다</span>
+                </div>
+              </div>
+              <!-- 그리드 풋터 (행 추가) -->
+              <div style="padding:6px 10px;background:#f8fafc;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                <button type="button" onclick="addPQItem()" style="padding:4px 10px;border-radius:5px;border:1.5px dashed var(--p);background:#fff;color:var(--p);font-size:11px;cursor:pointer;font-weight:700">+ 품목 추가</button>
+                <span style="font-size:11px;color:var(--t3)">총 수량: <b id="pqTotalQty" style="color:var(--t)">0</b></span>
+              </div>
+            </div>
+            
+            <!-- 금액 정산 (공급가/VAT/총액) -->
+            <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">
+              <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                <span>💰 금액 정산</span>
+                <!-- VAT 별도/포함 토글 -->
+                <div style="display:flex;background:#fff;border-radius:6px;border:1px solid #fcd34d;padding:2px">
+                  <button type="button" id="pq-vat-mode-separate" onclick="setPQVatMode('separate')" style="padding:3px 10px;border-radius:4px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700">VAT 별도</button>
+                  <button type="button" id="pq-vat-mode-included" onclick="setPQVatMode('included')" style="padding:3px 10px;border-radius:4px;border:none;background:transparent;color:var(--t2);font-size:11px;cursor:pointer;font-weight:700">VAT 포함</button>
+                </div>
+              </div>
+              <input type="hidden" id="pq-f-vat-mode" value="separate">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액 (자동)</label>
+                  <input type="number" id="pq-f-supply" placeholder="0" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700;background:#fffbeb">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px"><span id="pq-vat-label">VAT 10% (자동)</span></label>
+                  <input type="number" id="pq-f-vat" placeholder="0" oninput="recalcPQTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액 (공급가+VAT)</label>
+                  <input type="number" id="pq-f-total" placeholder="0" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+                </div>
+              </div>
+            </div>
+            
+            <!-- 상태 + 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">
               <div>
                 <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
-                <select id="pq-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-                  <option>검토중</option><option>완료</option><option>보류</option>
+                <select id="pq-f-status" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>검토중</option>
+                  <option>완료</option>
+                  <option>보류</option>
                 </select>
               </div>
               <div>
                 <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
-                <input type="text" id="pq-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <input type="text" id="pq-f-note" placeholder="특이사항, 조건 등" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
               </div>
             </div>
+            <input type="hidden" id="pq-f-items">  <!-- 호환용 - 자동 채움 -->
             
           </div>
         </div>
         
         <!-- 풋터 -->
-        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
-          <button onclick="closePQModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
-          <button onclick="savePurchaseQuote()" style="padding:9px 22px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div style="font-size:11px;color:var(--t3)">
+            ⚠️ AI 파싱 결과를 반드시 검토 후 저장하세요 · BOM 가격이력 자동 누적 (네고율 자동 계산)
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="closePurchaseQuoteModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+            <button onclick="savePurchaseQuote()" style="padding:9px 22px;border-radius:8px;border:none;background:#1e40af;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+          </div>
         </div>
       </div>
     </div>
+
 
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 📦 매입 발주서 모달 (Purchase Order, ENJET → 거래처 발행) -->
