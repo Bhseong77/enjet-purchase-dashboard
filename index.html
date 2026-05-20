@@ -855,6 +855,10 @@
                 style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
             </div>
             <button onclick="syncSLFromTeams()" style="padding:4px 10px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">🔄 동기화</button>
+            <!-- 🆕 유령 일정 정리 - 구매활동 목록과 매칭 안 되는 일정 일괄 삭제 -->
+            <button onclick="cleanupOrphanScheduleEvents()" 
+              style="padding:4px 10px;border-radius:7px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)"
+              title="구매활동 목록에 없는데 캘린더에 남아있는 유령 일정 일괄 삭제">🧹 유령정리</button>
             <button onclick="openSLModal(null)" style="padding:4px 10px;border-radius:7px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">+ 추가</button>
           </div>
         </div>
@@ -5983,8 +5987,25 @@ async function _purchaseAIParse(prefix, docType, auto) {
 4. **itemList 빠짐없이 추출**: PDF 표의 각 행은 한 행씩, 빈 행/소계 행은 제외
 
 5. **납기일 행마다 다른 경우**: 행마다 납기일이 다르면 deliveryDate는 가장 늦은 날짜 또는 첫번째 행 기준`,
-      delivery: `이 거래명세서/입고증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
-{"vendor":"거래처명","dlvDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
+      delivery: `이 입고 거래명세서 PDF에서 정보를 JSON으로 추출. JSON만 출력 (코드블록/주석 없이):
+{
+  "vendor": "공급자(우리한테 물건/서비스를 공급하는 회사) - 절대 수신자나 ENJET/엔젯이면 안 됨!",
+  "dlvNo": "거래번호 또는 거래명세번호 (예: 260512089, DLV-2026-001)",
+  "dlvDate": "YYYY-MM-DD (거래일자/거래명세일)",
+  "items": "품목 요약 (Service and inspection for CARBIDE CB5 등)",
+  "supplyAmount": 공급가합계 숫자,
+  "vatAmount": VAT숫자 (별도 10%),
+  "totalAmount": 총금액 숫자
+}
+
+⚠️ 매우 중요 - 거래처(vendor) 판단 기준:
+- 입고 거래명세서는 우리(ENJET/엔젯)가 받는 입장. 따라서 vendor = 보내는 쪽(공급자)
+- PDF에서 "공급자", "Supplier", 회사로고/날인이 있는 쪽, "대표 OOO" 명시된 쪽이 vendor
+- "수신", "받는이", "공급받는자"에 있는 회사는 우리(엔젯) → vendor 아님!
+- 예: PDF에 "공급자: 라이트컨버젼코리아㈜", "수신: 엔젯" → vendor = "라이트컨버젼코리아㈜"
+- 만약 vendor 후보가 "ENJET" 또는 "엔젯"이면 → PDF를 다시 보고 다른 회사명 찾기
+
+⚠️ 거래번호(dlvNo): PDF 상단의 "거래번호" 또는 "거래명세번호" 옆 숫자/문자열. 비어있으면 빈 문자열 ""`,
       tax: `이 세금계산서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
 {"vendor":"공급자명","taxNo":"승인번호","taxDate":"YYYY-MM-DD","bizNo":"사업자등록번호","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
       settle: `이 회계전표/매입 영수증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
@@ -6036,7 +6057,13 @@ async function _purchaseAIParse(prefix, docType, auto) {
     };
     
     // 공통 필드
-    if(result.vendor) fillForce(`${prefix}-f-vendor`, result.vendor);
+    // 🆕 vendor 보정: 입고 문서(delivery)는 우리가 받는 쪽이라 vendor가 "엔젯/ENJET"이면 잘못된 거 - 무시
+    let useVendor = result.vendor;
+    if(useVendor && /^(엔젯|ENJET|Enjet|enjet|㈜엔젯|\(주\)엔젯)/.test(useVendor.trim())) {
+      console.warn(`⚠️ AI가 거래처를 우리(엔젯)로 잘못 추출 → 무시. 사용자가 직접 입력 필요. (원본: "${useVendor}")`);
+      useVendor = "";  // 비워서 사용자가 직접 입력하도록
+    }
+    if(useVendor) fillForce(`${prefix}-f-vendor`, useVendor);
     if(result.items) fillIfEmpty(`${prefix}-f-items`, result.items);
     
     // 금액
@@ -6074,7 +6101,12 @@ async function _purchaseAIParse(prefix, docType, auto) {
         console.log(`✅ 발주 품목 ${result.itemList.length}건 자동 입력`);
       }
     } else if(docType === "delivery") {
+      if(result.dlvNo) fillForce(`${prefix}-f-dlvno`, result.dlvNo);  // 🆕 거래번호
       if(result.dlvDate) fillForce(`${prefix}-f-date`, result.dlvDate);
+      // 🆕 지급예정일 자동 계산 (거래명세일 변경 후)
+      if(result.dlvDate && typeof updatePDLVPaymentDate === "function") {
+        setTimeout(() => updatePDLVPaymentDate(true), 100);
+      }
     } else if(docType === "tax") {
       if(result.taxNo) fillForce(`${prefix}-f-taxno`, result.taxNo);
       if(result.taxDate) fillForce(`${prefix}-f-date`, result.taxDate);
@@ -7210,6 +7242,7 @@ function openPurchaseDeliveryModal(id) {
     setField("pdlv-f-prcode", d.prCode);
     setField("pdlv-f-vendor", d.vendor);
     setField("pdlv-f-date", d.dlvDate);
+    setField("pdlv-f-payment", d.paymentDate || "");  // 🆕 지급예정일 (저장된 값)
     setField("pdlv-f-items", d.items);
     setField("pdlv-f-supply", d.supplyAmount);
     setField("pdlv-f-vat", d.vatAmount);
@@ -7217,6 +7250,10 @@ function openPurchaseDeliveryModal(id) {
     setField("pdlv-f-status", d.inspectStatus || "미검수");
     setField("pdlv-f-inspector", d.inspector);
     setField("pdlv-f-defectnote", d.defectNote);
+    // 저장된 지급예정일이 없으면 거래명세일 기준 자동 계산
+    if(!d.paymentDate && d.dlvDate) {
+      setTimeout(() => updatePDLVPaymentDate(true), 50);
+    }
   } else {
     document.getElementById("pdlvModalTitle").textContent = "🚚 입고 거래명세서";
     const today = new Date().toISOString().slice(0,10);
@@ -7226,10 +7263,52 @@ function openPurchaseDeliveryModal(id) {
     setField("pdlv-f-vat", "");
     setField("pdlv-f-total", "");
     setField("pdlv-f-status", "미검수");
+    // 🆕 지급예정일: 오늘 기준 익월 10일
+    setTimeout(() => updatePDLVPaymentDate(true), 50);
   }
   
   modal.style.display = "flex";
 }
+
+// 🆕 거래명세일 기준 익월 10일 자동 계산 (지급예정일)
+// force=true: 기존 값 무시하고 무조건 자동 계산
+// force=false: 사용자가 직접 수정한 경우 보존 (data-manual 체크)
+function updatePDLVPaymentDate(force) {
+  const dateEl = document.getElementById("pdlv-f-date");
+  const payEl = document.getElementById("pdlv-f-payment");
+  if(!dateEl || !payEl) return;
+  
+  const dlvDate = dateEl.value;
+  if(!dlvDate) return;
+  
+  // 사용자가 직접 수정한 거 보존
+  if(!force && payEl.dataset.manual === "1") return;
+  
+  // 거래명세일의 익월 10일 계산
+  try {
+    const [y, m, d] = dlvDate.split("-").map(Number);
+    if(!y || !m) return;
+    // 다음 달 10일
+    const nextMonth = m + 1;
+    const newY = nextMonth > 12 ? y + 1 : y;
+    const newM = nextMonth > 12 ? 1 : nextMonth;
+    const newDate = `${newY}-${String(newM).padStart(2, "0")}-10`;
+    payEl.value = newDate;
+    console.log(`💸 지급예정일 자동 계산: ${dlvDate} → 익월 10일 = ${newDate}`);
+  } catch(e) {
+    console.warn("지급예정일 계산 실패:", e.message);
+  }
+}
+
+// 지급예정일을 사용자가 직접 수정하면 manual 플래그 설정
+document.addEventListener("DOMContentLoaded", () => {
+  const payEl = document.getElementById("pdlv-f-payment");
+  if(payEl) {
+    payEl.addEventListener("change", function() {
+      this.dataset.manual = "1";
+    });
+  }
+});
 
 function closePurchaseDeliveryModal() {
   const modal = document.getElementById("purchaseDeliveryModal");
@@ -7274,6 +7353,7 @@ async function savePurchaseDelivery() {
     prCode: document.getElementById("pdlv-f-prcode").value.trim(),
     vendor,
     dlvDate,
+    paymentDate: document.getElementById("pdlv-f-payment")?.value || "",  // 🆕 지급예정일
     items: document.getElementById("pdlv-f-items").value.trim(),
     supplyAmount: Number(document.getElementById("pdlv-f-supply").value || 0),
     vatAmount: Number(document.getElementById("pdlv-f-vat").value || 0),
@@ -14378,27 +14458,32 @@ async function syncSLFromTeams() {
       const title = e.subject||"";
       // 마케팅/전시회 prefix 또는 카테고리 → 제외
       if(title.startsWith("[전시회]") || title.startsWith("[마케팅]") || cats.some(c=>["국내전시회","해외전시회","전시회","마케팅"].includes(c))) return false;
-      // [영업] / [구매활동] / [요청] / [구매] prefix 또는 구매활동/요청/구매 카테고리 포함 (엄격)
-      if(title.startsWith("[영업]") || title.startsWith("[구매활동]") || title.startsWith("[요청]") || title.startsWith("[구매]") 
-         || cats.includes("구매활동") || cats.includes("요청") || cats.includes("구매")) return true;
-      // prefix/카테고리 없으면 → 포함하지 않음 (마케팅·기타와 꼬임 방지)
+      // 🆕 새 포맷: 끝에 "(요청)" 또는 "(납기)" 또는 "(구매)" 있으면 구매 일정
+      if(/\((요청|납기|구매)\)\s*$/.test(title)) return true;
+      // 옛 prefix 포맷: [영업] / [구매활동] / [요청] / [구매] / [납기]
+      if(title.startsWith("[영업]") || title.startsWith("[구매활동]") || title.startsWith("[요청]") || title.startsWith("[구매]") || title.startsWith("[납기]")
+         || cats.includes("구매활동") || cats.includes("요청") || cats.includes("구매") || cats.includes("납기")) return true;
+      // prefix/카테고리/suffix 없으면 → 포함하지 않음
       return false;
     }).map(e=>{
       const t = e.subject||"";
       const c = e.categories||[];
+      // 🆕 라벨 추출 - 새 포맷 우선
+      const newSuffix = t.match(/\((요청|납기|구매)\)\s*$/);
+      const kind = newSuffix ? (newSuffix[1] === "요청" ? "request" : "order")
+                : t.startsWith("[요청]") || c.includes("요청") ? "request"
+                : t.startsWith("[납기]") || t.startsWith("[구매]") || c.includes("납기") || c.includes("구매") ? "order"
+                : "purchase";
       return {
         id: e.id,
-        title: t.replace(/^\[(영업|구매활동|전시회|요청|구매)\]\s*/,""),
+        title: t.replace(/^\[(영업|구매활동|전시회|요청|구매|납기)\]\s*/,""),
         originalTitle: t,
         start: (e.start?.dateTime||e.start?.date||"").split("T")[0],
         end:   (e.end?.dateTime||e.end?.date||"").split("T")[0],
         organizer: e.organizer?.emailAddress?.name||"",
         location: e.location?.displayName||"",
         categories: c,
-        // 🆕 라벨 자동 분류
-        kind: t.startsWith("[요청]") || c.includes("요청") ? "request" 
-            : t.startsWith("[구매]") || c.includes("구매") ? "order"
-            : "purchase",
+        kind: kind,
       };
     });
 
@@ -17914,13 +17999,28 @@ function openSPFolderForAct(actId) {
   }
 }
 
-// 구매활동 삭제
+// 구매활동 삭제 (일정도 함께 정리)
 async function deleteSLActivity(actId) {
   const idx = slData.findIndex(x => x.id === actId);
   if(idx < 0) return;
+  const act = slData[idx];
+  
+  // 🆕 관련 Outlook 일정도 함께 삭제 (요청 + 납기)
+  try {
+    if(typeof deleteSLActivityEvents === "function" && act._scheduleIds) {
+      const r = await deleteSLActivityEvents(act);
+      if(r.deleted > 0) {
+        console.log(`🗑️ 구매활동 삭제 - 관련 일정 ${r.deleted}건도 함께 정리됨`);
+      }
+    }
+  } catch(e) {
+    console.warn("일정 정리 실패 (구매활동은 정상 삭제):", e.message);
+  }
+  
   slData.splice(idx, 1);
   await saveSLToSP();
   renderSLAll();
+  if(typeof renderCalendar === "function") renderCalendar();  // 캘린더 즉시 갱신
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -17932,7 +18032,7 @@ async function createPRDueDateEvents(items, act, kind) {
   if(!Array.isArray(items) || !items.length) return;
   const labelMap = {
     "request": { label: "요청", emoji: "📥", color: "preset0" },
-    "order":   { label: "구매", emoji: "📦", color: "preset3" },
+    "order":   { label: "납기", emoji: "📦", color: "preset3" },  // 🆕 발주는 "납기" 라벨
   };
   const cfg = labelMap[kind] || labelMap["request"];
   
@@ -17946,11 +18046,11 @@ async function createPRDueDateEvents(items, act, kind) {
     }
     const t = await getToken();
     
-    // dueDate별로 그룹핑 (중복 제거)
+    // ── dueDate별로 그룹핑 ──
     const byDate = new Map();
     items.forEach(it => {
       const d = (it.dueDate || "").substring(0, 10);
-      if(!d) return;  // dueDate 없으면 스킵
+      if(!d) return;
       if(!byDate.has(d)) byDate.set(d, []);
       byDate.get(d).push(it);
     });
@@ -17960,20 +18060,44 @@ async function createPRDueDateEvents(items, act, kind) {
       return;
     }
     
-    console.log(`📅 ${cfg.emoji} ${cfg.label} 일정 ${byDate.size}건 생성 시도 (${kind})`);
+    // 🆕 ── 중복 방지: 같은 act + 같은 kind의 기존 일정 정리 ──
+    // act 객체에 일정 ID 추적 필드: act._scheduleIds = { request: { "2026-06-30": "evt_id_xxx" }, order: { ... } }
+    if(!act._scheduleIds) act._scheduleIds = {};
+    if(!act._scheduleIds[kind]) act._scheduleIds[kind] = {};
+    
+    // 기존 일정 중 새로 만들 날짜와 같은 것 또는 더 이상 사용 안 하는 것 삭제
+    const newDates = new Set(byDate.keys());
+    const oldEntries = Object.entries(act._scheduleIds[kind] || {});
+    for(const [oldDate, oldEvtId] of oldEntries) {
+      // 새로 만들 거나 더 이상 필요 없으면 삭제
+      try {
+        await fetch(`https://graph.microsoft.com/v1.0/groups/${gid}/events/${oldEvtId}`, {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + t }
+        });
+        console.log(`  🗑️ 기존 [${cfg.label}] 일정 정리: ${oldDate} (id=${oldEvtId.substring(0,20)}...)`);
+      } catch(e) {
+        // 이미 삭제됐거나 권한 부족 → 무시
+      }
+      delete act._scheduleIds[kind][oldDate];
+    }
+    
+    console.log(`📅 ${cfg.emoji} ${cfg.label} 일정 ${byDate.size}건 생성 (${kind})`);
     
     const pjcode = act.pjcode || items[0]?.projectNo || "";
     const company = act.company || "";
     
-    // 각 dueDate마다 일정 1건 생성
+    // ── 각 dueDate마다 일정 1건 생성 ──
     let success = 0;
     for(const [date, dateItems] of byDate) {
       try {
-        const rep = dateItems[0];  // 같은 날짜의 대표 품목
+        const rep = dateItems[0];
         const otherCount = dateItems.length - 1;
         
-        // 제목: [요청] BR25006-P001 · Harness (외 N건)
-        const title = `[${cfg.label}] ${pjcode} · ${rep.itemName || rep.name || "품목"}${otherCount > 0 ? ` 외 ${otherCount}건` : ""}`;
+        // 🆕 제목 포맷: {프로젝트코드} · {대표품목명} 외 N건 ({요청|납기})
+        // 예: "BM26005 · 전장박스 NIC-333N/SET 외 4건 (납기)"
+        const repName = rep.itemName || rep.name || "품목";
+        const title = `${pjcode} · ${repName}${otherCount > 0 ? ` 외 ${otherCount}건` : ""} (${cfg.label})`;
         
         // 본문: 모든 품목 리스트
         const itemList = dateItems.map((it, i) => 
@@ -17987,7 +18111,8 @@ async function createPRDueDateEvents(items, act, kind) {
 <p><b>품목 ${dateItems.length}건:</b></p>
 <p>${itemList}</p>
 <hr>
-<p style="font-size:11px;color:#666">ENJET 구매 대시보드 자동 생성 · 같은 납기일자 품목 ${dateItems.length}건 합쳐서 1개 일정으로 표시</p>
+<p style="font-size:11px;color:#666">ENJET 구매 대시보드 자동 생성 · 같은 납기일자 품목 ${dateItems.length}건 합쳐서 1개 일정으로 표시<br>
+🔑 구매활동 ID: ${act.id || "-"} · 종류: ${kind}</p>
 </div>`;
         
         const eventBody = {
@@ -17995,20 +18120,23 @@ async function createPRDueDateEvents(items, act, kind) {
           body: { contentType: "HTML", content: body },
           start: { dateTime: `${date}T09:00:00`, timeZone: "Asia/Seoul" },
           end:   { dateTime: `${date}T10:00:00`, timeZone: "Asia/Seoul" },
-          // 🔧 isAllDay 제거 (시작/종료 시간이 다르면 자동), categories 제거 (그룹에 없으면 400)
-          // showAs도 안전하게 free로 (busy면 충돌 가능)
           showAs: "free",
         };
         
-        console.log(`  📤 일정 생성 시도: POST /groups/${gid.substring(0,8)}.../events`, { subject: title.substring(0,60), date });
+        console.log(`  📤 일정 생성: ${title.substring(0,60)} (${date})`);
         
         const r = await fetch(
           `https://graph.microsoft.com/v1.0/groups/${gid}/events`,
           { method: "POST", headers: {"Content-Type":"application/json","Authorization":"Bearer "+t}, body: JSON.stringify(eventBody) }
         );
         if(r.ok) {
+          const created = await r.json();
+          // 🆕 생성된 일정 ID를 act에 저장 (추후 삭제용)
+          if(created.id) {
+            act._scheduleIds[kind][date] = created.id;
+          }
           success++;
-          console.log(`  ✅ ${date} 일정 생성 성공: ${dateItems.length}품목 (${title.substring(0,40)}...)`);
+          console.log(`  ✅ ${date} 일정 생성: ${dateItems.length}품목 (id=${created.id?.substring(0,20)}...)`);
         } else {
           const errText = await r.text().catch(()=>"");
           let errMsg = "";
@@ -18020,9 +18148,144 @@ async function createPRDueDateEvents(items, act, kind) {
       }
     }
     
-    console.log(`📅 ${cfg.label} 일정 생성 완료: ${success}/${byDate.size}건 (그룹 캘린더 + Teams 채널)`);
+    // 🆕 act 변경분 SP 저장 (일정 ID 추적 정보 영구화)
+    if(success > 0 && typeof saveSLToSP === "function") {
+      try { await saveSLToSP(); } catch(_) {}
+    }
+    
+    console.log(`📅 ${cfg.label} 일정 생성 완료: ${success}/${byDate.size}건`);
   } catch(e) {
     console.error("일정 자동 생성 에러:", e);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🗑️ 구매활동 삭제 시 - 해당 활동의 모든 일정도 함께 삭제
+// act._scheduleIds = { request: { "YYYY-MM-DD": "evt_id" }, order: {...} }
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function deleteSLActivityEvents(act) {
+  if(!act || !act._scheduleIds) return { deleted: 0, failed: 0 };
+  
+  try {
+    if(!teamsGroupId) await findTeamsGroup();
+    const gid = teamsGroupId || sessionStorage.getItem("enjet_teams_group_id");
+    if(!gid) return { deleted: 0, failed: 0 };
+    const t = await getToken();
+    
+    let deleted = 0, failed = 0;
+    for(const kind of Object.keys(act._scheduleIds)) {
+      const dates = act._scheduleIds[kind] || {};
+      for(const [date, evtId] of Object.entries(dates)) {
+        try {
+          const r = await fetch(`https://graph.microsoft.com/v1.0/groups/${gid}/events/${evtId}`, {
+            method: "DELETE",
+            headers: { "Authorization": "Bearer " + t }
+          });
+          if(r.ok || r.status === 404) {
+            deleted++;
+            console.log(`  🗑️ [${kind}] ${date} 일정 삭제 (id=${evtId.substring(0,20)}...)`);
+          } else {
+            failed++;
+          }
+        } catch(e) {
+          failed++;
+        }
+      }
+    }
+    
+    // 추적 정보 클리어
+    act._scheduleIds = {};
+    
+    console.log(`📅 구매활동 삭제 - 일정 ${deleted}건 정리 완료${failed ? ` (실패 ${failed}건)` : ""}`);
+    return { deleted, failed };
+  } catch(e) {
+    console.error("일정 삭제 에러:", e);
+    return { deleted: 0, failed: 1 };
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🧹 유령 일정 정리 - 캘린더에 남아있지만 구매활동 목록에 매칭되는 활동이 없는 일정 일괄 삭제
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function cleanupOrphanScheduleEvents() {
+  if(!confirm("캘린더에서 구매활동 목록과 매칭 안 되는 일정을 일괄 삭제합니다.\n\n대상: 제목이 \"...· ... 외 N건 (요청|납기)\" 형식이지만 해당 프로젝트코드의 구매활동이 목록에 없는 일정\n\n계속하시겠어요?")) return;
+  
+  try {
+    if(!teamsGroupId) await findTeamsGroup();
+    const gid = teamsGroupId || sessionStorage.getItem("enjet_teams_group_id");
+    if(!gid) {
+      alert("Teams 그룹을 찾을 수 없습니다.");
+      return;
+    }
+    const t = await getToken();
+    
+    // 그룹 캘린더에서 일정 조회
+    const r = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${gid}/events?$top=200&$select=id,subject`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    if(!r.ok) {
+      alert("일정 조회 실패: " + r.status);
+      return;
+    }
+    const j = await r.json();
+    const events = j.value || [];
+    
+    // 구매 일정 후보: 끝에 "(요청)" 또는 "(납기)" 또는 "(구매)" 또는 시작 prefix [요청]/[구매]/[납기]
+    const purchaseEvents = events.filter(e => {
+      const t2 = e.subject || "";
+      return /\((요청|납기|구매)\)\s*$/.test(t2) || /^\[(요청|구매|납기|구매활동)\]/.test(t2);
+    });
+    
+    if(purchaseEvents.length === 0) {
+      alert("구매 일정 후보가 없습니다.");
+      return;
+    }
+    
+    // slData의 모든 _scheduleIds.* 의 evt.id 모음 (생명 일정)
+    const livingEvtIds = new Set();
+    (slData || []).forEach(act => {
+      if(act._scheduleIds) {
+        Object.values(act._scheduleIds).forEach(byDate => {
+          Object.values(byDate || {}).forEach(eid => { if(eid) livingEvtIds.add(eid); });
+        });
+      }
+      if(act.teamsEventId) livingEvtIds.add(act.teamsEventId);
+    });
+    
+    // 유령 일정: livingEvtIds에 없는 구매 일정
+    const orphans = purchaseEvents.filter(e => !livingEvtIds.has(e.id));
+    
+    console.log(`🧹 구매 일정 ${purchaseEvents.length}건 중 유령 ${orphans.length}건 발견`);
+    
+    if(orphans.length === 0) {
+      alert(`정리할 유령 일정이 없습니다.\n(전체 구매 일정 ${purchaseEvents.length}건 모두 구매활동과 매칭됨)`);
+      return;
+    }
+    
+    if(!confirm(`유령 일정 ${orphans.length}건이 발견되었습니다.\n\n예:\n${orphans.slice(0,5).map(e => "  • " + (e.subject||"").substring(0, 60)).join("\n")}${orphans.length > 5 ? "\n  ..." : ""}\n\n모두 삭제할까요?`)) return;
+    
+    let deleted = 0, failed = 0;
+    for(const e of orphans) {
+      try {
+        const dr = await fetch(`https://graph.microsoft.com/v1.0/groups/${gid}/events/${e.id}`, {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + t }
+        });
+        if(dr.ok || dr.status === 404) {
+          deleted++;
+          console.log(`  🗑️ 유령 일정 삭제: ${(e.subject||"").substring(0,60)}`);
+        } else failed++;
+      } catch(_) { failed++; }
+    }
+    
+    alert(`🧹 유령 일정 정리 완료!\n\n삭제: ${deleted}건${failed ? `\n실패: ${failed}건` : ""}\n\n캘린더를 새로고침합니다.`);
+    
+    // 캘린더 갱신
+    if(typeof syncSLFromTeams === "function") syncSLFromTeams();
+  } catch(e) {
+    console.error("유령 일정 정리 에러:", e);
+    alert("유령 일정 정리 실패: " + e.message);
   }
 }
 
@@ -29687,11 +29950,13 @@ function deleteTax(id){
               </div>
               <div>
                 <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래명세일 *</label>
-                <input type="date" id="pdlv-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <input type="date" id="pdlv-f-date" onchange="updatePDLVPaymentDate()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
               </div>
               <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
-                <input type="date" id="pdlv-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px" title="거래명세일 기준 익월 10일 자동 (수동 수정 가능)">💸 지급예정일</label>
+                <input type="date" id="pdlv-f-payment" 
+                  title="거래명세일 기준 익월 10일 자동 계산 (수정 가능). 거래처에 우리가 입금해야 하는 날짜"
+                  style="padding:7px 9px;border:1px solid #fde68a;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fffbeb">
               </div>
               
             <div>
