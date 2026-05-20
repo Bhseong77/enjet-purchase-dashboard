@@ -877,10 +877,10 @@
             <button id="slSaveBtn" onclick="slSaveChanges()"
               style="display:inline-flex;align-items:center;padding:6px 14px;border-radius:7px;border:none;background:#94a3b8;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s);transition:all 0.3s ease"
               title="구매활동 변경사항을 SharePoint에 즉시 저장">💾 저장됨</button>
-            <!-- DB 마이그레이션 - 기존 구매활동 파일들을 각 DB에 일괄 등록 -->
-            <button onclick="migrateSLFilesToDBs()"
+            <!-- DB 동기화 - SP 폴더의 파일들을 각 DB(견적/발주/거래명세/세금/회계)에 등록 -->
+            <button onclick="syncPurchaseFilesToDB()"
               style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:7px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)"
-              title="구매활동에 이미 업로드된 모든 파일을 견적서/발주서/계약서/거래명세서/세금계산서/납품확인서 DB에 일괄 등록">🔄 DB 동기화</button>
+              title="SharePoint 폴더(1.구매활동/{프로젝트코드}/{문서종류})의 파일들을 각 DB에 일괄 등록">🔄 DB 동기화</button>
             <!-- SP 폴더 마이그레이션 - 기존 SP 폴더를 새 구조로 정리 -->
             <button onclick="previewSPFolderMigration()"
               style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:7px;border:1px solid #dc2626;background:#fef2f2;color:#dc2626;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)"
@@ -4076,6 +4076,237 @@ function parseENJETPRTextLocally(pdfText) {
   return result.items.length > 0 ? result : null;
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ⚡ 매입 발주서 로컬 파싱 - ENJET 자체 양식 + 일반 양식
+// 헤더가 잘못된 ENJET 양식: "규격"→거래처, "금액"→VAT
+// 텍스트 패턴:
+//   구매거래처 (주)위앤 발주일 2026-05-19 발주번호 20260519-0002
+//   발주담당자 홍용원 발주부서 구매감사팀
+//   통화 KRW 총금액 1,100,000
+//   1 전장박스 BP26004_전장박스 (주)위앤 EA 1 400,000.00 BP26004
+//   NIC-333N/SET NIC-333N/SET   ← 품명 후속 줄
+//   2026-06-30 400,000   ← 납기일 + VAT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function parseENJETPOTextLocally(pdfText) {
+  if(!pdfText) return null;
+  console.log("📦 발주서 로컬 파싱 시작 - 텍스트 길이:", pdfText.length);
+  console.log("📦 텍스트 샘플 (처음 800자):\n", pdfText.substring(0, 800));
+  
+  // 빠른 검증: ENJET 발주서 시그니처
+  const isENJET = /구\s*매\s*발\s*주\s*서|구매거래처[\s:]*\(?주/.test(pdfText) || /발주번호/.test(pdfText);
+  if(!isENJET) {
+    console.log("📦 ENJET 발주서 시그니처 미발견 - AI에 위임");
+    return null;
+  }
+  
+  const result = {
+    vendor: "",
+    poCode: "",
+    poDate: "",
+    deliveryDate: "",
+    payTerm: "현금",
+    vatMode: "separate",  // ENJET 양식은 보통 VAT 별도
+    itemList: [],
+    supplyAmount: 0,
+    vatAmount: 0,
+    totalAmount: 0,
+    _engine: "local",
+  };
+  
+  // ── 헤더 정보 추출 ──
+  // 구매거래처 (주)위앤
+  const vendorMatch = pdfText.match(/구매거래처[\s:]*([^\s][^\n]*?)(?=\s+발주일|\s+발주번호|\n)/);
+  if(vendorMatch) result.vendor = vendorMatch[1].trim();
+  
+  // 발주일 2026-05-19
+  const poDateMatch = pdfText.match(/발주일[\s:]*(\d{4}[-./]\d{2}[-./]\d{2})/);
+  if(poDateMatch) result.poDate = poDateMatch[1].replace(/[./]/g, "-");
+  
+  // 발주번호 20260519-0002
+  const poCodeMatch = pdfText.match(/발주번호[\s:]*([A-Z0-9][\w\-]+)/);
+  if(poCodeMatch) result.poCode = poCodeMatch[1].trim();
+  
+  // 총금액 1,100,000
+  const totalMatch = pdfText.match(/총금액[\s:]*([\d,]+)/);
+  if(totalMatch) {
+    result.totalAmount = Number(totalMatch[1].replace(/,/g, "")) || 0;
+  }
+  
+  // 통화 KRW
+  const currencyMatch = pdfText.match(/통화[\s:]*([A-Z]{3})/);
+  if(currencyMatch) result._currency = currencyMatch[1];
+  
+  // ── 품목 추출 ──
+  // 줄 단위 파싱
+  const lines = pdfText.split("\n").map(s => s.trim()).filter(Boolean);
+  
+  // 각 품목 행: 순번으로 시작, 다음 순번 또는 "계"로 끝
+  // 패턴1 (한 줄): "1 전장박스 BP26004_전장박스 (주)위앤 EA 1 400,000.00 BP26004"
+  // 패턴2 (다음줄): "NIC-333N/SET NIC-333N/SET"  ← 품명/품번 후속 (대문자, 슬래시 포함)
+  // 패턴3 (마지막줄): "2026-06-30 400,000"  ← 납기일 + VAT(잘못된 헤더 "금액")
+  
+  // 메인 행 정규식: 순번(1~99) + 품명 + 품번(BP/BM/BR로 시작) + 거래처 + 단위 + 수량 + 단가 + 프로젝트번호
+  const mainLineRe = /^(\d{1,2})\s+(.+?)\s+(BP\d{4,}[^\s]*|BM\d{4,}[^\s]*|BR\d{4,}[^\s]*|EPC\d{4,}[^\s]*|PR\d{4,}[^\s]*)\s+(.+?)\s+(EA|식|개|SET|set|박스|롤|kg|m)\s+(\d+)\s+([\d,]+\.?\d*)\s+(BP\d{4,}|BM\d{4,}|BR\d{4,}|EPC\d{4,})/i;
+  
+  // 후속 줄: 날짜 + VAT(금액)
+  const followRe = /^(\d{4}[-./]\d{2}[-./]\d{2})\s+([\d,]+)\s*$/;
+  
+  let currentItem = null;
+  let lastDeliveryDate = "";
+  
+  for(let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // 메인 행 매칭
+    const m = line.match(mainLineRe);
+    if(m) {
+      // 이전 행 마감
+      if(currentItem) result.itemList.push(currentItem);
+      
+      const seq = Number(m[1]);
+      let name = m[2].trim();
+      const partNo = m[3].trim();
+      let vendor = m[4].trim();
+      const unit = m[5].trim();
+      const qty = Number(m[6]);
+      const unitPrice = Number(m[7].replace(/,/g, ""));
+      const projNo = m[8].trim();
+      
+      // ⚠️ 양식 결함 보정: "규격" 컬럼에 거래처가 들어있음
+      // 거래처가 (주)XX 형태면 vendor로 인식 (양식 헤더의 "규격" 무시)
+      const isVendorLike = /\(주\)|㈜|주식회사|\(유\)|회사|Co\.|Ltd\.|Inc\./.test(vendor);
+      
+      currentItem = {
+        seq: seq,
+        name: name,
+        partNo: partNo,
+        vendor: isVendorLike ? vendor : "",  // 헤더 함정 보정
+        spec: isVendorLike ? "" : vendor,    // 진짜 규격이면 spec으로
+        unit: unit,
+        qty: qty,
+        unitPrice: unitPrice,
+        projectNo: projNo,
+        deliveryDate: "",
+        rowVat: 0,  // 잘못된 양식의 "금액" 컬럼 = 사실은 VAT
+      };
+      continue;
+    }
+    
+    // 후속 줄: 날짜 + VAT
+    const fm = line.match(followRe);
+    if(fm && currentItem) {
+      currentItem.deliveryDate = fm[1].replace(/[./]/g, "-");
+      currentItem.rowVat = Number(fm[2].replace(/,/g, ""));
+      lastDeliveryDate = currentItem.deliveryDate;
+      continue;
+    }
+    
+    // 품명 후속 줄 (영문/숫자/슬래시): 이전 품명에 합치기
+    // 예: "NIC-333N/SET" 단독 라인
+    if(currentItem && !currentItem.deliveryDate) {
+      // 메인 라인도 후속 라인도 아닌 것 (헤더/총계 등 제외)
+      if(!/^(순번|품명|품번|규격|단위|수량|단가|납기|금액|프로젝트|계|총|합계|발주|구매|특이|전화|팩스|작성|검토|승인|통화|출력일|엔젯)/.test(line)) {
+        // 영문/숫자/슬래시/하이픈 위주면 품명 후속
+        if(/^[A-Za-z0-9\-_/\.]+$/.test(line) && line.length < 50) {
+          // 품명에 합치기 (공백으로)
+          currentItem.name += " " + line;
+        }
+      }
+    }
+  }
+  // 마지막 행 마감
+  if(currentItem) result.itemList.push(currentItem);
+  
+  console.log(`📦 발주서 로컬 파싱 - ${result.itemList.length}개 품목 추출`);
+  
+  // ── itemList 정리 ──
+  // 거래처는 첫 품목의 vendor 사용 (헤더에서 못 찾았으면)
+  if(!result.vendor && result.itemList.length > 0) {
+    const firstVendor = result.itemList.find(it => it.vendor)?.vendor;
+    if(firstVendor) result.vendor = firstVendor;
+  }
+  
+  // 납기일 (가장 늦은 날짜 또는 첫 행)
+  if(!result.deliveryDate) {
+    const dates = result.itemList.map(it => it.deliveryDate).filter(Boolean);
+    if(dates.length > 0) {
+      result.deliveryDate = dates.sort().reverse()[0];
+    }
+  }
+  
+  // ── 금액 계산 (VAT 별도 모드 기준) ──
+  // 공급가 = Σ qty × unitPrice
+  const sumSupply = result.itemList.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+  // VAT = Σ rowVat (잘못된 양식의 "금액" 컬럼)
+  const sumRowVat = result.itemList.reduce((s, it) => s + (it.rowVat || 0), 0);
+  
+  // 양식 분석:
+  // - rowVat 값이 unitPrice와 같다 → 양식 결함 (실제로는 합계×10%=VAT)
+  // - rowVat가 unitPrice의 10% → 정상 VAT
+  let interpretedVAT;
+  let interpretMode = "auto";
+  
+  if(sumRowVat > 0 && Math.abs(sumRowVat - sumSupply) < sumSupply * 0.01) {
+    // rowVat = supply → "금액" 컬럼이 사실 단가×수량 합계 (VAT 명시 안 됨)
+    // 이 경우 VAT 별도 10%로 자동 계산
+    interpretedVAT = Math.round(sumSupply * 0.1);
+    interpretMode = "vat_auto_10pct";
+    console.log(`📦 양식 분석: '금액' 컬럼 = 단가×수량 합계 (VAT 컬럼 없음) → VAT 자동 10%`);
+  } else if(sumRowVat > 0 && Math.abs(sumRowVat - sumSupply * 0.1) < sumSupply * 0.02) {
+    // rowVat = supply × 10% → 정상 VAT
+    interpretedVAT = sumRowVat;
+    interpretMode = "vat_explicit";
+    console.log(`📦 양식 분석: '금액' 컬럼 = 행별 VAT (정상)`);
+  } else {
+    // 애매한 경우 자동 10%
+    interpretedVAT = Math.round(sumSupply * 0.1);
+    interpretMode = "vat_auto_10pct";
+    console.log(`📦 양식 분석: VAT 자동 10%`);
+  }
+  
+  result.supplyAmount = sumSupply;
+  result.vatAmount = interpretedVAT;
+  
+  // 총금액: PDF 헤더에 명시된 값이 있으면 그것 우선
+  if(result.totalAmount === 0) {
+    result.totalAmount = sumSupply + interpretedVAT;
+  } else {
+    // PDF 총금액이 공급가와 같으면 → VAT 별도 (총금액=공급가, VAT 추가)
+    if(Math.abs(result.totalAmount - sumSupply) < sumSupply * 0.01) {
+      result.totalAmount = sumSupply + interpretedVAT;
+      console.log(`📦 PDF 총금액=공급가 → VAT 별도 추가하여 ${result.totalAmount.toLocaleString()}로 보정`);
+    }
+    // 그게 아니면 PDF 값 신뢰 (VAT 포함 모드)
+  }
+  
+  // ── 최종 itemList 형식 변환 (UI 호환) ──
+  result.itemList = result.itemList.map(it => ({
+    name: it.name,
+    partNo: it.partNo,
+    unit: it.unit,
+    qty: it.qty,
+    unitPrice: it.unitPrice,
+    vat: interpretMode === "vat_auto_10pct" ? Math.round(it.qty * it.unitPrice * 0.1) : (it.rowVat || 0),
+  }));
+  
+  result._interpretMode = interpretMode;
+  
+  console.log(`📦 발주서 로컬 파싱 완료:`, {
+    vendor: result.vendor,
+    poCode: result.poCode,
+    poDate: result.poDate,
+    deliveryDate: result.deliveryDate,
+    items: result.itemList.length,
+    supply: result.supplyAmount,
+    vat: result.vatAmount,
+    total: result.totalAmount,
+    mode: interpretMode,
+  });
+  
+  return result.itemList.length > 0 ? result : null;
+}
+
+
 async function aiParsePR() {
   const fileInput = document.getElementById("sl-f-prfile");
   const file = fileInput?.files?.[0];
@@ -5197,6 +5428,176 @@ async function _uploadDocToSP(file, options) {
   }
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔄 SharePoint 폴더의 파일들을 5개 DB에 일괄 등록 (DB 동기화 버튼)
+// 폴더: 🏭 구매/1.구매활동/{프로젝트코드}/{문서종류}/
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// SP 폴더 내 파일 목록 조회 (재귀 X, 한 폴더만)
+async function _listSPFiles(folderPath) {
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) return [];
+    const enc = folderPath.split("/").map(encodeURIComponent).join("/");
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/children?$top=200`, {
+      headers: { "Authorization": "Bearer " + t }
+    });
+    if(!r.ok) return [];
+    const j = await r.json();
+    return (j.value || []).filter(item => item.file);  // 파일만 (폴더 제외)
+  } catch(e) {
+    return [];
+  }
+}
+
+// 파일명에서 정보 파싱: {프로젝트코드}-{날짜}-{문서번호}-{원본파일명}.확장자
+function _parseFilename(filename) {
+  const m = filename.match(/^([^-]+)-(\d{4}-\d{2}-\d{2})-([^-]+(?:-[^-]+)*?)-(.+)$/);
+  if(!m) return { projectCode: "", date: "", docNo: "", origName: filename };
+  return {
+    projectCode: m[1],
+    date: m[2],
+    docNo: m[3],
+    origName: m[4],
+  };
+}
+
+async function syncPurchaseFilesToDB() {
+  // 1. 구매활동에서 모든 프로젝트코드 수집
+  const projectCodes = new Set();
+  if(Array.isArray(slData)) {
+    slData.forEach(act => {
+      if(act.pjcode) projectCodes.add(act.pjcode);
+    });
+  }
+  // 새 DB에 이미 있는 프로젝트코드도 추가
+  [_pqdbData, _pordData, _pdlvData, _ptaxData, _pstlData].forEach(arr => {
+    if(Array.isArray(arr)) arr.forEach(d => { if(d.salesCode) projectCodes.add(d.salesCode); });
+  });
+  
+  if(projectCodes.size === 0) {
+    alert("동기화할 프로젝트가 없습니다.\n구매활동을 먼저 등록해주세요.");
+    return;
+  }
+  
+  if(!confirm(`SharePoint 폴더의 파일들을 각 DB에 일괄 등록합니다.\n\n대상 프로젝트: ${projectCodes.size}개\n경로: 🏭 구매/1.구매활동/{프로젝트코드}/{문서종류}/\n\n이미 등록된 파일은 건너뜁니다.\n\n계속하시겠어요?`)) return;
+  
+  // 진행 상태 표시
+  const oldBtn = event?.target;
+  const oldText = oldBtn?.innerHTML;
+  if(oldBtn) { oldBtn.innerHTML = "⏳ 동기화 중..."; oldBtn.disabled = true; }
+  
+  const counts = { quote:0, order:0, delivery:0, tax:0, settle:0 };
+  const skipped = { quote:0, order:0, delivery:0, tax:0, settle:0 };
+  const errors = [];
+  
+  // 문서종류별 DB/접두어 매핑
+  const docTypeMap = [
+    { docType: "견적서", dbArr: _pqdbData, prefix: "pq", counterKey: "quote", dateField: "quoteDate", noField: "quoteNo" },
+    { docType: "발주서", dbArr: _pordData, prefix: "po", counterKey: "order", dateField: "poDate", noField: "poCode" },
+    { docType: "거래명세서", dbArr: _pdlvData, prefix: "pdlv", counterKey: "delivery", dateField: "dlvDate", noField: "dlvNo" },
+    { docType: "세금계산서", dbArr: _ptaxData, prefix: "ptax", counterKey: "tax", dateField: "taxDate", noField: "taxNo" },
+    { docType: "회계전표", dbArr: _pstlData, prefix: "stl", counterKey: "settle", dateField: "stlDate", noField: "stCode" },
+  ];
+  
+  for(const pjCode of projectCodes) {
+    for(const dt of docTypeMap) {
+      const folderPath = `🏭 구매/1.구매활동/${pjCode}/${dt.docType}`;
+      const files = await _listSPFiles(folderPath);
+      
+      for(const file of files) {
+        if(!file.name) continue;
+        // PDF만 처리
+        if(!/\.(pdf|png|jpe?g)$/i.test(file.name)) continue;
+        
+        // 중복 체크 (fileName 또는 fileUrl 기준)
+        const arr = dt.dbArr;
+        const existing = arr.find(d => 
+          d.fileName === file.name || 
+          (d.fileUrl && d.fileUrl === file.webUrl) ||
+          (d.filePath && d.filePath.endsWith(file.name))
+        );
+        if(existing) { skipped[dt.counterKey]++; continue; }
+        
+        // 파일명에서 정보 파싱
+        const parsed = _parseFilename(file.name);
+        
+        // 구매활동에서 부모 SL ID 찾기
+        const parentAct = slData?.find(s => s.pjcode === pjCode);
+        
+        // 새 레코드 생성
+        const newRecord = {
+          id: `${dt.prefix}_sync_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+          parentSLId: parentAct?.id || null,
+          salesCode: pjCode,
+          vendor: parentAct?.vendor || "",
+          [dt.dateField]: parsed.date || new Date().toISOString().slice(0,10),
+          [dt.noField]: parsed.docNo || "",
+          items: "",
+          itemList: [],
+          supplyAmount: 0,
+          vatAmount: 0,
+          totalAmount: 0,
+          status: "검토중",
+          note: "DB 동기화로 자동 등록 (금액/품목 미입력 - 모달에서 수정)",
+          fileUrl: file.webUrl || "",
+          fileName: file.name,
+          filePath: `${folderPath}/${file.name}`,
+          createdAt: file.createdDateTime || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        arr.push(newRecord);
+        counts[dt.counterKey]++;
+        console.log(`📄 ${dt.docType} 동기화: ${file.name}`);
+      }
+    }
+  }
+  
+  // 5개 DB SP에 저장
+  try {
+    const saveResults = [];
+    if(counts.quote > 0) saveResults.push(savePQDB());
+    if(counts.order > 0) saveResults.push(savePORD());
+    if(counts.delivery > 0) saveResults.push(savePDLV());
+    if(counts.tax > 0) saveResults.push(savePTAX());
+    if(counts.settle > 0) saveResults.push(savePSTL());
+    await Promise.all(saveResults);
+  } catch(e) {
+    console.warn("DB 저장 실패:", e.message);
+    errors.push(e.message);
+  }
+  
+  // UI 갱신
+  if(typeof renderPQDB === "function") renderPQDB();
+  if(typeof renderPORD === "function") renderPORD();
+  if(typeof renderPDLV === "function") renderPDLV();
+  if(typeof renderPTAX === "function") renderPTAX();
+  if(typeof renderPSTL === "function") renderPSTL();
+  if(typeof renderSLAll === "function") renderSLAll();
+  if(typeof updateAllBadges === "function") updateAllBadges();
+  
+  // 버튼 복원
+  if(oldBtn && oldText) { oldBtn.innerHTML = oldText; oldBtn.disabled = false; }
+  
+  const total = counts.quote + counts.order + counts.delivery + counts.tax + counts.settle;
+  const totalSkip = skipped.quote + skipped.order + skipped.delivery + skipped.tax + skipped.settle;
+  
+  alert(
+    `✅ DB 동기화 완료!\n\n` +
+    `등록: 총 ${total}건\n` +
+    `  📄 견적서: ${counts.quote}건\n` +
+    `  📦 발주서: ${counts.order}건\n` +
+    `  🚚 거래명세서: ${counts.delivery}건\n` +
+    `  🧾 세금계산서: ${counts.tax}건\n` +
+    `  💼 회계전표: ${counts.settle}건\n\n` +
+    `중복 건너뜀: ${totalSkip}건\n` +
+    (errors.length ? `\n⚠️ 오류: ${errors.join("\n")}\n` : "") +
+    `\n※ 금액/품목 등은 각 DB에서 수정 가능`
+  );
+}
+
 // 공통 AI 파싱 (파일 첨부 시 자동 호출 또는 [AI 파싱] 버튼)
 async function _purchaseAIParse(prefix, docType, auto) {
   const fileInput = document.getElementById(`${prefix}-f-file`);
@@ -5234,6 +5635,78 @@ async function _purchaseAIParse(prefix, docType, auto) {
       r.onerror = () => rej(new Error("파일 읽기 실패"));
       r.readAsDataURL(file);
     });
+    
+    // ⚡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 발주서: 로컬 파싱 우선 시도 (ENJET 자체 양식이라 정확)
+    // 우선순위: 로컬 → Gemini → OpenAI → Copilot
+    // ⚡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if(docType === "order") {
+      showProgress("⚡ 로컬 파싱 시도 중...", "#7c3aed", true);
+      try {
+        let pdfText = "";
+        if(typeof extractPdfText === "function") {
+          pdfText = await extractPdfText(base64);
+        }
+        if(pdfText && pdfText.length > 100) {
+          console.log(`⚡ 발주서 PDF 텍스트 ${pdfText.length}자 추출`);
+          const localResult = parseENJETPOTextLocally(pdfText);
+          if(localResult && localResult.itemList.length > 0) {
+            // 로컬 파싱 성공 → AI 호출 없이 바로 적용
+            console.log(`⚡ 발주서 로컬 파싱 성공: ${localResult.itemList.length}건`);
+            
+            // 폼 채우기 헬퍼
+            const fillForce = (id, val) => {
+              const el = document.getElementById(id);
+              if(el && val !== undefined && val !== null && val !== "") {
+                el.value = val;
+                el.dispatchEvent(new Event("input"));
+              }
+            };
+            
+            // 기본 정보
+            if(localResult.vendor) fillForce(`${prefix}-f-vendor`, localResult.vendor);
+            if(localResult.poCode) fillForce(`${prefix}-f-pocode`, localResult.poCode);
+            if(localResult.poDate) fillForce(`${prefix}-f-date`, localResult.poDate);
+            if(localResult.deliveryDate) fillForce(`${prefix}-f-delivery`, localResult.deliveryDate);
+            if(localResult.payTerm) fillForce(`${prefix}-f-payterm`, localResult.payTerm);
+            
+            // 금액
+            if(localResult.supplyAmount) fillForce(`${prefix}-f-supply`, localResult.supplyAmount);
+            if(localResult.vatAmount !== undefined) fillForce(`${prefix}-f-vat`, localResult.vatAmount);
+            if(localResult.totalAmount) fillForce(`${prefix}-f-total`, localResult.totalAmount);
+            
+            // VAT 모드
+            if(typeof setPOVatMode === "function") {
+              setPOVatMode(localResult.vatMode === "included" ? "included" : "separate");
+            }
+            
+            // 품목 그리드
+            if(typeof initPOItems === "function") {
+              initPOItems(localResult.itemList);
+            }
+            
+            showProgress(`✅ 로컬 파싱 완료 (${localResult.itemList.length}건) - AI 없이 즉시 추출!`, "#16a34a", false);
+            window[`_aiParsing_${prefix}`] = false;
+            window[`_aiParsed_${prefix}`] = true;
+            
+            // 검토 알림 모달
+            setTimeout(() => {
+              if(typeof _showAIReviewAlert === "function") {
+                _showAIReviewAlert("발주서", localResult.itemList.length, "로컬 파싱");
+              }
+            }, 500);
+            
+            return; // ⚡ AI 호출 안 함
+          } else {
+            console.log("⚡ 로컬 파싱 실패 → AI 폴백");
+          }
+        }
+      } catch(localErr) {
+        console.warn("⚡ 로컬 파싱 오류 (AI 폴백):", localErr.message);
+      }
+      // 로컬 실패 → AI로 진행
+      showProgress("🤖 AI 파싱으로 폴백 중...", "#2563eb", true);
+    }
     
     // docType별 프롬프트
     const prompts = {
