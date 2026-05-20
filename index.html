@@ -1077,9 +1077,9 @@
               <input type="file" id="sl-f-prfile" accept="application/pdf,.pdf,.docx,.xlsx,.hwp,image/*"
                 style="flex:1;min-width:200px;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px;font-family:var(--s)">
               <button type="button" onclick="aiParsePR()" 
-                style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱</button>
+                style="padding:8px 14px;border-radius:7px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s);white-space:nowrap">🤖 AI 파싱 (수동)</button>
             </div>
-            <div style="font-size:11px;color:var(--t3);margin-top:6px">※ PDF 업로드 시 좌측에 미리보기 표시 · AI 파싱으로 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:6px">🚀 PDF 업로드 시 좌측 미리보기 + AI 파싱 자동 시작 → 품목/수량/단가 자동 추출 → BOM DB 자동 매칭</div>
             <div id="sl-f-prfile-info" style="font-size:12px;color:var(--g);margin-top:6px;display:none"></div>
           </div>
 
@@ -4476,14 +4476,13 @@ window.addEventListener("DOMContentLoaded", () => {
   
   const prInput = document.getElementById("sl-f-prfile");
   if(prInput) {
-    prInput.addEventListener("change", () => {
+    prInput.addEventListener("change", async () => {
       const f = prInput.files?.[0];
       const info = document.getElementById("sl-f-prfile-info");
       if(info) {
         if(f) {
           info.style.display = "block";
-          info.textContent = `📎 선택됨: ${f.name} (${(f.size/1024).toFixed(1)} KB) - AI 파싱 버튼으로 자동 추출 가능`;
-          info.style.color = "var(--g)";
+          info.innerHTML = `<div style="padding:6px 10px;background:#2563eb15;border-left:3px solid #2563eb;border-radius:5px;color:#2563eb;font-weight:700">📎 ${f.name} (${(f.size/1024).toFixed(1)} KB) - AI 파싱 자동 시작...</div>`;
         } else {
           info.style.display = "none";
         }
@@ -4493,6 +4492,16 @@ window.addEventListener("DOMContentLoaded", () => {
         renderFilePreview(f, "sl-f-preview-pane").catch(e => console.warn("미리보기 실패:", e));
       } else if(!f) {
         const pp = document.getElementById("sl-f-preview-pane"); if(pp) pp.innerHTML = "";
+      }
+      // 🆕 AI 파싱 자동 시작 (파일 첨부 즉시)
+      if(f && typeof aiParsePR === "function") {
+        // 약간의 딜레이 후 자동 실행 (미리보기 먼저 표시)
+        setTimeout(() => {
+          aiParsePR().catch(e => {
+            console.warn("자동 AI 파싱 실패:", e.message);
+            if(info) info.innerHTML = `<div style="padding:6px 10px;background:#dc262615;border-left:3px solid #dc2626;border-radius:5px;color:#dc2626;font-weight:700">❌ AI 파싱 실패 - 수동으로 [🤖 AI 파싱] 버튼 클릭해주세요</div>`;
+          });
+        }, 300);
       }
     });
   }
@@ -4658,10 +4667,29 @@ function nextSTCode() { return nextPurchaseCode("ST", _pstlData); }
 // ━━ 9개 JSON 저장/로드 함수 (영업 safeSaveDB 패턴) ━━
 
 // 1. PR 마스터 (구매요청서)
+// 🆕 savePRMaster 디바운스 (409 Conflict 방지)
+let _prSaveTimer = null;
+let _prSavePromise = null;
 async function savePRMaster() {
-  const r = await safeSaveDB("pr_master", PR_SP_PATH, _prMaster);
-  if(r.sp) console.log(`✅ PR Master 저장: ${_prMaster.length}건`);
-  return r;
+  if(_prSavePromise) return _prSavePromise;
+  _prSavePromise = new Promise((resolve) => {
+    if(_prSaveTimer) clearTimeout(_prSaveTimer);
+    _prSaveTimer = setTimeout(async () => {
+      try {
+        const r = await safeSaveDB("pr_master", PR_SP_PATH, _prMaster);
+        if(r.sp) console.log(`✅ PR Master 저장: ${_prMaster.length}건`);
+        else console.warn(`⚠️ PR Master SP 저장 실패: ${r.error||""}`);
+        resolve(r);
+      } catch(e) {
+        console.warn("PR Master 저장 실패:", e.message);
+        resolve({ sp: false, error: e.message });
+      } finally {
+        _prSaveTimer = null;
+        _prSavePromise = null;
+      }
+    }, 500);
+  });
+  return _prSavePromise;
 }
 async function loadPRMaster() {
   _prMaster = await safeLoadDB("pr_master", PR_SP_PATH);
@@ -4736,10 +4764,32 @@ async function loadPSTL() {
 }
 
 // 7. BOM
+// 🆕 saveBOMDB 디바운스 - 짧은 시간에 여러번 호출되면 마지막 한번만 저장 (409 Conflict 방지)
+let _bomSaveTimer = null;
+let _bomSavePromise = null;
 async function saveBOMDB() {
-  const r = await safeSaveDB("bom_data", BOM_SP_PATH, _bomData);
-  if(r.sp) console.log(`✅ BOM 저장: ${_bomData.length}건`);
-  return r;
+  // 이미 예약된 저장이 있으면 그 Promise 반환
+  if(_bomSavePromise) return _bomSavePromise;
+  
+  _bomSavePromise = new Promise((resolve) => {
+    if(_bomSaveTimer) clearTimeout(_bomSaveTimer);
+    _bomSaveTimer = setTimeout(async () => {
+      try {
+        const r = await safeSaveDB("bom_data", BOM_SP_PATH, _bomData);
+        if(r.sp) console.log(`✅ BOM 저장: ${_bomData.length}건`);
+        else console.warn(`⚠️ BOM SP 저장 실패 (localStorage 백업됨): ${r.error||""}`);
+        resolve(r);
+      } catch(e) {
+        console.warn("BOM 저장 실패:", e.message);
+        resolve({ sp: false, error: e.message });
+      } finally {
+        _bomSaveTimer = null;
+        _bomSavePromise = null;
+      }
+    }, 500);  // 500ms 디바운스 - 여러번 호출되면 마지막만 실행
+  });
+  
+  return _bomSavePromise;
 }
 async function loadBOMDB() {
   _bomData = await safeLoadDB("bom_data", BOM_SP_PATH);
@@ -5203,8 +5253,28 @@ async function _purchaseAIParse(prefix, docType, auto) {
   "totalAmount": 총액숫자
 }
 주의: itemList는 PDF 표의 모든 행을 빠짐없이 추출. 수량(Quantity)과 단가(Price)는 숫자만 (콤마 제거). 합계(Amount)는 qty*unitPrice로 자동 계산되므로 itemList엔 포함 안 함.`,
-      order: `이 매입 발주서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
-{"vendor":"거래처명","poDate":"YYYY-MM-DD","deliveryDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자,"payTerm":"결제조건"}`,
+      order: `이 매입 발주서 PDF에서 정보를 JSON으로 추출. 반드시 JSON만 출력 (코드블록/주석 없이):
+{
+  "vendor": "거래처명/구매거래처 (예: ㈜위앤). 절대 '규격' 컬럼에 있어도 거래처면 vendor로!",
+  "poCode": "발주번호 (예: 20260519-0002, PO-260520-01)",
+  "poDate": "YYYY-MM-DD (발주일)",
+  "deliveryDate": "YYYY-MM-DD (납기일 - 발주서는 확정 날짜)",
+  "vatMode": "separate(VAT별도) 또는 included(VAT포함)",
+  "payTerm": "결제조건 (현금/30일어음/60일어음/90일어음/월말결제 중 하나)",
+  "itemList": [
+    {"name":"품명1","partNo":"품번/품목코드","unit":"EA","qty":1,"unitPrice":400000},
+    {"name":"품명2","partNo":"품번","unit":"EA","qty":1,"unitPrice":290000}
+  ],
+  "supplyAmount": 공급가합계 (모든 행의 qty*unitPrice 합),
+  "vatAmount": VAT숫자(별도면 공급가의10%, 포함이면 0),
+  "totalAmount": 총금액(공급가+VAT)
+}
+⚠️ 주의사항 (양식마다 다름 - 잘 읽어내야 함):
+1. "규격" 컬럼에 거래처가 들어있을 수 있음 → 그건 vendor (절대 spec 아님)
+2. "단가" 아래 숫자 = 단가, "금액" 아래 숫자 = 합계(qty*단가). VAT가 아니라 행별 합계!
+3. 총합계와 VAT 분리 - "총금액"이 supplyAmount이고 VAT가 따로 있는지 PDF에서 확인
+4. 품번에는 "BP26004_xxx" 같은 코드만, 거래처(㈜위앤)는 포함하지 말 것
+5. itemList의 각 행은 PDF 표에서 한 행씩. 빠짐없이 전부 추출.`,
       delivery: `이 거래명세서/입고증 PDF에서 정보를 JSON으로 추출. JSON만 출력:
 {"vendor":"거래처명","dlvDate":"YYYY-MM-DD","items":"품목요약","supplyAmount":공급가숫자,"vatAmount":VAT숫자,"totalAmount":총액숫자}`,
       tax: `이 세금계산서 PDF에서 정보를 JSON으로 추출. JSON만 출력:
@@ -5286,6 +5356,15 @@ async function _purchaseAIParse(prefix, docType, auto) {
       if(result.poDate) fillForce(`${prefix}-f-date`, result.poDate);
       if(result.deliveryDate) fillForce(`${prefix}-f-delivery`, result.deliveryDate);
       if(result.payTerm) fillForce(`${prefix}-f-payterm`, result.payTerm);
+      if(result.poCode) fillForce(`${prefix}-f-pocode`, result.poCode);
+      // 🆕 발주서 - 품목 배열 + VAT 모드
+      if(result.vatMode && typeof setPOVatMode === "function") {
+        setPOVatMode(result.vatMode === "included" ? "included" : "separate");
+      }
+      if(Array.isArray(result.itemList) && result.itemList.length > 0 && typeof initPOItems === "function") {
+        initPOItems(result.itemList);
+        console.log(`✅ 발주 품목 ${result.itemList.length}건 자동 입력`);
+      }
     } else if(docType === "delivery") {
       if(result.dlvDate) fillForce(`${prefix}-f-date`, result.dlvDate);
     } else if(docType === "tax") {
@@ -5296,8 +5375,8 @@ async function _purchaseAIParse(prefix, docType, auto) {
       if(result.entryDate) fillForce(`${prefix}-f-date`, result.entryDate);
     }
     
-    // 견적서가 아닌 경우만 _purchaseCalcTotal 호출 (견적서는 renderPQItems가 처리)
-    if(docType !== "quote" && result.supplyAmount) {
+    // 견적서/발주서는 자체 recalc가 처리 (그 외는 _purchaseCalcTotal)
+    if(docType !== "quote" && docType !== "order" && result.supplyAmount) {
       _purchaseCalcTotal(prefix);
     }
     
@@ -5529,6 +5608,158 @@ function clearPQItems() {
   if(vatEl) delete vatEl.dataset.manual;
   setPQVatMode("separate");
   renderPQItems();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📦 매입 발주서 - 품목 그리드 + VAT 토글 (견적서 패턴 동일, 품번 컬럼 추가)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let _poItems = [];
+
+function renderPOItems() {
+  const body = document.getElementById("po-items-body");
+  if(!body) return;
+  
+  if(!_poItems.length) {
+    body.innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--t3);font-size:12px">
+      <div style="font-size:36px;margin-bottom:8px;opacity:0.4">📦</div>
+      품목이 없습니다<br>
+      <span style="font-size:11px">PDF 첨부 → AI 파싱이 자동으로 품목을 채웁니다</span>
+    </div>`;
+    const ic = document.getElementById("poItemCount"); if(ic) ic.textContent = "0";
+    const tq = document.getElementById("poTotalQty"); if(tq) tq.textContent = "0";
+    return;
+  }
+  
+  body.innerHTML = _poItems.map((it, i) => {
+    const qty = Number(it.qty) || 0;
+    const unitPrice = Number(it.unitPrice) || 0;
+    const total = qty * unitPrice;
+    const safeName = (it.name || "").replace(/"/g, "&quot;");
+    const safePartNo = (it.partNo || "").replace(/"/g, "&quot;");
+    const safeUnit = (it.unit || "EA").replace(/"/g, "&quot;");
+    return `<div style="display:grid;grid-template-columns:30px 1fr 110px 60px 60px 90px 100px 30px;gap:4px;align-items:center;padding:4px 10px;border-bottom:1px solid var(--border);${i%2 ? 'background:#fafbfc' : ''}">
+      <div style="text-align:center;font-size:10px;color:var(--t3);font-weight:700">${i+1}</div>
+      <input type="text" value="${safeName}" oninput="updatePOItem(${i},'name',this.value)" 
+        placeholder="품명" style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;font-weight:600">
+      <input type="text" value="${safePartNo}" oninput="updatePOItem(${i},'partNo',this.value)" 
+        placeholder="품번" style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;font-family:var(--m)">
+      <input type="text" value="${safeUnit}" oninput="updatePOItem(${i},'unit',this.value)" 
+        style="padding:4px 4px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:center;box-sizing:border-box;font-family:var(--m)">
+      <input type="number" value="${qty}" min="0" step="1" oninput="updatePOItem(${i},'qty',this.value)" 
+        style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);font-weight:700">
+      <input type="number" value="${unitPrice||''}" min="0" step="1" placeholder="단가" oninput="updatePOItem(${i},'unitPrice',this.value)" 
+        style="padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-size:11px;width:100%;text-align:right;box-sizing:border-box;font-family:var(--m);background:${unitPrice>0 ? '#fef9c3' : '#fff'}">
+      <div style="padding:4px 6px;text-align:right;font-family:var(--m);font-size:11px;font-weight:700;color:${total>0 ? '#9a3412' : 'var(--t3)'};background:#f8fafc;border-radius:4px">${total > 0 ? total.toLocaleString() : '-'}</div>
+      <button type="button" onclick="removePOItem(${i})" title="이 행 삭제" style="border:none;background:transparent;color:var(--r);cursor:pointer;font-size:13px;padding:0;font-weight:700">×</button>
+    </div>`;
+  }).join("");
+  
+  const ic = document.getElementById("poItemCount"); if(ic) ic.textContent = _poItems.length;
+  
+  const totalQty = _poItems.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  const totalSupply = _poItems.reduce((s, it) => s + (Number(it.qty)||0) * (Number(it.unitPrice)||0), 0);
+  const tq = document.getElementById("poTotalQty"); if(tq) tq.textContent = totalQty;
+  const supplyEl = document.getElementById("po-f-supply"); if(supplyEl) supplyEl.value = totalSupply;
+  
+  recalcPOTotal();
+  
+  // 호환용 items 텍스트 자동 채움
+  const itemsText = _poItems.map(it => it.name).filter(Boolean).slice(0,3).join(", ") + 
+                    (_poItems.length > 3 ? ` 외 ${_poItems.length-3}품목` : "");
+  const itemsHidden = document.getElementById("po-f-items");
+  if(itemsHidden) itemsHidden.value = itemsText;
+}
+
+function updatePOItem(idx, field, value) {
+  if(!_poItems[idx]) return;
+  if(field === "qty" || field === "unitPrice") {
+    _poItems[idx][field] = Number(value) || 0;
+    renderPOItems();
+  } else {
+    _poItems[idx][field] = value;
+  }
+}
+
+function removePOItem(idx) {
+  _poItems.splice(idx, 1);
+  renderPOItems();
+}
+
+function addPOItem() {
+  _poItems.push({ name: "", partNo: "", unit: "EA", qty: 1, unitPrice: 0 });
+  renderPOItems();
+}
+
+function setPOVatMode(mode) {
+  const vatModeEl = document.getElementById("po-f-vat-mode");
+  if(vatModeEl) vatModeEl.value = mode;
+  const sepBtn = document.getElementById("po-vat-mode-separate");
+  const incBtn = document.getElementById("po-vat-mode-included");
+  const vatLabel = document.getElementById("po-vat-label");
+  const vatInput = document.getElementById("po-f-vat");
+  
+  if(mode === "separate") {
+    if(sepBtn) { sepBtn.style.background = "#dc2626"; sepBtn.style.color = "#fff"; }
+    if(incBtn) { incBtn.style.background = "transparent"; incBtn.style.color = "var(--t2)"; }
+    if(vatLabel) vatLabel.textContent = "VAT 10% (별도)";
+    if(vatInput) vatInput.readOnly = false;
+  } else {
+    if(sepBtn) { sepBtn.style.background = "transparent"; sepBtn.style.color = "var(--t2)"; }
+    if(incBtn) { incBtn.style.background = "#16a34a"; incBtn.style.color = "#fff"; }
+    if(vatLabel) vatLabel.textContent = "VAT 포함 (0)";
+    if(vatInput) { vatInput.value = 0; vatInput.readOnly = true; }
+  }
+  recalcPOTotal();
+}
+
+function recalcPOTotal() {
+  const supply = Number(document.getElementById("po-f-supply")?.value || 0);
+  const vatMode = document.getElementById("po-f-vat-mode")?.value || "separate";
+  const vatEl = document.getElementById("po-f-vat");
+  const totalEl = document.getElementById("po-f-total");
+  
+  let vat = 0;
+  if(vatMode === "separate") {
+    if(vatEl && !vatEl.dataset.manual && (!vatEl.value || Number(vatEl.value) === 0)) {
+      vat = Math.round(supply * 0.1);
+      vatEl.value = vat;
+    } else {
+      vat = Number(vatEl?.value || 0);
+    }
+  } else {
+    vat = 0;
+    if(vatEl) vatEl.value = 0;
+  }
+  if(totalEl) totalEl.value = supply + vat;
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const vatEl = document.getElementById("po-f-vat");
+  if(vatEl) {
+    vatEl.addEventListener("input", () => {
+      vatEl.dataset.manual = "1";
+    });
+  }
+});
+
+function initPOItems(items) {
+  _poItems = Array.isArray(items) ? items.map(it => ({
+    name: it.name || it.itemName || "",
+    partNo: it.partNo || it.partNumber || "",
+    unit: it.unit || "EA",
+    qty: Number(it.qty) || 1,
+    unitPrice: Number(it.unitPrice || it.price) || 0,
+  })) : [];
+  renderPOItems();
+}
+
+function clearPOItems() {
+  _poItems = [];
+  const vatEl = document.getElementById("po-f-vat");
+  if(vatEl) delete vatEl.dataset.manual;
+  setPOVatMode("separate");
+  renderPOItems();
 }
 
 
@@ -5941,6 +6172,9 @@ function openPurchaseOrderModal(id) {
   const modal = document.getElementById("purchaseOrderModal");
   if(!modal) { alert("모달 DOM 없음"); return; }
   
+  // 🆕 모달 body 직속으로 이동
+  if(modal.parentElement !== document.body) document.body.appendChild(modal);
+  
   // 거래처 datalist
   const vlist = document.getElementById("po-vendor-list");
   if(vlist && Array.isArray(vendorData)) {
@@ -5951,15 +6185,33 @@ function openPurchaseOrderModal(id) {
   
   const setField = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||""; };
   
+  // 🆕 AI 파싱 상태 초기화
+  window._aiParsed_po = false;
+  window._aiParsing_po = false;
+  const statusEl = document.getElementById("po-parse-status");
+  if(statusEl) statusEl.innerHTML = "";
+  
+  // 🆕 미리보기 초기화
+  const previewPane = document.getElementById("po-preview-pane");
+  if(previewPane) {
+    previewPane.innerHTML = `<div style="padding:60px 30px;text-align:center;color:var(--t3)">
+      <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📦</div>
+      <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
+      <div style="font-size:11px;margin-top:6px">PDF 파일을 첨부하면 여기에 표시되고<br>AI 파싱이 자동 시작됩니다</div>
+    </div>`;
+  }
+  
   if(id) {
     const d = _pordData.find(x => x.id === id);
     if(!d) { alert("발주서 데이터 없음"); return; }
     document.getElementById("poModalTitle").textContent = "📦 매입 발주서 수정";
     setField("po-f-pocode", d.poCode);
     setField("po-f-prcode", d.prCode);
+    setField("po-f-salescode", d.salesCode);
     setField("po-f-vendor", d.vendor);
     setField("po-f-date", d.poDate);
     setField("po-f-delivery", d.deliveryDate);
+    setField("po-f-quoteref", d.quoteRef || "");
     setField("po-f-items", d.items);
     setField("po-f-supply", d.supplyAmount);
     setField("po-f-vat", d.vatAmount);
@@ -5967,12 +6219,14 @@ function openPurchaseOrderModal(id) {
     setField("po-f-payterm", d.payTerm || "현금");
     setField("po-f-status", d.status || "발주완료");
     setField("po-f-note", d.note);
+    // 🆕 품목 + VAT 모드 복원
+    if(typeof initPOItems === "function") initPOItems(d.itemList || []);
+    if(typeof setPOVatMode === "function") setPOVatMode(d.vatMode || "separate");
   } else {
     document.getElementById("poModalTitle").textContent = "📦 매입 발주서 작성";
     const today = new Date().toISOString().slice(0,10);
-    // 신규 PO 코드 자동 채번
-    setField("po-f-pocode", nextPOCode());
-    ["po-f-prcode","po-f-vendor","po-f-items","po-f-note"].forEach(id => setField(id, ""));
+    setField("po-f-pocode", typeof nextPOCode === "function" ? nextPOCode() : "");
+    ["po-f-prcode","po-f-vendor","po-f-items","po-f-note","po-f-quoteref","po-f-salescode"].forEach(id => setField(id, ""));
     setField("po-f-date", today);
     setField("po-f-delivery", "");
     setField("po-f-supply", "");
@@ -5980,7 +6234,16 @@ function openPurchaseOrderModal(id) {
     setField("po-f-total", "");
     setField("po-f-payterm", "현금");
     setField("po-f-status", "발주완료");
+    // 영업코드 자동
+    if(window._currentSLActPjcode) setField("po-f-salescode", window._currentSLActPjcode);
+    // 🆕 품목 + VAT 모드 초기화
+    if(typeof initPOItems === "function") initPOItems([]);
+    if(typeof setPOVatMode === "function") setPOVatMode("separate");
   }
+  
+  // 파일 input 초기화
+  const fInput = document.getElementById("po-f-file");
+  if(fInput) fInput.value = "";
   
   modal.style.display = "flex";
 }
@@ -5989,6 +6252,9 @@ function closePurchaseOrderModal() {
   const modal = document.getElementById("purchaseOrderModal");
   if(modal) modal.style.display = "none";
   _poEditId = null;
+  if(typeof clearPOItems === "function") clearPOItems();
+  window._aiParsed_po = false;
+  window._aiParsing_po = false;
 }
 
 function poCalcTotal() {
@@ -6017,7 +6283,7 @@ async function savePurchaseOrder() {
   const poDate = document.getElementById("po-f-date").value;
   const deliveryDate = document.getElementById("po-f-delivery").value;
   
-  if(!prCode) { alert("PR 코드를 입력해주세요."); return; }
+  // 🆕 PR 코드는 선택 (발주서가 견적없이 직접 발주될 수도)
   if(!vendor) { alert("거래처를 입력해주세요."); return; }
   if(!poDate) { alert("발주일을 선택해주세요."); return; }
   if(!deliveryDate) { alert("납기일을 선택해주세요."); return; }
@@ -6031,12 +6297,28 @@ async function savePurchaseOrder() {
     vendor,
     poDate,
     deliveryDate,
+    quoteRef: document.getElementById("po-f-quoteref")?.value?.trim() || "",
+    vatMode: document.getElementById("po-f-vat-mode")?.value || "separate",  // 🆕
     items: document.getElementById("po-f-items").value.trim(),
+    itemList: Array.isArray(_poItems) ? _poItems.map(it => ({  // 🆕
+      name: it.name || "",
+      partNo: it.partNo || "",
+      unit: it.unit || "EA",
+      qty: Number(it.qty) || 0,
+      unitPrice: Number(it.unitPrice) || 0,
+      total: (Number(it.qty)||0) * (Number(it.unitPrice)||0),
+    })) : [],
     supplyAmount: Number(document.getElementById("po-f-supply").value || 0),
     vatAmount: Number(document.getElementById("po-f-vat").value || 0),
     totalAmount: Number(document.getElementById("po-f-total").value || 0),
     payTerm: document.getElementById("po-f-payterm").value,
     status: document.getElementById("po-f-status").value,
+    note: document.getElementById("po-f-note").value.trim(),
+    fileUrl: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileUrl || "") : "",
+    fileName: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileName || "") : "",
+    createdAt: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
     note: document.getElementById("po-f-note").value.trim(),
     fileUrl: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileUrl || "") : "",
     fileName: _poEditId ? (_pordData.find(x=>x.id===_poEditId)?.fileName || "") : "",
@@ -28404,19 +28686,27 @@ function deleteTax(id){
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 📦 매입 발주서 작성 (풀스크린 + PDF 미리보기 + AI 파싱) -->
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <!-- 📦 매입 발주서 모달 (견적서와 동일 패턴 + 발주 특화: 확정 납기일/결제조건) -->
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <div id="purchaseOrderModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:10005;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div style="background:#fff;border-radius:16px;width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="background:#fff;border-radius:16px;width:97vw;max-width:1700px;height:95vh;max-height:95vh;display:flex;flex-direction:column;overflow:hidden">
+        
         <!-- 헤더 -->
-        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#ea580c15 0%,#ea580c30 100%)">
+        <div style="padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(135deg,#fed7aa 0%,#fdba74 100%)">
           <div>
-            <div style="font-size:18px;font-weight:900;color:#ea580c" id="poModalTitle">📦 매입 발주서 작성</div>
-            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF 미리보기 · 우측 폼 입력 · AI 파싱 지원</div>
+            <div style="font-size:18px;font-weight:900;color:#9a3412" id="poModalTitle">📦 매입 발주서 작성</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">좌측 PDF · 우측 폼 + 품목별 단가/수량 입력 · AI 파싱 자동</div>
           </div>
-          <button onclick="closePOModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;color:var(--t2)">품목 <b id="poItemCount" style="color:#9a3412;font-size:15px">0</b>건</span>
+            <button onclick="closePurchaseOrderModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+          </div>
         </div>
         
         <!-- 본문 2단 -->
-        <div style="flex:1;display:grid;grid-template-columns:1fr 540px;gap:0;overflow:hidden;min-height:0">
+        <div style="flex:1;display:grid;grid-template-columns:1fr 720px;gap:0;overflow:hidden;min-height:0">
           
           <!-- 좌: PDF 미리보기 -->
           <div style="background:#f8fafc;border-right:1px solid var(--border);overflow-y:auto;padding:16px;display:flex;flex-direction:column;min-height:0">
@@ -28429,108 +28719,166 @@ function deleteTax(id){
             </div>
             <div id="po-preview-pane" style="flex:1;background:#fff;border-radius:10px;border:1px solid var(--border);overflow:auto;min-height:0">
               <div style="padding:60px 30px;text-align:center;color:var(--t3)">
-                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📄</div>
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4">📦</div>
                 <div style="font-weight:700;font-size:13px;color:var(--t2)">PDF 미리보기</div>
-                <div style="font-size:11px;margin-top:6px">우측에서 PDF 파일을 첨부하면 여기에 표시됩니다</div>
+                <div style="font-size:11px;margin-top:6px">PDF 파일을 첨부하면 여기에 표시되고<br>AI 파싱이 자동 시작됩니다</div>
               </div>
             </div>
           </div>
           
           <!-- 우: 폼 -->
-          <div style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0">
+          <div style="overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;min-height:0">
             
             <!-- AI 파싱 영역 -->
-            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:12px">
-              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">🤖 PDF 업로드 → AI 자동 추출</div>
-              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+            <div style="background:#fff5f5;border-radius:10px;border:1.5px solid #fecaca;padding:10px 12px">
+              <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">🤖 PDF 업로드 → AI 자동 파싱</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <input type="file" id="po-f-file" accept="application/pdf,image/*" style="font-size:11px;flex:1;min-width:160px">
-                <button type="button" onclick="aiPOParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱</button>
+                <button type="button" onclick="aiPOParse()" style="padding:6px 12px;border-radius:6px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">🤖 AI 파싱 (수동)</button>
               </div>
-              <div id="po-parse-status" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+              <div id="po-parse-status" style="margin-top:6px;min-height:18px"></div>
             </div>
             
             <!-- 기본 정보 -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드</label>
-                <input type="text" id="po-f-prcode" placeholder="PR-260519-01" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
-                <input type="text" id="po-f-salescode" placeholder="BM26005" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;background:#fefce8;font-family:var(--m);font-weight:700">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
-                <input type="text" id="po-f-vendor" placeholder="㈜위앤" list="po-vendor-list" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-                <datalist id="po-vendor-list"></datalist>
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">발주 번호</label>
-                <input type="text" id="po-f-pocode" placeholder="자동 채번" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">발주일 *</label>
-                <input type="date" id="po-f-date" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">납기/유효</label>
-                <input type="date" id="po-f-delivery" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-              </div>
-              
-            <div>
-              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">결제조건</label>
-              <select id="po-f-payterm" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-                <option>현금</option><option>30일 어음</option><option>60일 어음</option><option>90일 어음</option>
-              </select>
-            </div>
-            </div>
-            
-            <!-- 품목 요약 -->
-            <div>
-              <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">품목 (요약)</label>
-              <textarea id="po-f-items" rows="2" placeholder="예: Harness 외 32품목" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;resize:vertical"></textarea>
-            </div>
-            
-            <!-- 금액 (공급가/VAT/총액) -->
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
-              <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액</label>
-                <input type="number" id="po-f-supply" placeholder="0" oninput="calcPOTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">VAT 10%</label>
-                <input type="number" id="po-f-vat" placeholder="자동" oninput="calcPOTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액</label>
-                <input type="number" id="po-f-total" placeholder="자동" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+            <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">
+              <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px">📋 기본 정보</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">PR 코드 <span style="font-weight:400;color:var(--t3)">(선택)</span></label>
+                  <input type="text" id="po-f-prcode" placeholder="PR-260519-01 (선택사항)" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">영업 프로젝트코드</label>
+                  <input type="text" id="po-f-salescode" placeholder="BM26005" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;background:#fff;font-family:var(--m);font-weight:700">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">거래처 *</label>
+                  <input type="text" id="po-f-vendor" placeholder="㈜위앤" list="po-vendor-list" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                  <datalist id="po-vendor-list"></datalist>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">발주 번호</label>
+                  <input type="text" id="po-f-pocode" placeholder="PO-260520-01 (자동 채번)" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">발주일 *</label>
+                  <input type="date" id="po-f-date" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px" title="발주서에 명시된 확정 납품일">납기일 * <span style="color:var(--r)">(확정)</span></label>
+                  <input type="date" id="po-f-delivery" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;background:#fff5f5">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">결제 조건</label>
+                  <select id="po-f-payterm" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                    <option>현금</option>
+                    <option>30일 어음</option>
+                    <option>60일 어음</option>
+                    <option>90일 어음</option>
+                    <option>월말 결제</option>
+                    <option>익월 말</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">관련 견적</label>
+                  <input type="text" id="po-f-quoteref" placeholder="WR260213-001 (선택)" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;font-family:var(--m)">
+                </div>
               </div>
             </div>
             
-            <!-- 상태 / 비고 -->
-            <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+            <!-- 품목 그리드 -->
+            <div style="background:#fff;border:1.5px solid #ea580c;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-height:200px">
+              <div style="padding:8px 12px;background:#9a3412;color:#fff;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+                <span>📦 발주 품목 (행마다 단가×수량=합계 자동)</span>
+                <span style="font-size:11px;font-weight:400;opacity:0.9">PDF에서 AI가 자동으로 채움</span>
+              </div>
+              <!-- 그리드 헤더 -->
+              <div style="display:grid;grid-template-columns:30px 1fr 110px 60px 60px 90px 100px 30px;gap:4px;padding:6px 10px;background:#fff7ed;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t2)">
+                <div style="text-align:center">#</div>
+                <div>품명</div>
+                <div>품번</div>
+                <div style="text-align:center">단위</div>
+                <div style="text-align:right">수량</div>
+                <div style="text-align:right">단가(₩)</div>
+                <div style="text-align:right">합계(₩)</div>
+                <div></div>
+              </div>
+              <!-- 그리드 본문 -->
+              <div id="po-items-body" style="max-height:220px;overflow-y:auto;background:#fff">
+                <div style="padding:30px 20px;text-align:center;color:var(--t3);font-size:12px">
+                  <div style="font-size:36px;margin-bottom:8px;opacity:0.4">📦</div>
+                  품목이 없습니다<br>
+                  <span style="font-size:11px">PDF 첨부 → AI 파싱이 자동으로 품목을 채웁니다</span>
+                </div>
+              </div>
+              <!-- 그리드 풋터 -->
+              <div style="padding:6px 10px;background:#f8fafc;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                <button type="button" onclick="addPOItem()" style="padding:4px 10px;border-radius:5px;border:1.5px dashed #ea580c;background:#fff;color:#9a3412;font-size:11px;cursor:pointer;font-weight:700">+ 품목 추가</button>
+                <span style="font-size:11px;color:var(--t3)">총 수량: <b id="poTotalQty" style="color:var(--t)">0</b></span>
+              </div>
+            </div>
+            
+            <!-- 금액 정산 -->
+            <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">
+              <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                <span>💰 금액 정산</span>
+                <div style="display:flex;background:#fff;border-radius:6px;border:1px solid #fcd34d;padding:2px">
+                  <button type="button" id="po-vat-mode-separate" onclick="setPOVatMode('separate')" style="padding:3px 10px;border-radius:4px;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;font-weight:700">VAT 별도</button>
+                  <button type="button" id="po-vat-mode-included" onclick="setPOVatMode('included')" style="padding:3px 10px;border-radius:4px;border:none;background:transparent;color:var(--t2);font-size:11px;cursor:pointer;font-weight:700">VAT 포함</button>
+                </div>
+              </div>
+              <input type="hidden" id="po-f-vat-mode" value="separate">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">공급가액 (자동)</label>
+                  <input type="number" id="po-f-supply" placeholder="0" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:700;background:#fffbeb">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px"><span id="po-vat-label">VAT 10% (자동)</span></label>
+                  <input type="number" id="po-f-vat" placeholder="0" oninput="recalcPOTotal()" style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m)">
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px">총 금액 (공급가+VAT)</label>
+                  <input type="number" id="po-f-total" placeholder="0" readonly style="padding:7px 9px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;text-align:right;font-family:var(--m);font-weight:900;background:#fffbeb">
+                </div>
+              </div>
+            </div>
+            
+            <!-- 상태 + 비고 -->
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">
               <div>
                 <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">상태</label>
-                <select id="po-f-status" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
-                  <option>검토중</option><option>완료</option><option>보류</option>
+                <select id="po-f-status" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
+                  <option>발주중</option>
+                  <option>발주완료</option>
+                  <option>입고대기</option>
+                  <option>입고완료</option>
+                  <option>취소</option>
                 </select>
               </div>
               <div>
                 <label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px">비고/메모</label>
-                <input type="text" id="po-f-note" placeholder="특이사항" style="padding:7px 9px;border:1px solid var(--border2);border-radius:6px;font-size:12px;width:100%;box-sizing:border-box">
+                <input type="text" id="po-f-note" placeholder="특이사항, 배송조건 등" style="padding:6px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;width:100%;box-sizing:border-box">
               </div>
             </div>
+            <input type="hidden" id="po-f-items">
             
           </div>
         </div>
         
         <!-- 풋터 -->
-        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
-          <button onclick="closePOModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
-          <button onclick="savePurchaseOrder()" style="padding:9px 22px;border-radius:8px;border:none;background:#ea580c;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+        <div style="padding:12px 24px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div style="font-size:11px;color:var(--t3)">
+            ⚠️ AI 파싱 결과를 반드시 검토 후 저장하세요 · 납기 일정 자동 캘린더 생성
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="closePurchaseOrderModal()" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">취소</button>
+            <button onclick="savePurchaseOrder()" style="padding:9px 22px;border-radius:8px;border:none;background:#9a3412;color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장</button>
+          </div>
         </div>
       </div>
     </div>
+
 
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 🚚 입고 거래명세서 모달 (Purchase Delivery, 거래처 → ENJET 수신) -->
