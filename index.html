@@ -911,8 +911,8 @@
         <div class="cb" style="padding:10px 14px">
           <div style="overflow-x:auto"><table class="tbl" style="min-width:1400px">
             <thead><tr>
-              <th style="min-width:140px">영업프로젝트 (고객사)</th>
-              <th style="min-width:110px">SL/SP 코드</th>
+              <th style="min-width:120px">프로젝트 코드</th>
+              <th style="min-width:140px">고객사</th>
               <th style="min-width:80px">진행상태</th>
               <th style="min-width:95px">요청일</th>
               <th style="min-width:90px">요청담당자</th>
@@ -8880,35 +8880,56 @@ function advancePRStatusByDoc(docType, matchKey) {
   ];
   const targetIdx = statusOrder.indexOf(targetStatus);
   
-  if(!Array.isArray(_prMaster) || _prMaster.length === 0) return 0;
-  
   let updated = 0;
-  for(const pr of _prMaster) {
-    // 매칭: salesCode + (prCode 있으면 일치 / 없으면 같은 프로젝트 전체)
-    if(matchKey.salesCode && pr.salesCode !== matchKey.salesCode) continue;
-    if(matchKey.prCode && pr.prCode !== matchKey.prCode) continue;
-    if(matchKey.vendor && pr.vendor && pr.vendor !== matchKey.vendor) continue;
-    
-    // 현재 상태가 목표보다 앞이면 이동 (뒤로 가는 건 금지)
-    const currentIdx = statusOrder.indexOf(pr.status || "구매요청접수");
-    if(currentIdx < targetIdx) {
-      console.log(`🔄 PR ${pr.prCode}: ${pr.status} → ${targetStatus}`);
-      pr.status = targetStatus;
-      pr.updatedAt = new Date().toISOString();
-      updated++;
+  let actUpdated = 0;
+  
+  // ── 1) PR Master (구매요청서 DB) 상태 변경 ──
+  if(Array.isArray(_prMaster) && _prMaster.length > 0) {
+    for(const pr of _prMaster) {
+      // 매칭: salesCode + (prCode 있으면 일치 / 없으면 같은 프로젝트 전체)
+      if(matchKey.salesCode && pr.salesCode !== matchKey.salesCode) continue;
+      if(matchKey.prCode && pr.prCode !== matchKey.prCode) continue;
+      if(matchKey.vendor && pr.vendor && pr.vendor !== matchKey.vendor) continue;
+      
+      // 현재 상태가 목표보다 앞이면 이동 (뒤로 가는 건 금지)
+      const currentIdx = statusOrder.indexOf(pr.status || "구매요청접수");
+      if(currentIdx < targetIdx) {
+        console.log(`🔄 PR ${pr.prCode}: ${pr.status} → ${targetStatus}`);
+        pr.status = targetStatus;
+        pr.updatedAt = new Date().toISOString();
+        updated++;
+      }
     }
   }
   
-  if(updated > 0) {
-    console.log(`🔄 ${docType} 업로드 → PR ${updated}건 상태 자동 진행: ${targetStatus}`);
+  // ── 2) 🆕 slData (구매활동 목록) 상태도 같이 변경 ──
+  // matchKey.salesCode → act.pjcode 매칭
+  if(typeof slData !== "undefined" && Array.isArray(slData) && matchKey.salesCode) {
+    for(const act of slData) {
+      if(act.pjcode !== matchKey.salesCode) continue;
+      const currentIdx = statusOrder.indexOf(act.status || "구매요청접수");
+      if(currentIdx < targetIdx) {
+        console.log(`🔄 구매활동 ${act.pjcode}: ${act.status} → ${targetStatus}`);
+        act.status = targetStatus;
+        act.updatedAt = new Date().toISOString();
+        actUpdated++;
+      }
+    }
+  }
+  
+  if(updated > 0 || actUpdated > 0) {
+    console.log(`🔄 ${docType} 업로드 → PR ${updated}건 + 구매활동 ${actUpdated}건 상태 자동 진행: ${targetStatus}`);
     // SP 저장 (디바운스)
-    if(typeof savePRMaster === "function") {
+    if(updated > 0 && typeof savePRMaster === "function") {
       savePRMaster().catch(e => console.warn("PR 상태 저장 실패:", e.message));
+    }
+    if(actUpdated > 0 && typeof saveSLToSP === "function") {
+      saveSLToSP().catch(e => console.warn("구매활동 상태 저장 실패:", e.message));
     }
     if(typeof renderPRDB === "function") renderPRDB();
     if(typeof renderSLAll === "function") renderSLAll();
   }
-  return updated;
+  return updated + actUpdated;
 }
 
 // 사이드바 배지 통합 갱신 (모든 DB 데이터 로드 후 호출)
@@ -15589,8 +15610,8 @@ async function syncSLFromTeams() {
       const title = e.subject||"";
       // 마케팅/전시회 prefix 또는 카테고리 → 제외
       if(title.startsWith("[전시회]") || title.startsWith("[마케팅]") || cats.some(c=>["국내전시회","해외전시회","전시회","마케팅"].includes(c))) return false;
-      // 🆕 새 포맷: 끝에 "(요청)" 또는 "(납기)" 또는 "(구매)" 있으면 구매 일정
-      if(/\((요청|납기|구매)\)\s*$/.test(title)) return true;
+      // 🆕 새 포맷: 끝에 "(구매요청)" 또는 "(희망납기)" 또는 "(실제납기)" 있으면 구매 일정
+      if(/\((구매요청|희망납기|실제납기|요청|납기|구매)\)\s*$/.test(title)) return true;
       // 옛 prefix 포맷: [영업] / [구매활동] / [요청] / [구매] / [납기]
       if(title.startsWith("[영업]") || title.startsWith("[구매활동]") || title.startsWith("[요청]") || title.startsWith("[구매]") || title.startsWith("[납기]")
          || cats.includes("구매활동") || cats.includes("요청") || cats.includes("구매") || cats.includes("납기")) return true;
@@ -15599,12 +15620,16 @@ async function syncSLFromTeams() {
     }).map(e=>{
       const t = e.subject||"";
       const c = e.categories||[];
-      // 🆕 라벨 추출 - 새 포맷 우선
-      const newSuffix = t.match(/\((요청|납기|구매)\)\s*$/);
-      const kind = newSuffix ? (newSuffix[1] === "요청" ? "request" : "order")
-                : t.startsWith("[요청]") || c.includes("요청") ? "request"
-                : t.startsWith("[납기]") || t.startsWith("[구매]") || c.includes("납기") || c.includes("구매") ? "order"
-                : "purchase";
+      // 🆕 라벨 추출 - 새 포맷 우선 (구매요청/희망납기/실제납기)
+      const newSuffix = t.match(/\((구매요청|희망납기|실제납기|요청|납기|구매)\)\s*$/);
+      const kind = newSuffix 
+        ? (newSuffix[1] === "구매요청" ? "activity"
+          : (newSuffix[1] === "희망납기" || newSuffix[1] === "요청") ? "request"
+          : (newSuffix[1] === "실제납기" || newSuffix[1] === "납기" || newSuffix[1] === "구매") ? "order"
+          : "purchase")
+        : t.startsWith("[요청]") || c.includes("요청") ? "request"
+        : t.startsWith("[납기]") || t.startsWith("[구매]") || c.includes("납기") || c.includes("구매") ? "order"
+        : "purchase";
       return {
         id: e.id,
         title: t.replace(/^\[(영업|구매활동|전시회|요청|구매|납기)\]\s*/,""),
@@ -18949,13 +18974,13 @@ function renderSLTablePurchase(data) {
     const pjcode = r.pjcode || "";
     const salesPjName = r.salesPjName || "";
     
-    // 영업프로젝트 표시 (고객사 + 프로젝트명)
+    // 🆕 고객사 컬럼 (회사명 표시 - 클릭으로 인라인 편집 가능)
     const projectCell = `<div style="display:flex;flex-direction:column;gap:2px">
       <span style="font-weight:700;font-size:13px;color:var(--t)">${escapeHtml(r.company||"-")}</span>
       ${salesPjName ? `<span style="font-size:11px;color:var(--t3)">${escapeHtml(salesPjName)}</span>` : ""}
     </div>`;
     
-    // SL/SP 코드
+    // 🆕 프로젝트 코드 컬럼 (BM26005 같은 코드)
     const codeCell = pjcode 
       ? `<span class="tm" style="font-size:13px;color:var(--p);font-weight:700;font-family:var(--m)">${escapeHtml(pjcode)}</span>`
       : `<span style="color:var(--t3);font-size:12px">-</span>`;
@@ -19003,8 +19028,8 @@ function renderSLTablePurchase(data) {
       ? _pstlData.filter(s => s.parentSLId === r.id || s.salesCode === r.pjcode).length : 0;
     
     return `<tr style="cursor:pointer" onclick="openSLModal(slData.find(x=>x.id==='${r.id}'))">
-      <td onclick="event.stopPropagation()">${projectCell}</td>
       <td onclick="event.stopPropagation()">${codeCell}</td>
+      <td onclick="event.stopPropagation()">${projectCell}</td>
       <td onclick="event.stopPropagation()">${statusSelect}</td>
       <td style="font-family:var(--m);font-size:12px;color:var(--t2)">${escapeHtml(r.start || r.createdAt?.substring(0,10) || "-")}</td>
       <td style="font-size:12px">
@@ -19162,8 +19187,9 @@ async function deleteSLActivity(actId) {
 async function createPRDueDateEvents(items, act, kind) {
   if(!Array.isArray(items) || !items.length) return;
   const labelMap = {
-    "request": { label: "요청", emoji: "📥", color: "preset0" },
-    "order":   { label: "납기", emoji: "📦", color: "preset3" },  // 🆕 발주는 "납기" 라벨
+    "activity":{ label: "구매요청", emoji: "🛒", color: "preset1" },  // 🆕 구매활동 최초 생성
+    "request": { label: "희망납기", emoji: "📥", color: "preset0" },  // 🆕 PR 업로드 = 희망납기
+    "order":   { label: "실제납기", emoji: "📦", color: "preset3" },  // 🆕 발주서 업로드 = 실제납기
   };
   const cfg = labelMap[kind] || labelMap["request"];
   
@@ -19362,10 +19388,10 @@ async function cleanupOrphanScheduleEvents() {
     const j = await r.json();
     const events = j.value || [];
     
-    // 구매 일정 후보: 끝에 "(요청)" 또는 "(납기)" 또는 "(구매)" 또는 시작 prefix [요청]/[구매]/[납기]
+    // 구매 일정 후보: 끝에 새 라벨(구매요청/희망납기/실제납기) 또는 옛 라벨(요청/납기/구매) 또는 시작 prefix
     const purchaseEvents = events.filter(e => {
       const t2 = e.subject || "";
-      return /\((요청|납기|구매)\)\s*$/.test(t2) || /^\[(요청|구매|납기|구매활동)\]/.test(t2);
+      return /\((구매요청|희망납기|실제납기|요청|납기|구매)\)\s*$/.test(t2) || /^\[(요청|구매|납기|구매활동)\]/.test(t2);
     });
     
     if(purchaseEvents.length === 0) {
@@ -23468,6 +23494,29 @@ async function saveSLActivity() {
       console.error("PR 자동 생성 실패:", e);
       alert("⚠️ PR 자동 생성 실패\n" + e.message + "\n\n구매활동은 저장됐지만 PR은 수동으로 추가하세요.");
     }
+  }
+  
+  // 🆕 신규 구매활동 저장 시 → "구매요청" 일정 1건 자동 생성 (act.start 날짜)
+  // PR이 같이 생성되든 안 되든, 구매활동 자체의 마커 일정
+  if(!slEditId && act.start && typeof createPRDueDateEvents === "function") {
+    try {
+      // 대표 품목명: AI 파싱 결과 첫 품목 or 기본 텍스트
+      let repName = "구매활동";
+      if(_slAIParseResult?.items?.[0]?.name) {
+        repName = _slAIParseResult.items[0].name;
+      } else if(act.note) {
+        repName = act.note.substring(0, 30);
+      }
+      const activityItem = {
+        name: repName,
+        itemName: repName,
+        dueDate: act.start,
+        qty: 1,
+        unit: "",
+      };
+      console.log(`🛒 구매활동 일정 생성: ${pjcode} · ${repName} (구매요청)`);
+      createPRDueDateEvents([activityItem], act, "activity").catch(e => console.warn("구매활동 일정 생성 실패:", e.message));
+    } catch(e) { console.warn("구매활동 일정 생성 오류:", e.message); }
   }
 
   // 🆕 구매활동 신규생성 시 → SP 엑셀(프로젝트현황) + 파이프라인 동기화
