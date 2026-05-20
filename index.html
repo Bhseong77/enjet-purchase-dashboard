@@ -3718,15 +3718,19 @@ function parseENJETPRTextLocally(pdfText) {
   
   // 2) 핵심 패턴 - "BM26005 숫자" (프로젝트번호 + 수량) 매처
   // ENJET 양식은 각 품목 끝에 "BM26005 2" 같은 라인이 있음
-  // 이 패턴을 발견하면 직전 영역에서 품명/품번/거래처/납기 추출
+  // ⚠️ "엔젯-(PMS)구매요청-2605-00004" 같은 문서번호 형태는 마커 아님
+  // 진짜 마커는 BM/BR/EPC + 4자리+ 숫자 (실제 프로젝트번호 형식)
   
-  const itemEndMarker = /([A-Z]{2,}\d{4,})\s+(\d{1,3})(?=\s*\n|\s*$)/g;
+  const itemEndMarker = /\b((?:BM|BR|EPC|PR)\d{4,8})\s+(\d{1,3})(?=\s*\n|\s*$)/g;
   const markers = [];
   let mm;
   while((mm = itemEndMarker.exec(itemArea)) !== null) {
+    const qty = parseInt(mm[2], 10);
+    // 수량은 1~999만 유효 (그 이상은 의심)
+    if(qty < 1 || qty > 999) continue;
     markers.push({
       projectNo: mm[1],
-      qty: parseInt(mm[2], 10),
+      qty: qty,
       endIdx: mm.index + mm[0].length,
       startIdx: mm.index,
     });
@@ -3736,8 +3740,30 @@ function parseENJETPRTextLocally(pdfText) {
   // 3) 각 마커 사이의 영역에서 품목 정보 추출
   let prevEnd = 0;
   markers.forEach((mkr, idx) => {
-    const block = itemArea.substring(prevEnd, mkr.startIdx).trim();
+    let block = itemArea.substring(prevEnd, mkr.startIdx).trim();
     prevEnd = mkr.endIdx;
+    if(!block) return;
+    
+    // 🆕 블록 청소 - 이전 품목 꼬리 제거 (PDF 페이지 경계 등에서 남는 텍스트)
+    // 1) 시작에 "e/Controller Set)" 같은 닫는 괄호 텍스트 제거
+    block = block.replace(/^[a-z\/]+\s+[Ss]et\)\s*/i, "");  // "e/Controller Set)" 제거
+    block = block.replace(/^[a-z]+\)\s*/i, "");              // "Modul)" "Set)" 같은 거
+    // 2) "(Modul" 시작도 제거 (앞 품목 꼬리)
+    block = block.replace(/^\(Modul[a-z\s\/]*\)?\s*/i, "");
+    // 3) "BM26005 세종산업 #2 모듈코어 (Modul" 같은 이전 프로젝트명 잔재
+    block = block.replace(/^(?:BM|BR|EPC)\d+\s+[가-힣][가-힣A-Za-z0-9\s#\-/]{2,80}?\(Modul[^)]*\)?\s*/i, "");
+    // 4) 페이지 마커 제거
+    block = block.replace(/=== PAGE \d+\/\d+ ===/g, "");
+    // 5) 헤더 텍스트 제거 (페이지 경계에서 다시 등장)
+    block = block.replace(/26\.\s*\d+\.\s*\d+\.\s*오[전후]\s*\d+:\d+/g, "");
+    block = block.replace(/전자결재\s*-\s*ENJET\s*Groupware/g, "");
+    block = block.replace(/https?:\/\/[^\s]+/g, "");
+    block = block.replace(/\d+\/\d+$/m, "");  // 페이지 번호 1/3
+    block = block.replace(/품명\s+품번\s+규격\s+단위\s+납기요청일/g, "");
+    block = block.replace(/프로젝트명\s+프로젝트번호\s+구매거래처\s+수량\s+제조사/g, "");
+    block = block.replace(/^\s*No\s*\n/g, "");
+    
+    block = block.trim();
     if(!block) return;
     
     // 블록에서 품명/품번/규격/거래처/단위/납기 추출
@@ -3779,11 +3805,19 @@ function parseENJETPRTextLocally(pdfText) {
         // 맨 앞 숫자 (No) 제거
         beforePart = beforePart.replace(/^\d{1,3}\s+/, "");
         
+        // 🆕 이전 품목 꼬리 잔재 제거 (페이지 경계에서 발생)
+        // "e/Controller Set)" "Modul)" "Set)" 등으로 시작
+        beforePart = beforePart.replace(/^[a-z\/]*\s*[Ss]et\)\s*/i, "");
+        beforePart = beforePart.replace(/^[a-z]+\)\s*/i, "");
+        beforePart = beforePart.replace(/^\(Modul[^)]*\)?\s*/i, "");
+        
         // 헤더 텍스트들 제거 (남아있을 경우)
         beforePart = beforePart
           .replace(/품명\s+품번\s+규격\s+단위\s+납기요청일/g, "")
           .replace(/프로젝트명\s+프로젝트번호\s+구매거래처\s+수량\s+제조사/g, "")
           .replace(/^No\s*/g, "")
+          .replace(/오\s*전\s*\d+:\d+/g, "")  // "오 전 11:15"
+          .replace(/오\s*후\s*\d+:\d+/g, "")
           .trim();
         
         // 너무 길면 (헤더 등 남은 경우) - 마지막 토큰들만 (품명은 보통 2~5 단어)
