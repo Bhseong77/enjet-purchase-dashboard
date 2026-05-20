@@ -13407,9 +13407,18 @@ function dbExtractSaveData(dbType) {
 async function safeSaveDB(dataKey, spPath, data) {
   const result = { sp: false, local: false, error: null };
   
+  // 🆕 명시적 삭제 플래그 체크 - 사용자가 직접 삭제한 경우엔 차단 우회
+  const intentionalDelete = window[`_intentionalDelete_${dataKey}`] === true;
+  if(intentionalDelete) {
+    console.log(`✅ ${dataKey}: 명시적 삭제 플래그 감지 - 안전장치 우회 (의도된 빈 배열 허용)`);
+    // 플래그 사용 후 즉시 클리어 (1회용)
+    window[`_intentionalDelete_${dataKey}`] = false;
+  }
+  
   // 🛡️ 데이터 손실 방지: 빈 배열이거나 캐시보다 적은 데이터로 덮어쓰려 하면 차단
   //    (변수 초기화 직후 SP 호출되는 경우 방지)
-  if(Array.isArray(data)) {
+  //    단, 명시적 삭제(intentionalDelete=true)면 우회
+  if(Array.isArray(data) && !intentionalDelete) {
     try {
       const cached = localStorage.getItem(dataKey);
       if(cached) {
@@ -13419,6 +13428,7 @@ async function safeSaveDB(dataKey, spPath, data) {
         // 빈 데이터 또는 캐시보다 절반 이하로 줄어들면 → 사용자 의도 아닌 데이터 손실 의심 → 차단
         if(cachedLen > 0 && newLen === 0) {
           console.error(`🛡️ DATA LOSS BLOCKED: ${dataKey} - 빈 배열 덮어쓰기 차단 (캐시 ${cachedLen}건 vs 새 0건)`);
+          console.error(`   💡 의도된 전체 삭제라면 window._intentionalDelete_${dataKey} = true 후 재호출`);
           result.sp = false;
           result.local = false;
           result.error = `데이터 손실 방지: 빈 배열로 ${cachedLen}건 덮어쓰기 차단`;
@@ -29250,6 +29260,22 @@ async function deleteDBRow(dbType, itemId, itemLabel) {
         });
     }
     
+    // 🆕 명시적 삭제 플래그 - safeSaveDB의 빈 배열 차단 우회
+    const flagMap = {
+      "pr": "pr_master",
+      "quote": "pqdb_data",
+      "order": "pord_data",
+      "delivery": "pdlv_data",
+      "tax": "ptax_data",
+      "settle": "pstl_data",
+      "bom": "bom_data",
+    };
+    const dataKey = flagMap[dbType];
+    if(dataKey && filtered.length === 0) {
+      window[`_intentionalDelete_${dataKey}`] = true;
+      console.log(`🚩 ${dataKey} 명시적 삭제 플래그 설정 (전체 삭제됨, safeSaveDB 우회 허용)`);
+    }
+    
     // SP DB 저장
     const saveMap = {
       "pr":       () => savePRMaster(),
@@ -29702,6 +29728,12 @@ async function dmDeleteFile(itemId) {
       // 2. 메모리에서 같은 그룹의 PR 모두 제거
       const idsToRemove = new Set(item.items.map(p => p.id));
       _prMaster = (_prMaster||[]).filter(p => !idsToRemove.has(p.id));
+      
+      // 🆕 전체 삭제됐으면 명시적 삭제 플래그
+      if(_prMaster.length === 0) {
+        window._intentionalDelete_pr_master = true;
+        console.log("🚩 pr_master 명시적 삭제 플래그 설정");
+      }
       
       // 3. 구매활동(act)의 prFileUrl/prFileName도 클리어 (이게 그 파일이었으면)
       const act = (slData||[]).find(x => x.id === ctx.actId);
