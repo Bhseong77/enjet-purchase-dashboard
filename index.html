@@ -5696,8 +5696,13 @@ async function loadVendorSCM() {
     if(info) info.textContent = "📡 [1/3] 분류표 로드 중...";
     const catWb = await fetchXlsx(VS_CATEGORY_PATH);
     const catSheet = catWb.Sheets["거래처분류"] || catWb.Sheets[catWb.SheetNames[0]];
-    const catRows = XLSX.utils.sheet_to_json(catSheet, { defval: "", raw: false });
+    // raw:true → 숫자는 숫자로, 날짜는 Date 객체로 받음 (콤마 문자열 방지)
+    const catRows = XLSX.utils.sheet_to_json(catSheet, { defval: "", raw: true });
     console.log(`📒 분류표: ${catRows.length}건`);
+    if(catRows.length > 0) {
+      console.log("📒 분류표 첫 행 컬럼:", Object.keys(catRows[0]));
+      console.log("📒 분류표 샘플:", catRows[0]);
+    }
     
     // 2) 마스터 로드 (실패해도 진행)
     let masterRows = [];
@@ -5784,12 +5789,19 @@ async function loadVendorSCM() {
       const subCat = String(c["주력품목소분류"] || "").trim();
       const mainItem = String(c["주력품명"] || "").trim();
       
-      // 발주/납품/미납 - 분류표 기준
-      const 발주건수 = Number(c["발주건수"]) || 0;
-      const 라인수 = Number(c["라인수"]) || 0;
-      const 누적발주 = Number(c["누적발주금액"]) || 0;
-      const 누적납품 = Number(c["누적납품금액"]) || 0;
-      const 미납 = Number(c["미납금액"]) || 0;
+      // 발주/납품/미납 - 분류표 기준 (안전 숫자 변환)
+      const _safeNum = (v) => {
+        if(v === null || v === undefined || v === "") return 0;
+        if(typeof v === "number") return v;
+        const s = String(v).replace(/[,\s₩원]/g, "").replace(/[^\d.eE+\-]/g, "");
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+      };
+      const 발주건수 = _safeNum(c["발주건수"]);
+      const 라인수 = _safeNum(c["라인수"]);
+      const 누적발주 = _safeNum(c["누적발주금액"]);
+      const 누적납품 = _safeNum(c["누적납품금액"]);
+      const 미납 = _safeNum(c["미납금액"]);
       
       // 첫거래/마지막거래 - 매입통합관리가 더 정확하면 우선
       const 첫거래 = pStats?.첫거래 || String(c["첫거래"] || "").substring(0, 10);
@@ -5828,12 +5840,19 @@ async function loadVendorSCM() {
       if(dept) deptSet.add(dept);
       if(vType) vtypeSet.add(vType);
       
+      // 누적발주가 0인데 매입 통합관리에는 금액이 있으면 매입 통합관리 합계로 fallback
+      const 누적발주_최종 = 누적발주 > 0 ? 누적발주 : purchaseAmt;
+      
       allRows.push({
         no: c["No"] || allRows.length + 1,
         vendor, key,
         카테고리: cat, 분류근거: basis,
         주력품목소분류: subCat, 주력품명: mainItem,
-        발주건수, 라인수, 누적발주, 누적납품, 미납,
+        발주건수: 발주건수 || (pStats?.건수 || 0),  // 분류표 0이면 매입 통합관리 건수
+        라인수, 
+        누적발주: 누적발주_최종,
+        누적발주_원본: 누적발주,  // 디버그용 원본 값
+        누적납품, 미납,
         첫거래, 마지막거래,
         activity, daysSince,
         // 마스터
@@ -5847,6 +5866,12 @@ async function loadVendorSCM() {
     
     window._vsData = allRows;
     window._vsLoaded = true;
+    
+    // 디버그: 금액 통계
+    const totalCatAmt = allRows.reduce((s,d) => s + (d.누적발주_원본 || 0), 0);
+    const totalPurAmt = allRows.reduce((s,d) => s + (d.purchaseAmt || 0), 0);
+    const totalFinal = allRows.reduce((s,d) => s + (d.누적발주 || 0), 0);
+    console.log(`💰 누적발주 합계 - 분류표: ${(totalCatAmt/1e8).toFixed(2)}억 / 매입통합관리: ${(totalPurAmt/1e8).toFixed(2)}억 / 최종: ${(totalFinal/1e8).toFixed(2)}억`);
     
     console.log(`✅ SCM 통합: ${allRows.length}개 거래처`);
     
