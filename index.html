@@ -416,7 +416,7 @@
         <div class="ni sb-sub-item" onclick="go('settle-db',this)" style="padding-left:22px">💼 회계전표 DB <span class="nb nbg" id="badge-stl">0</span></div>
       </div>
       <div class="ni" onclick="go('vendor',this)">🏪 거래처 SCM <span class="nb nbg" id="badge-vd">-</span></div>
-      <div class="ni" onclick="go('bom-db',this)">🧩 BOM DB <span class="nb nbg" id="badge-bom">0</span></div>
+      <div class="ni" onclick="go('bom-db',this)">🧩 품목마스터 <span class="nb nbg" id="badge-bom">0</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -2733,57 +2733,167 @@
     </div>
 
     <!-- 🧩 BOM DB -->
+    <!-- 🧩 품목 마스터 (BOM Master Lite) - 매입 기반 자동 집계 -->
     <div class="page" id="tab-bom-db">
-      <div class="kr" style="grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-        <div class="kpi c1"><div class="kl">🧩 등록 BOM</div><div class="kv" id="bom-kpi-total">-</div><div class="ks">개</div></div>
-        <div class="kpi c2"><div class="kl">📦 완제품</div><div class="kv" id="bom-kpi-finished">-</div><div class="ks">개</div></div>
-        <div class="kpi c1"><div class="kl">🔧 조립품</div><div class="kv" id="bom-kpi-assembly">-</div><div class="ks">개</div></div>
-        <div class="kpi c2"><div class="kl">⚙️ 반제품</div><div class="kv" id="bom-kpi-semi">-</div><div class="ks">개</div></div>
+      <!-- 🔝 상단 KPI 6개 -->
+      <div class="kr" style="grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:9px">
+        <div class="kpi c1" onclick="imFilter('all')" style="cursor:pointer">
+          <div class="kl">📦 전체 품목</div>
+          <div class="kv"><span id="im-tot">-</span><span style="font-size:15px;color:var(--t2)">개</span></div>
+          <div class="ks">코드형 제외</div>
+        </div>
+        <div class="kpi" style="border-top:3px solid #7c3aed">
+          <div class="kl">💵 총 매입</div>
+          <div class="kv" style="color:#6d28d9"><span id="im-totamt">-</span></div>
+          <div class="ks">억원</div>
+        </div>
+        <div class="kpi" style="border-top:3px solid #10b981;cursor:pointer" onclick="imFilter('amt','big')">
+          <div class="kl">💎 1억↑ 품목</div>
+          <div class="kv" style="color:#059669"><span id="im-big">-</span><span style="font-size:15px;color:var(--t2)">개</span></div>
+          <div class="ks">고가 품목</div>
+        </div>
+        <div class="kpi" style="border-top:3px solid #f59e0b;cursor:pointer" onclick="imFilter('nego','high')">
+          <div class="kl">🔥 네고 여지</div>
+          <div class="kv" style="color:#d97706"><span id="im-nego">-</span><span style="font-size:15px;color:var(--t2)">개</span></div>
+          <div class="ks">네고율 20%↑</div>
+        </div>
+        <div class="kpi" style="border-top:3px solid #3b82f6;cursor:pointer" onclick="imFilter('multi','y')">
+          <div class="kl">🔗 다중거래처</div>
+          <div class="kv" style="color:#1e40af"><span id="im-multi">-</span><span style="font-size:15px;color:var(--t2)">개</span></div>
+          <div class="ks">2곳 이상</div>
+        </div>
+        <div class="kpi" style="border-top:3px solid #ec4899;cursor:pointer" onclick="imFilter('freq','y')">
+          <div class="kl">📋 자주 구매</div>
+          <div class="kv" style="color:#be185d"><span id="im-freq">-</span><span style="font-size:15px;color:var(--t2)">개</span></div>
+          <div class="ks">10건 이상</div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="ch">
-          <div class="ct"><div class="ci c1">🧩</div>BOM 마스터
-            <span id="bomSyncBadge" style="font-size:13px;padding:1px 7px;border-radius:4px;background:var(--pd);color:var(--p);margin-left:6px;font-family:var(--m)">SharePoint 연동</span>
+      <!-- 📊 분류별 + TOP 20 (좌우) -->
+      <div class="kr" style="grid-template-columns:1fr 1.3fr;gap:10px;margin-bottom:9px">
+        <div class="card" style="margin:0">
+          <div class="ch">
+            <div class="ct"><div class="ci c1">🏷️</div>품목분류별 분포</div>
+            <span style="font-size:11px;color:var(--t3)">클릭 → 필터</span>
           </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select class="ss" id="bomTypeFilter" style="min-width:120px">
-              <option value="">전체 유형</option>
-              <option value="완제품">완제품</option>
-              <option value="조립품">조립품</option>
-              <option value="반제품">반제품</option>
-            </select>
-            <input class="si" type="text" id="bomSearch" placeholder="🔍 BOM코드/제품명/품번..." style="width:200px">
-            <button onclick="openBOMModal(null)" style="padding:4px 12px;border-radius:7px;border:1px solid var(--p);background:var(--p);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)">+ BOM 추가</button>
+          <div class="cb" style="padding:10px 14px;max-height:340px;overflow-y:auto">
+            <div id="im-cat-list" style="display:flex;flex-direction:column;gap:5px"></div>
           </div>
         </div>
+        <div class="card" style="margin:0">
+          <div class="ch">
+            <div class="ct"><div class="ci c2">🏆</div>매입금액 TOP 20 품목</div>
+          </div>
+          <div class="cb" style="padding:10px 14px;max-height:340px;overflow-y:auto">
+            <div id="im-top-list" style="display:flex;flex-direction:column;gap:4px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 데이터 소스 안내 + 새로고침 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;background:#faf5ff;border:1px solid #d8b4fe;border-radius:8px;font-size:12px;flex-wrap:wrap">
+        <span style="font-weight:700;color:#6d28d9">📡 데이터 소스:</span>
+        <a href="https://enjetco.sharepoint.com/:x:/r/sites/06.BackOffice/Shared%20Documents/%F0%9F%92%B0%20%EC%9E%AC%EB%AC%B4%C2%B7%ED%9A%8C%EA%B3%84/99.Dashboard(real-time)/ENJET_%ED%92%88%EB%AA%A9%EB%A7%88%EC%8A%A4%ED%84%B0_BOM.xlsx" target="_blank" 
+           style="color:var(--p);text-decoration:none;font-weight:700">
+          📦 ENJET_품목마스터_BOM.xlsx
+        </a>
+        <span style="font-size:11px;color:var(--t3)">(매입 통합관리 기반 자동 집계, 9,374개)</span>
+        <span style="color:var(--t3);font-size:11px;margin-left:auto" id="im-source-info">로드 대기 중...</span>
+        <button onclick="loadItemMaster()" style="padding:4px 12px;border-radius:6px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--s)">
+          🔄 새로고침
+        </button>
+      </div>
+
+      <!-- 📋 품목 마스터 목록 -->
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">📦</div>품목 마스터 <span id="im-cnt-label" style="font-size:14px;color:var(--p);font-weight:700;margin-left:4px;background:var(--pd);padding:2px 10px;border-radius:10px">-</span></div>
+        </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto">
-            <table class="tbl" style="min-width:1300px">
-              <thead><tr>
-                <th style="min-width:100px">BOM코드</th>
-                <th style="min-width:200px">제품명</th>
-                <th style="min-width:80px">유형</th>
-                <th style="min-width:70px">버전</th>
-                <th style="min-width:90px;text-align:right">현재 단가</th>
-                <th style="min-width:140px">현재 거래처</th>
-                <th style="min-width:80px;text-align:center">네고율</th>
-                <th style="min-width:90px;text-align:center" title="견적 이력 (네고 횟수)">📋 견적이력</th>
-                <th style="min-width:85px">최종견적일</th>
-                <th style="min-width:90px">관련 PR</th>
-                <th style="min-width:60px;text-align:center">관리</th>
-                <th style="min-width:50px;text-align:center">삭제</th>
-              </tr></thead>
-              <tbody id="bomTableBody">
-                <tr><td colspan="12"><div class="empty"><div class="ei">🧩</div><div class="et">BOM 데이터 없음</div><div style="font-size:15px;color:var(--t3);margin-top:4px">구매요청서 AI파싱 시 자동 매칭/생성됩니다</div></div></td></tr>
+          <div class="pc">
+            <input class="si" type="text" placeholder="🔍 품번 / 품명 / 거래처 / 분류 ..." id="imSearch" oninput="imRenderTable()">
+            <select class="ss" id="imFiltCat" onchange="imRenderTable()">
+              <option value="">전체 분류</option>
+            </select>
+            <select class="ss" id="imFiltAmt" onchange="imRenderTable()">
+              <option value="">매입규모 전체</option>
+              <option value="big">💎 1억↑</option>
+              <option value="mid">🏆 1천만~1억</option>
+              <option value="small">📦 100만~1천만</option>
+              <option value="tiny">🪙 100만 미만</option>
+            </select>
+            <select class="ss" id="imFiltNego" onchange="imRenderTable()">
+              <option value="">네고율 전체</option>
+              <option value="high">🔥 20%↑ (협상 여지)</option>
+              <option value="mid">⚠️ 5~20%</option>
+              <option value="low">✅ 5% 미만 (안정)</option>
+            </select>
+            <select class="ss" id="imFiltMulti" onchange="imRenderTable()">
+              <option value="">거래처수 전체</option>
+              <option value="y">🔗 다중 (2곳↑)</option>
+              <option value="n">🎯 단일 거래처</option>
+            </select>
+            <select class="ss" id="imFiltFreq" onchange="imRenderTable()">
+              <option value="">구매빈도 전체</option>
+              <option value="y">📋 자주 (10건↑)</option>
+              <option value="n">📝 가끔 (10건 미만)</option>
+            </select>
+            <select class="ss" id="imFiltVendor" onchange="imRenderTable()">
+              <option value="">전체 주력거래처</option>
+            </select>
+            <button onclick="imClearFilters()" style="padding:5px 10px;border-radius:7px;border:1px solid var(--border2);background:#fff;font-size:12px;cursor:pointer;font-family:var(--s)">🧹 필터 초기화</button>
+          </div>
+
+          <div class="tw" style="max-height:600px;overflow-y:auto">
+            <table class="tbl" style="font-size:12px">
+              <thead style="position:sticky;top:0;background:#f8fafc;z-index:5">
+                <tr>
+                  <th style="min-width:80px">품번</th>
+                  <th style="min-width:240px">품명</th>
+                  <th>분류</th>
+                  <th style="text-align:right">구매건</th>
+                  <th style="text-align:right">총수량</th>
+                  <th style="text-align:right;min-width:100px">총구매금액</th>
+                  <th style="text-align:right">최저단가</th>
+                  <th style="text-align:right">평균단가</th>
+                  <th style="text-align:right">최고단가</th>
+                  <th style="text-align:right">최근단가</th>
+                  <th style="text-align:center;min-width:65px">네고율</th>
+                  <th style="min-width:170px">주력거래처 1</th>
+                  <th style="min-width:140px">주력거래처 2~3</th>
+                  <th style="text-align:center">거래처수</th>
+                  <th>최근구매</th>
+                  <th style="text-align:center">상세</th>
+                </tr>
+              </thead>
+              <tbody id="imTbody">
+                <tr><td colspan="16" style="padding:30px;text-align:center;color:var(--t3);font-size:13px">📡 SharePoint에서 품목 마스터 로드 중...</td></tr>
               </tbody>
             </table>
           </div>
-          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="bomTableCnt"></div>
+          <div style="font-size:12px;color:var(--t3);margin-top:7px;text-align:right" id="im-cnt-bottom"></div>
         </div>
-        <div class="cn">※ 견적서 등록 시 BOM에 가격 이력 자동 누적 · 네고율 = (최초 견적 단가 - 현재 단가) / 최초 견적 단가 × 100% · 견적이력 클릭 시 네고 추이 확인</div>
+        <div class="cn">※ 매입 통합관리 자동 집계 · 코드형 품명(SUCTION, KQ2P-06 등) 제외 · 네고율=(최고가-최저가)/최고가 · 행 클릭 시 상세 모달</div>
       </div>
     </div>
+    
+    <!-- 품목 상세 모달 -->
+    <div id="imDetailModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:10009;align-items:center;justify-content:center;backdrop-filter:blur(6px)">
+      <div style="background:#fff;border-radius:14px;width:96vw;max-width:1100px;height:88vh;max-height:820px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+        <div style="padding:14px 22px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#f3e8ff 0%,#e9d5ff 100%);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div>
+            <div id="imDetailTitle" style="font-size:18px;font-weight:900;color:#6d28d9">📦 품목 상세</div>
+            <div id="imDetailSubtitle" style="font-size:12px;color:var(--t3);margin-top:2px"></div>
+          </div>
+          <button onclick="closeImDetailModal()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+        </div>
+        <div id="imDetailBody" style="flex:1;overflow-y:auto;padding:18px 22px;min-height:0"></div>
+        <div style="padding:10px 22px;background:var(--bg3);border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">
+          <button onclick="closeImDetailModal()" style="padding:8px 22px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:14px;cursor:pointer;font-family:var(--s)">닫기</button>
+        </div>
+      </div>
+    </div>
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
 
     <!-- 💼 회계전표 DB (구매입고정산) -->
     <div class="page" id="tab-settle-db">
@@ -3055,7 +3165,7 @@
     <div class="mob-more-item" onclick="go('settle-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">💼</span>회계전표 DB</div>
   </div>
   <div class="mob-more-item" onclick="go('vendor',this);closeMobMore()"><span class="mob-icon">🏪</span>거래처 SCM</div>
-  <div class="mob-more-item" onclick="go('bom-db',this);closeMobMore()"><span class="mob-icon">🧩</span>BOM DB</div>
+  <div class="mob-more-item" onclick="go('bom-db',this);closeMobMore()"><span class="mob-icon">🧩</span>품목마스터</div>
   <div class="mob-more-item" onclick="go('purchase-todo',this);closeMobMore()"><span class="mob-icon">✅</span>구매Todo</div>
   <div class="mob-more-item" onclick="go('cashflow',this);closeMobMore()"><span class="mob-icon">💰</span>현금흐름</div>
 </div>
@@ -6312,6 +6422,550 @@ function escapeHtml(s) {
   return String(s||"").replace(/[&<>"']/g, ch => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[ch]));
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📦 품목 마스터 (BOM Master Lite)
+// SP 경로: 💰 재무·회계/99.Dashboard(real-time)/ENJET_품목마스터_BOM.xlsx
+// 시트: 품목마스터 (9,374개)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+window._imData = [];
+window._imLoaded = false;
+window._imLoading = false;
+
+const IM_SP_PATH = "💰 재무·회계/99.Dashboard(real-time)/ENJET_품목마스터_BOM.xlsx";
+
+async function loadItemMaster() {
+  if(window._imLoading) { console.log("품목마스터 로딩 중"); return; }
+  window._imLoading = true;
+  
+  const info = document.getElementById("im-source-info");
+  if(info) info.textContent = "📡 SharePoint 엑셀 로드 중...";
+  
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) {
+      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ Graph 인증 실패</span>';
+      window._imLoading = false;
+      return;
+    }
+    
+    const encPath = IM_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    
+    if(!resp.ok) {
+      if(info) info.innerHTML = `<span style="color:#dc2626">⚠️ 엑셀 못 읽음 (HTTP ${resp.status})</span>`;
+      window._imLoading = false;
+      return;
+    }
+    
+    const arrBuf = await resp.arrayBuffer();
+    console.log(`📦 품목마스터 다운로드: ${(arrBuf.byteLength/1024).toFixed(1)}KB`);
+    
+    if(typeof XLSX === "undefined") {
+      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ SheetJS 없음</span>';
+      window._imLoading = false;
+      return;
+    }
+    
+    const wb = XLSX.read(arrBuf, { type: "array", cellDates: true });
+    console.log(`📦 시트: ${wb.SheetNames.join(", ")}`);
+    
+    const sheet = wb.Sheets["품목마스터"] || wb.Sheets[wb.SheetNames[0]];
+    if(!sheet) {
+      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ 품목마스터 시트 없음</span>';
+      window._imLoading = false;
+      return;
+    }
+    
+    // raw:true → 숫자 그대로 받음
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+    console.log(`📦 품목마스터: ${rows.length}개`);
+    if(rows.length > 0) {
+      console.log("📦 컬럼:", Object.keys(rows[0]));
+      console.log("📦 샘플:", rows[0]);
+    }
+    
+    const _safeNum = (v) => {
+      if(v === null || v === undefined || v === "") return 0;
+      if(typeof v === "number") return v;
+      const s = String(v).replace(/[,\s₩원]/g, "").replace(/[^\d.eE+\-]/g, "");
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    };
+    
+    const _formatD = (v) => {
+      if(!v) return "";
+      if(v instanceof Date) return v.toISOString().slice(0, 10);
+      return String(v).substring(0, 10);
+    };
+    
+    const allRows = [];
+    const catSet = new Set();
+    const vendorSet = new Set();
+    
+    for(const r of rows) {
+      const item = {
+        no: r["No"] || allRows.length + 1,
+        품번: String(r["품번"] || "").trim(),
+        품명: String(r["품명"] || "").trim(),
+        원본품명: String(r["원본품명(참조용)"] || r["원본품명"] || "").trim(),
+        분류: String(r["품목분류"] || "").trim(),
+        중분류: String(r["품목중분류"] || "").trim(),
+        구매건수: _safeNum(r["구매건수"]),
+        총수량: _safeNum(r["총수량"]),
+        총구매금액: _safeNum(r["총구매금액"]),
+        최저단가: _safeNum(r["최저단가"]),
+        평균단가: _safeNum(r["평균단가"]),
+        최고단가: _safeNum(r["최고단가"]),
+        최근단가: _safeNum(r["최근단가"]),
+        네고율: _safeNum(r["네고율"]),
+        주력거래처1: String(r["주력거래처1"] || "").trim(),
+        거래처1금액: _safeNum(r["거래처1금액"]),
+        주력거래처2: String(r["주력거래처2"] || "").trim(),
+        거래처2금액: _safeNum(r["거래처2금액"]),
+        주력거래처3: String(r["주력거래처3"] || "").trim(),
+        거래처3금액: _safeNum(r["거래처3금액"]),
+        거래처수: _safeNum(r["거래처수"]),
+        프로젝트수: _safeNum(r["프로젝트수"]),
+        완료건수: _safeNum(r["완료건수"]),
+        첫구매: _formatD(r["첫구매"]),
+        최근구매: _formatD(r["최근구매"]),
+      };
+      if(item.품명) allRows.push(item);
+      if(item.분류) catSet.add(item.분류);
+      if(item.주력거래처1) vendorSet.add(item.주력거래처1);
+      if(item.주력거래처2) vendorSet.add(item.주력거래처2);
+      if(item.주력거래처3) vendorSet.add(item.주력거래처3);
+    }
+    
+    window._imData = allRows;
+    window._imLoaded = true;
+    
+    console.log(`✅ 품목마스터 로드: ${allRows.length}개`);
+    
+    if(info) {
+      const now = new Date().toLocaleTimeString("ko-KR");
+      info.innerHTML = `✅ 총 <b>${allRows.length.toLocaleString()}개</b> · ${now}`;
+    }
+    
+    const badge = document.getElementById("badge-bom");
+    if(badge) badge.textContent = allRows.length.toLocaleString();
+    
+    imPopulateFilters(catSet, vendorSet);
+    imRenderAll();
+  } catch(e) {
+    console.error("품목마스터 로드 오류:", e);
+    if(info) info.innerHTML = `<span style="color:#dc2626">⚠️ ${e.message}</span>`;
+    const tbody = document.getElementById("imTbody");
+    if(tbody) tbody.innerHTML = `<tr><td colspan="16" style="padding:40px;text-align:center;color:var(--r)">
+      <div style="font-size:40px;margin-bottom:10px">⚠️</div>
+      <div style="font-weight:700">품목마스터 로드 실패</div>
+      <div style="font-size:11px;margin-top:5px;color:var(--t3)">${e.message}</div>
+    </td></tr>`;
+  } finally {
+    window._imLoading = false;
+  }
+}
+
+function imPopulateFilters(catSet, vendorSet) {
+  const catSel = document.getElementById("imFiltCat");
+  if(catSel) {
+    const cats = [...(catSet||new Set())].filter(c => c).sort();
+    catSel.innerHTML = '<option value="">전체 분류</option>' +
+      cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  }
+  const vSel = document.getElementById("imFiltVendor");
+  if(vSel) {
+    // 거래처는 TOP 50 정도만 (너무 많음)
+    const vendorCnt = {};
+    for(const d of (window._imData || [])) {
+      if(d.주력거래처1) vendorCnt[d.주력거래처1] = (vendorCnt[d.주력거래처1] || 0) + 1;
+    }
+    const topVendors = Object.entries(vendorCnt).sort((a,b) => b[1] - a[1]).slice(0, 50).map(e => e[0]);
+    vSel.innerHTML = '<option value="">전체 주력거래처</option>' +
+      topVendors.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)} (${vendorCnt[v]}개)</option>`).join("");
+  }
+}
+
+function imClearFilters() {
+  ["imSearch","imFiltCat","imFiltAmt","imFiltNego","imFiltMulti","imFiltFreq","imFiltVendor"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  imRenderTable();
+}
+
+function imFilter(type, value) {
+  if(type === "all") { imClearFilters(); return; }
+  const map = {
+    "cat": "imFiltCat",
+    "amt": "imFiltAmt",
+    "nego": "imFiltNego",
+    "multi": "imFiltMulti",
+    "freq": "imFiltFreq",
+    "vendor": "imFiltVendor",
+  };
+  const elId = map[type];
+  if(elId) {
+    const el = document.getElementById(elId);
+    if(el) el.value = value;
+  }
+  imRenderTable();
+}
+
+function imRenderAll() {
+  imRenderKPI();
+  imRenderCategoryChart();
+  imRenderTopChart();
+  imRenderTable();
+}
+
+function imRenderKPI() {
+  const data = window._imData || [];
+  const tot = data.length;
+  const totAmt = data.reduce((s,d) => s + (d.총구매금액 || 0), 0) / 1e8;
+  const big = data.filter(d => (d.총구매금액 || 0) >= 1e8).length;
+  const nego = data.filter(d => (d.네고율 || 0) >= 20).length;
+  const multi = data.filter(d => (d.거래처수 || 0) >= 2).length;
+  const freq = data.filter(d => (d.구매건수 || 0) >= 10).length;
+  
+  const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = typeof val === "number" ? val.toLocaleString() : val; };
+  setEl("im-tot", tot);
+  setEl("im-totamt", totAmt.toFixed(1));
+  setEl("im-big", big);
+  setEl("im-nego", nego);
+  setEl("im-multi", multi);
+  setEl("im-freq", freq);
+}
+
+function imRenderCategoryChart() {
+  const data = window._imData || [];
+  const stats = {};
+  for(const d of data) {
+    const k = d.분류 || "(미분류)";
+    if(!stats[k]) stats[k] = { cnt: 0, amt: 0 };
+    stats[k].cnt++;
+    stats[k].amt += (d.총구매금액 || 0);
+  }
+  const sorted = Object.entries(stats).sort((a,b) => b[1].amt - a[1].amt);
+  const maxAmt = sorted[0]?.[1]?.amt || 1;
+  
+  const colors = {
+    "구매품(공용)": "#3b82f6",
+    "가공품": "#10b981",
+    "연구비": "#7c3aed",
+    "상품": "#f59e0b",
+    "해체": "#ef4444",
+    "프로젝트": "#06b6d4",
+    "재발주": "#ec4899",
+    "정제련": "#84cc16",
+  };
+  
+  const listEl = document.getElementById("im-cat-list");
+  if(!listEl) return;
+  
+  listEl.innerHTML = sorted.map(([name, s]) => {
+    const pct = (s.amt / maxAmt * 100).toFixed(1);
+    const color = colors[name] || "#6366f1";
+    return `<div onclick="imFilter('cat', '${escapeHtml(name)}')" style="cursor:pointer;padding:6px 9px;border-radius:6px;background:#fafbfc;border:1px solid var(--border);display:flex;align-items:center;gap:8px;transition:all .15s" onmouseover="this.style.background='${color}15';this.style.borderColor='${color}'" onmouseout="this.style.background='#fafbfc';this.style.borderColor='var(--border)'">
+      <span style="font-weight:700;color:var(--t);font-size:12px;flex-shrink:0;width:90px">${escapeHtml(name)}</span>
+      <div style="flex:1;background:#e5e7eb;border-radius:3px;height:14px;overflow:hidden">
+        <div style="background:${color};height:100%;width:${pct}%;transition:width .3s"></div>
+      </div>
+      <span style="font-family:var(--m);font-size:11px;color:var(--t3);min-width:50px;text-align:right">${s.cnt.toLocaleString()}개</span>
+      <span style="font-family:var(--m);font-size:12px;font-weight:700;color:${color};min-width:65px;text-align:right">${(s.amt/1e8).toFixed(1)}억</span>
+    </div>`;
+  }).join("");
+}
+
+function imRenderTopChart() {
+  const data = window._imData || [];
+  const top = [...data].sort((a,b) => (b.총구매금액||0) - (a.총구매금액||0)).slice(0, 20);
+  const max = top[0]?.총구매금액 || 1;
+  
+  const listEl = document.getElementById("im-top-list");
+  if(!listEl) return;
+  
+  listEl.innerHTML = top.map((d, i) => {
+    const pct = ((d.총구매금액||0) / max * 100).toFixed(1);
+    const color = i < 3 ? "#dc2626" : i < 10 ? "#f59e0b" : "#7c3aed";
+    return `<div onclick="openImDetailModal('${escapeHtml(d.품번).replace(/'/g,"\\'")}')" style="cursor:pointer;padding:5px 9px;border-radius:6px;background:#fafbfc;border:1px solid var(--border);display:flex;align-items:center;gap:8px;transition:all .15s" onmouseover="this.style.background='${color}15';this.style.borderColor='${color}'" onmouseout="this.style.background='#fafbfc';this.style.borderColor='var(--border)'">
+      <span style="font-family:var(--m);font-size:10px;color:${color};font-weight:800;width:24px;text-align:center;flex-shrink:0">#${i+1}</span>
+      <span style="font-family:var(--m);font-size:10px;color:var(--t3);width:60px;flex-shrink:0">${escapeHtml(d.품번)}</span>
+      <span style="font-weight:600;color:var(--t);font-size:11.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.품명)}">${escapeHtml(d.품명)}</span>
+      <div style="flex:1;background:#e5e7eb;border-radius:3px;height:12px;overflow:hidden;max-width:80px">
+        <div style="background:${color};height:100%;width:${pct}%"></div>
+      </div>
+      <span style="font-family:var(--m);font-size:11px;font-weight:700;color:${color};min-width:60px;text-align:right">${(d.총구매금액/1e8).toFixed(2)}억</span>
+    </div>`;
+  }).join("");
+}
+
+function imRenderTable() {
+  const data = window._imData || [];
+  
+  const q = (document.getElementById("imSearch")?.value || "").trim().toLowerCase();
+  const fCat = document.getElementById("imFiltCat")?.value || "";
+  const fAmt = document.getElementById("imFiltAmt")?.value || "";
+  const fNego = document.getElementById("imFiltNego")?.value || "";
+  const fMulti = document.getElementById("imFiltMulti")?.value || "";
+  const fFreq = document.getElementById("imFiltFreq")?.value || "";
+  const fVendor = document.getElementById("imFiltVendor")?.value || "";
+  
+  const filtered = data.filter(d => {
+    if(q) {
+      const hay = (d.품번 + " " + d.품명 + " " + d.원본품명 + " " + d.분류 + " " + d.주력거래처1 + " " + d.주력거래처2 + " " + d.주력거래처3).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    if(fCat && d.분류 !== fCat) return false;
+    if(fAmt) {
+      const a = d.총구매금액 || 0;
+      if(fAmt === "big" && a < 1e8) return false;
+      if(fAmt === "mid" && (a < 1e7 || a >= 1e8)) return false;
+      if(fAmt === "small" && (a < 1e6 || a >= 1e7)) return false;
+      if(fAmt === "tiny" && a >= 1e6) return false;
+    }
+    if(fNego) {
+      const n = d.네고율 || 0;
+      if(fNego === "high" && n < 20) return false;
+      if(fNego === "mid" && (n < 5 || n >= 20)) return false;
+      if(fNego === "low" && n >= 5) return false;
+    }
+    if(fMulti === "y" && (d.거래처수 || 0) < 2) return false;
+    if(fMulti === "n" && (d.거래처수 || 0) >= 2) return false;
+    if(fFreq === "y" && (d.구매건수 || 0) < 10) return false;
+    if(fFreq === "n" && (d.구매건수 || 0) >= 10) return false;
+    if(fVendor && d.주력거래처1 !== fVendor && d.주력거래처2 !== fVendor && d.주력거래처3 !== fVendor) return false;
+    return true;
+  });
+  
+  // 정렬: 총구매금액 내림차순
+  filtered.sort((a,b) => (b.총구매금액||0) - (a.총구매금액||0));
+  
+  const cntLbl = document.getElementById("im-cnt-label");
+  if(cntLbl) cntLbl.textContent = `${filtered.length.toLocaleString()}개 / 전체 ${data.length.toLocaleString()}개`;
+  const cntBot = document.getElementById("im-cnt-bottom");
+  if(cntBot) {
+    const sum = filtered.reduce((s,d) => s + (d.총구매금액||0), 0);
+    cntBot.textContent = `${filtered.length.toLocaleString()}개 표시 · 합계 ${(sum/1e8).toFixed(2)}억 (전체 ${data.length.toLocaleString()}개)`;
+  }
+  
+  const tbody = document.getElementById("imTbody");
+  if(!tbody) return;
+  
+  if(filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="16" style="padding:40px;text-align:center;color:var(--t3);font-size:13px">
+      <div style="font-size:40px;margin-bottom:10px;opacity:0.4">🔍</div>
+      <div style="font-weight:700">검색 결과 없음</div>
+    </td></tr>`;
+    return;
+  }
+  
+  const catColor = {
+    "구매품(공용)": "#3b82f6", "가공품": "#10b981", "연구비": "#7c3aed",
+    "상품": "#f59e0b", "해체": "#ef4444", "프로젝트": "#06b6d4",
+    "재발주": "#ec4899", "정제련": "#84cc16",
+  };
+  
+  // 네고율 색
+  const negoColor = (n) => {
+    if(n >= 50) return "#dc2626";
+    if(n >= 20) return "#f59e0b";
+    if(n >= 5) return "#eab308";
+    return "#16a34a";
+  };
+  
+  const display = filtered.slice(0, 500);
+  
+  tbody.innerHTML = display.map((d, i) => {
+    const cColor = catColor[d.분류] || "#6366f1";
+    const safePartNo = String(d.품번).replace(/'/g, "\\'");
+    const v2v3 = [d.주력거래처2, d.주력거래처3].filter(v => v).join(", ");
+    return `<tr style="background:${i%2?'#fafbfc':'#fff'};cursor:pointer" onclick="openImDetailModal('${safePartNo}')" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='${i%2?'#fafbfc':'#fff'}'">
+    <td style="font-family:var(--m);font-size:11px;font-weight:800;color:#6d28d9;text-align:center">${escapeHtml(d.품번)}</td>
+    <td style="font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.품명)}">
+      <div style="font-weight:700">${escapeHtml(d.품명)}</div>
+      ${d.원본품명 && d.원본품명 !== d.품명 ? `<div style="font-size:10px;color:var(--t3);overflow:hidden;text-overflow:ellipsis">${escapeHtml(d.원본품명)}</div>` : ''}
+    </td>
+    <td><span style="padding:2px 6px;border-radius:4px;background:${cColor}20;color:${cColor};font-size:10.5px;font-weight:700;white-space:nowrap">${escapeHtml(d.분류||'-')}</span></td>
+    <td style="font-family:var(--m);font-size:11px;text-align:right">${(d.구매건수||0).toLocaleString()}</td>
+    <td style="font-family:var(--m);font-size:11px;text-align:right;color:var(--t2)">${(d.총수량||0).toLocaleString()}</td>
+    <td style="font-family:var(--m);font-size:11px;text-align:right;font-weight:700;color:var(--t)">${(d.총구매금액||0).toLocaleString()}</td>
+    <td style="font-family:var(--m);font-size:10.5px;text-align:right;color:var(--t3)">${(d.최저단가||0).toLocaleString()}</td>
+    <td style="font-family:var(--m);font-size:10.5px;text-align:right;color:var(--t2)">${(d.평균단가||0).toLocaleString()}</td>
+    <td style="font-family:var(--m);font-size:10.5px;text-align:right;color:var(--t3)">${(d.최고단가||0).toLocaleString()}</td>
+    <td style="font-family:var(--m);font-size:10.5px;text-align:right;color:var(--t2);font-weight:700">${(d.최근단가||0).toLocaleString()}</td>
+    <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${negoColor(d.네고율)}20;color:${negoColor(d.네고율)};font-size:10.5px;font-weight:700">${(d.네고율||0).toFixed(1)}%</span></td>
+    <td style="font-size:11px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.주력거래처1)}">
+      <div style="font-weight:600">${escapeHtml(d.주력거래처1||'-')}</div>
+      ${d.거래처1금액 > 0 ? `<div style="font-size:10px;color:var(--t3);font-family:var(--m)">${(d.거래처1금액/1e6).toFixed(1)}백만</div>` : ''}
+    </td>
+    <td style="font-size:10.5px;color:var(--t3);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(v2v3)}">${escapeHtml(v2v3 || '-')}</td>
+    <td style="text-align:center;font-family:var(--m);font-size:11px">${d.거래처수||0}</td>
+    <td style="font-family:var(--m);font-size:10px;color:var(--t3)">${escapeHtml(d.최근구매||'-')}</td>
+    <td style="text-align:center" onclick="event.stopPropagation();openImDetailModal('${safePartNo}')"><button style="padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:11px">📋</button></td>
+  </tr>`;
+  }).join("");
+  
+  if(filtered.length > 500) {
+    tbody.innerHTML += `<tr><td colspan="16" style="padding:14px;text-align:center;color:var(--t3);font-size:11px;background:#fef3c7">⚠️ 상위 500개만 표시 (총 ${filtered.length.toLocaleString()}개) - 필터를 좁혀주세요</td></tr>`;
+  }
+}
+
+function openImDetailModal(partNo) {
+  const data = window._imData || [];
+  const d = data.find(x => x.품번 === partNo);
+  if(!d) { alert("품목 못 찾음: " + partNo); return; }
+  
+  const modal = document.getElementById("imDetailModal");
+  if(!modal) return;
+  
+  document.getElementById("imDetailTitle").textContent = `📦 ${d.품번} · ${d.품명}`;
+  document.getElementById("imDetailSubtitle").textContent = `${d.분류 || '미분류'} · ${d.구매건수}건 구매 · ${(d.총구매금액/1e8).toFixed(2)}억`;
+  
+  const body = document.getElementById("imDetailBody");
+  
+  const negoColor = (n) => n >= 50 ? "#dc2626" : n >= 20 ? "#f59e0b" : n >= 5 ? "#eab308" : "#16a34a";
+  const nColor = negoColor(d.네고율 || 0);
+  
+  // 매입 통합관리에서 최근 거래 내역 가져오기
+  let recentTrades = [];
+  if(window._psData && window._psData.length > 0) {
+    // 품명으로 매칭 (정규화)
+    const normItem = (s) => String(s||'').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+    const target = normItem(d.품명);
+    recentTrades = window._psData
+      .filter(p => normItem(p.item) === target || p.item === d.원본품명 || p.item === d.품명)
+      .sort((a,b) => (b.date||'').localeCompare(a.date||''))
+      .slice(0, 15);
+  }
+  
+  body.innerHTML = `
+    <!-- 4 KPI 박스 -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="padding:10px;border-radius:8px;background:linear-gradient(135deg,#f3e8ff,#e9d5ff);border:1px solid #c4b5fd">
+        <div style="font-size:11px;color:#6d28d9;font-weight:700">📋 구매 건수</div>
+        <div style="font-size:20px;font-weight:900;color:#6d28d9;margin-top:3px">${(d.구매건수||0).toLocaleString()}<span style="font-size:13px">건</span></div>
+        <div style="font-size:10px;color:#6d28d9">완료 ${d.완료건수||0}건 / 총수량 ${(d.총수량||0).toLocaleString()}</div>
+      </div>
+      <div style="padding:10px;border-radius:8px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #93c5fd">
+        <div style="font-size:11px;color:#1e40af;font-weight:700">💵 총 구매금액</div>
+        <div style="font-size:20px;font-weight:900;color:#1e40af;margin-top:3px">${(d.총구매금액/1e8).toFixed(2)}<span style="font-size:13px">억원</span></div>
+        <div style="font-size:10px;color:#1e40af">${(d.총구매금액||0).toLocaleString()}원</div>
+      </div>
+      <div style="padding:10px;border-radius:8px;background:linear-gradient(135deg,${nColor}20,${nColor}10);border:1px solid ${nColor}50">
+        <div style="font-size:11px;color:${nColor};font-weight:700">📊 네고율</div>
+        <div style="font-size:20px;font-weight:900;color:${nColor};margin-top:3px">${(d.네고율||0).toFixed(1)}<span style="font-size:13px">%</span></div>
+        <div style="font-size:10px;color:${nColor}">${(d.네고율||0)>=20 ? '🔥 협상 여지 있음' : (d.네고율||0)>=5 ? '⚠️ 약간 차이' : '✅ 안정적'}</div>
+      </div>
+      <div style="padding:10px;border-radius:8px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d">
+        <div style="font-size:11px;color:#92400e;font-weight:700">🏪 거래처 수</div>
+        <div style="font-size:20px;font-weight:900;color:#92400e;margin-top:3px">${d.거래처수||0}<span style="font-size:13px">곳</span></div>
+        <div style="font-size:10px;color:#92400e">프로젝트 ${d.프로젝트수||0}개</div>
+      </div>
+    </div>
+    
+    <!-- 단가 분석 + 거래처 비교 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <!-- 좌: 단가 분석 -->
+      <div style="padding:12px;border-radius:8px;background:#f8fafc;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:800;color:var(--t);margin-bottom:8px">💰 단가 분석</div>
+        <div style="font-size:11.5px;line-height:1.8">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t2)">최저단가</span><span style="font-family:var(--m);font-weight:700;color:#16a34a">${(d.최저단가||0).toLocaleString()}원</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t2)">평균단가</span><span style="font-family:var(--m);font-weight:700;color:var(--t)">${(d.평균단가||0).toLocaleString()}원</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t2)">최고단가</span><span style="font-family:var(--m);font-weight:700;color:#dc2626">${(d.최고단가||0).toLocaleString()}원</span></div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:6px;border-top:1px dashed var(--border)"><span style="color:var(--t2);font-weight:700">최근단가</span><span style="font-family:var(--m);font-weight:800;color:#6d28d9;font-size:13px">${(d.최근단가||0).toLocaleString()}원</span></div>
+          ${d.최저단가 > 0 && d.최근단가 > 0 ? `
+          <div style="margin-top:8px;padding:6px 8px;background:${d.최근단가 <= d.최저단가 ? '#dcfce7' : d.최근단가 >= d.최고단가 ? '#fee2e2' : '#fef3c7'};border-radius:6px;font-size:10.5px;color:${d.최근단가 <= d.최저단가 ? '#15803d' : d.최근단가 >= d.최고단가 ? '#b91c1c' : '#92400e'}">
+            ${d.최근단가 <= d.최저단가 ? '✅ 최근 구매가 최저가 수준' : 
+              d.최근단가 >= d.최고단가 ? '⚠️ 최근 구매가 최고가 - 협상 필요' : 
+              '🔍 평균 대비 ' + ((d.최근단가/d.평균단가 - 1)*100).toFixed(1) + '% ' + (d.최근단가 > d.평균단가 ? '높음' : '낮음')}
+          </div>` : ''}
+        </div>
+      </div>
+      
+      <!-- 우: 주력 거래처 -->
+      <div style="padding:12px;border-radius:8px;background:#f8fafc;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:800;color:var(--t);margin-bottom:8px">🏪 주력 거래처 (매입금액 TOP 3)</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${d.주력거래처1 ? `<div style="padding:6px 9px;border-radius:6px;background:#fff;border:1px solid #fca5a5;display:flex;align-items:center;gap:8px">
+            <span style="font-weight:800;color:#dc2626;font-size:11px;min-width:28px">#1</span>
+            <span style="flex:1;font-size:12px;font-weight:600">${escapeHtml(d.주력거래처1)}</span>
+            <span style="font-family:var(--m);font-size:11px;font-weight:700;color:#dc2626">${(d.거래처1금액||0).toLocaleString()}</span>
+          </div>` : ''}
+          ${d.주력거래처2 ? `<div style="padding:6px 9px;border-radius:6px;background:#fff;border:1px solid #fcd34d;display:flex;align-items:center;gap:8px">
+            <span style="font-weight:800;color:#f59e0b;font-size:11px;min-width:28px">#2</span>
+            <span style="flex:1;font-size:12px;font-weight:600">${escapeHtml(d.주력거래처2)}</span>
+            <span style="font-family:var(--m);font-size:11px;font-weight:700;color:#f59e0b">${(d.거래처2금액||0).toLocaleString()}</span>
+          </div>` : ''}
+          ${d.주력거래처3 ? `<div style="padding:6px 9px;border-radius:6px;background:#fff;border:1px solid #93c5fd;display:flex;align-items:center;gap:8px">
+            <span style="font-weight:800;color:#3b82f6;font-size:11px;min-width:28px">#3</span>
+            <span style="flex:1;font-size:12px;font-weight:600">${escapeHtml(d.주력거래처3)}</span>
+            <span style="font-family:var(--m);font-size:11px;font-weight:700;color:#3b82f6">${(d.거래처3금액||0).toLocaleString()}</span>
+          </div>` : ''}
+          ${!d.주력거래처1 ? '<div style="padding:14px;text-align:center;color:var(--t3);font-size:11px">거래처 정보 없음</div>' : ''}
+        </div>
+        ${d.거래처수 == 1 ? '<div style="margin-top:8px;padding:5px 8px;background:#fef3c7;border-radius:5px;font-size:10.5px;color:#92400e">⚠️ 단일 거래처 의존 - 백업 공급처 발굴 권장</div>' : ''}
+      </div>
+    </div>
+    
+    <!-- 기본 정보 -->
+    <div style="padding:10px 14px;border-radius:8px;background:#faf5ff;border:1px solid #d8b4fe;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#6d28d9;margin-bottom:4px">📦 품목 정보</div>
+      <div style="font-size:11.5px;color:var(--t2);line-height:1.7">
+        <div><b>품번:</b> <span style="font-family:var(--m);color:#6d28d9;font-weight:700">${escapeHtml(d.품번)}</span></div>
+        <div><b>품명:</b> ${escapeHtml(d.품명)}</div>
+        ${d.원본품명 && d.원본품명 !== d.품명 ? `<div><b>원본 품명:</b> <span style="color:var(--t3)">${escapeHtml(d.원본품명)}</span></div>` : ''}
+        <div><b>분류:</b> ${escapeHtml(d.분류 || '-')} ${d.중분류 ? ' / ' + escapeHtml(d.중분류) : ''}</div>
+        <div><b>거래 기간:</b> ${escapeHtml(d.첫구매 || '-')} ~ ${escapeHtml(d.최근구매 || '-')}</div>
+      </div>
+    </div>
+    
+    <!-- 매입 통합관리 - 최근 거래 내역 -->
+    ${recentTrades.length > 0 ? `<div style="padding:12px;border-radius:8px;background:#fff;border:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:800;color:var(--t);margin-bottom:8px">📋 최근 거래 이력 (매입 통합관리 · 최대 15건)</div>
+      <div style="max-height:280px;overflow-y:auto">
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:#f8fafc">
+            <tr>
+              <th style="padding:5px;text-align:left;border-bottom:1px solid var(--border)">품의일</th>
+              <th style="padding:5px;text-align:left;border-bottom:1px solid var(--border)">거래처</th>
+              <th style="padding:5px;text-align:right;border-bottom:1px solid var(--border)">수량</th>
+              <th style="padding:5px;text-align:right;border-bottom:1px solid var(--border)">단가</th>
+              <th style="padding:5px;text-align:right;border-bottom:1px solid var(--border)">금액</th>
+              <th style="padding:5px;text-align:left;border-bottom:1px solid var(--border)">프로젝트</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recentTrades.map((t,i) => {
+              const unitPrice = t.qty > 0 ? t.amount / t.qty : 0;
+              return `<tr style="background:${i%2?'#fafbfc':'#fff'}">
+                <td style="padding:4px;font-family:var(--m);color:var(--t3)">${escapeHtml(t.date||'-')}</td>
+                <td style="padding:4px;overflow:hidden;text-overflow:ellipsis;max-width:180px;white-space:nowrap" title="${escapeHtml(t.vendor)}">${escapeHtml(t.vendor||'-')}</td>
+                <td style="padding:4px;font-family:var(--m);text-align:right">${(t.qty||0).toLocaleString()}</td>
+                <td style="padding:4px;font-family:var(--m);text-align:right">${unitPrice.toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+                <td style="padding:4px;font-family:var(--m);text-align:right;font-weight:700">${(t.amount||0).toLocaleString()}</td>
+                <td style="padding:4px;color:var(--t3);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(t.pjName)}">${escapeHtml(t.pjName||'-')}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '<div style="padding:14px;text-align:center;color:var(--t3);font-size:12px">📭 매입 통합관리 거래 이력 없음 (파이프라인 탭 방문 후 다시 확인하세요)</div>'}
+  `;
+  
+  modal.style.display = "flex";
+}
+
+function closeImDetailModal() {
+  const modal = document.getElementById("imDetailModal");
+  if(modal) modal.style.display = "none";
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -25833,7 +26487,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황",cashflow:"💰 현금흐름",pipeline:"🔄 파이프라인","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 BOM DB","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB",vendor:"🏪 거래처 SCM"};
+const TITLES={purchase:"📊 구매 현황",cashflow:"💰 현금흐름",pipeline:"🔄 파이프라인","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB",vendor:"🏪 거래처 SCM"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -28775,7 +29429,7 @@ function go(id, el) {
   }
   
   // 🆕 데이터 자동 로드 (DB 탭 + BOM + 거래처 모두)
-  const ALL_DATA_TABS = ["pr-db","quote-db","order-db","delivery-db","tax-db","settle-db","bom-db","vendor"];
+  const ALL_DATA_TABS = ["pr-db","quote-db","order-db","delivery-db","tax-db","settle-db","vendor"];
   if(ALL_DATA_TABS.includes(id)) {
     const lastDbSync = window._lastDbLoad || 0;
     const now = Date.now();
@@ -28785,8 +29439,7 @@ function go(id, el) {
       (id === "order-db" && (!Array.isArray(_pordData) || _pordData.length === 0)) ||
       (id === "delivery-db" && (!Array.isArray(_pdlvData) || _pdlvData.length === 0)) ||
       (id === "tax-db" && (!Array.isArray(_ptaxData) || _ptaxData.length === 0)) ||
-      (id === "settle-db" && (!Array.isArray(_pstlData) || _pstlData.length === 0)) ||
-      (id === "bom-db" && (!Array.isArray(_bomData) || _bomData.length === 0))
+      (id === "settle-db" && (!Array.isArray(_pstlData) || _pstlData.length === 0))
     );
     if(isEmpty || (now - lastDbSync > 300000)) {  // 비어있거나 5분
       window._lastDbLoad = now;
@@ -28838,9 +29491,13 @@ function go(id, el) {
   if(id==="pr-db") {
     if(typeof loadPRMaster === "function") loadPRMaster();
   }
-  // BOM DB
+  // 품목 마스터 (BOM Master Lite)
   if(id==="bom-db") {
-    if(typeof loadBOMDB === "function") loadBOMDB();
+    if(!window._imLoaded) {
+      if(typeof loadItemMaster === "function") loadItemMaster().catch(e => console.warn("품목마스터 로드 실패:", e.message));
+    } else {
+      if(typeof imRenderAll === "function") imRenderAll();
+    }
   }
   // 회계전표 DB
   if(id==="settle-db") {
