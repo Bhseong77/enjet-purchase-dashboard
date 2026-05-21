@@ -416,6 +416,7 @@
         <div class="ni sb-sub-item" onclick="go('settle-db',this)" style="padding-left:22px">💼 회계전표 DB <span class="nb nbg" id="badge-stl">0</span></div>
       </div>
       <div class="ni" onclick="go('bom-db',this)">🧩 품목마스터 <span class="nb nbg" id="badge-bom">0</span></div>
+      <div class="ni" onclick="go('mc-bom',this)">🔩 MC BOM <span class="nb nbg" id="badge-mc">-</span></div>
       <div class="ni" onclick="go('vendor-scm',this)">🏪 거래처 SCM <span class="nb nbg" id="badge-vscm">-</span></div>
     </nav>
     <div class="sb-foot">
@@ -852,6 +853,107 @@
             </tr></thead>
             <tbody id="vsMstTb"><tr><td colspan="9"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔩 MC BOM - 장비 매출 + 베이스→서브→부품 3단 드릴다운 -->
+    <div class="page" id="tab-mc-bom">
+      <div class="pbar">
+        <div class="pl">🔩 MC BOM (장비 분류)</div>
+        <div class="pps">
+          <div class="pp on" id="mc-all" onclick="mcSelFilter('all',this)">전체</div>
+          <div class="pp" id="mc-printer" onclick="mcSelFilter('프린터',this)">🖨️ 프린터</div>
+          <div class="pp" id="mc-coater" onclick="mcSelFilter('코터',this)">🧪 코터</div>
+        </div>
+        <div class="pr" id="mc-info">로딩중...</div>
+      </div>
+      <div class="kr">
+        <div class="kpi c1"><div class="kl">장비 베이스</div><div class="kv"><span id="mc-tot">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-tot-sub">매출구분=장비</div></div>
+        <div class="kpi c2"><div class="kl">프린터</div><div class="kv"><span id="mc-p-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-p-amt">- 억</div></div>
+        <div class="kpi c3"><div class="kl">코터</div><div class="kv"><span id="mc-c-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-c-amt">- 억</div></div>
+        <div class="kpi c4"><div class="kl">총 부품수</div><div class="kv"><span id="mc-part-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="mc-part-amt">- 억</div></div>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">🔩</div>장비 BOM 목록 <span id="mc-tbl-l" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">-</span></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+            <input id="mc-srch" class="si" type="text" placeholder="🔍 코드/거래처/품목..." style="width:200px;font-size:13px" oninput="mcRenderTable()">
+            <select id="mc-local" class="ss" style="font-size:13px" onchange="mcRenderTable()">
+              <option value="">전체 Local</option>
+              <option value="내수">내수</option>
+              <option value="수출">수출</option>
+            </select>
+            <select id="mc-sort" class="ss" style="font-size:13px" onchange="mcRenderTable()">
+              <option value="code">베이스코드</option>
+              <option value="sales-desc">매출 높은순</option>
+              <option value="parts-desc">부품 많은순</option>
+              <option value="recent">최근순</option>
+            </select>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:1000px">
+            <thead><tr>
+              <th style="min-width:130px">거래처</th>
+              <th style="min-width:130px">베이스코드 🔗</th>
+              <th style="min-width:60px">Local</th>
+              <th style="min-width:260px">품목</th>
+              <th style="min-width:70px">유형</th>
+              <th style="min-width:180px">부품 분류</th>
+              <th class="r" style="min-width:90px">부품수</th>
+              <th class="r" style="min-width:110px">매출공급가</th>
+              <th class="r" style="min-width:110px">원가공급가</th>
+            </tr></thead>
+            <tbody id="mcTb"><tr><td colspan="9"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+          </table></div>
+          <div style="font-size:12.5px;color:var(--t3);margin-top:8px;padding:8px 12px;background:#F9FAFB;border-radius:6px;line-height:1.6">
+            💡 <strong>베이스코드 클릭</strong> → 서브코드 목록 모달 / <strong>서브코드 클릭</strong> → 해당 코드의 부품 상세 (가공품/구매품/연구비 등)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MC BOM 모달 1: 서브코드 목록 -->
+    <div id="mcSubModal" onclick="if(event.target===this)mcCloseSub()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:980px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:16px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(90deg,#EFF6FF,#fff)">
+          <div>
+            <div style="font-size:18px;font-weight:900;color:var(--t)" id="mcSubTitle">서브코드 목록</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:2px" id="mcSubSubTitle">-</div>
+          </div>
+          <button onclick="mcCloseSub()" style="border:none;background:#F3F4F6;font-size:18px;cursor:pointer;color:var(--t2);line-height:1;width:30px;height:30px;border-radius:50%">✕</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:16px 22px" id="mcSubBody">
+          <div class="sw"><div class="spr"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MC BOM 모달 2: 부품 상세 -->
+    <div id="mcPartModal" onclick="if(event.target===this)mcClosePart()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:16px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:linear-gradient(90deg,#F0FDF4,#fff)">
+          <div>
+            <div style="font-size:18px;font-weight:900;color:var(--t)" id="mcPartTitle">부품 상세</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:2px" id="mcPartSubTitle">-</div>
+          </div>
+          <button onclick="mcClosePart()" style="border:none;background:#F3F4F6;font-size:18px;cursor:pointer;color:var(--t2);line-height:1;width:30px;height:30px;border-radius:50%">✕</button>
+        </div>
+        <div style="padding:10px 22px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#FAFAFA">
+          <input id="mc-part-srch" class="si" type="text" placeholder="🔍 품명/품번/거래처..." style="width:220px;font-size:13px" oninput="mcRenderParts()">
+          <select id="mc-part-cat" class="ss" style="font-size:13px" onchange="mcRenderParts()">
+            <option value="">전체 분류</option>
+          </select>
+          <select id="mc-part-sort" class="ss" style="font-size:13px" onchange="mcRenderParts()">
+            <option value="amt-desc">금액 높은순</option>
+            <option value="cat">분류순</option>
+            <option value="name">품명</option>
+          </select>
+          <div style="margin-left:auto;font-size:12.5px;color:var(--t3)" id="mc-part-count">-</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:0" id="mcPartBody">
+          <div class="sw"><div class="spr"></div></div>
         </div>
       </div>
     </div>
@@ -3003,6 +3105,7 @@
     <div class="mob-more-item" onclick="go('settle-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">💼</span>회계전표 DB</div>
   </div>
   <div class="mob-more-item" onclick="go('bom-db',this);closeMobMore()"><span class="mob-icon">🧩</span>품목마스터</div>
+  <div class="mob-more-item" onclick="go('mc-bom',this);closeMobMore()"><span class="mob-icon">🔩</span>MC BOM</div>
   <div class="mob-more-item" onclick="go('vendor-scm',this);closeMobMore()"><span class="mob-icon">🏪</span>거래처 SCM</div>
   <div class="mob-more-item" onclick="go('purchase-todo',this);closeMobMore()"><span class="mob-icon">✅</span>구매Todo</div>
   <div class="mob-more-item" onclick="go('project-status',this);closeMobMore()"><span class="mob-icon">📋</span>프로젝트현황</div>
@@ -6374,6 +6477,360 @@ function vsRenderMst() {
     <td style="font-size:12px">${r["관리자"]||""}</td>
     <td style="font-size:12px">${r["거래처 대표담당자"]||r["담당자 이메일"]||r["담당자 핸드폰번호"]||""}</td>
   </tr>`).join("");
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 🔩 MC BOM 모듈 - 장비 매출 + 베이스→서브→부품 3단 드릴다운
+// ════════════════════════════════════════════════════════════════════
+window._mcState = { filter: "all" };
+
+async function mcInit() {
+  const info = document.getElementById("mc-info");
+  if(info) info.textContent = "📡 로딩 중...";
+  const data = await loadPMSData();
+  if(!data) { if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ 로드 실패</span>'; return; }
+  const equipBases = mcEquipBases();
+  document.getElementById("badge-mc").textContent = equipBases.length;
+  if(info) info.textContent = `🔩 장비 ${equipBases.length}개`;
+  mcRenderAll();
+}
+
+// 장비 분류 매출 → 베이스코드 단위 집계
+function mcEquipBases() {
+  const d = window._pmsData;
+  if(!d) return [];
+  // 매출구분1=장비 또는 장비임대만
+  const eqSales = (d.salesAll||[]).filter(r => {
+    const g1 = String(r["매출구분1"]||"");
+    return g1==="장비" || g1==="장비임대";
+  });
+  // 베이스코드별 집계
+  const byBase = {};
+  for(const r of eqSales) {
+    const b = String(r["베이스코드"]||"").trim();
+    if(!b) continue;
+    if(!byBase[b]) {
+      byBase[b] = {
+        베이스코드: b,
+        거래처: r["거래처"]||"",
+        Local구분: r["Local구분"]||"",
+        프로젝트코드들: new Set(),
+        유형: r["매출구분2"] || "프린터",
+        품목들: new Set(),
+        매출공급가: 0,
+        매출건수: 0,
+        마지막일자: null,
+      };
+    }
+    byBase[b].프로젝트코드들.add(String(r["프로젝트코드"]||"").trim());
+    if(r["품목"]) byBase[b].품목들.add(String(r["품목"]).substring(0,40));
+    byBase[b].매출공급가 += Number(r["공급가액"])||0;
+    byBase[b].매출건수 += 1;
+    const dt = new Date(r["수익인식일"]);
+    if(!isNaN(dt) && (!byBase[b].마지막일자 || dt > byBase[b].마지막일자)) byBase[b].마지막일자 = dt;
+  }
+  // 각 베이스에 대해 구매(매입) 부품 통계 계산
+  const purchases = mcGetAllPurchases();
+  for(const b of Object.keys(byBase)) {
+    const myParts = purchases.filter(p => String(p["베이스코드"]||"") === b);
+    byBase[b].부품수 = myParts.length;
+    byBase[b].원가공급가 = myParts.reduce((s,p)=>s+(Number(p["입고금액"])||0),0);
+    const catMap = {};
+    for(const p of myParts) {
+      const c = p["품목대분류"] || "—";
+      catMap[c] = (catMap[c]||0)+1;
+    }
+    byBase[b].부품분류 = catMap; // {가공품:3, 구매품(공용):5...}
+  }
+  return Object.values(byBase);
+}
+
+// 모든 매입 데이터 (구매매입+국책+내부 통합)
+function mcGetAllPurchases() {
+  const d = window._pmsData;
+  if(!d) return [];
+  return [...(d.purchaseSales||[]), ...(d.govt||[]), ...(d.internal||[])];
+}
+
+function mcFiltered() {
+  let arr = mcEquipBases();
+  const f = window._mcState.filter;
+  if(f!=="all") arr = arr.filter(r => r.유형===f);
+  return arr;
+}
+
+function mcSelFilter(f, btn) {
+  window._mcState.filter = f;
+  document.querySelectorAll("#tab-mc-bom .pps .pp").forEach(b=>b.classList.remove("on"));
+  if(btn) btn.classList.add("on");
+  mcRenderAll();
+}
+
+function mcRenderAll() {
+  mcRenderKPI();
+  mcRenderTable();
+}
+
+function mcRenderKPI() {
+  const all = mcEquipBases();
+  const printer = all.filter(r=>r.유형==="프린터");
+  const coater = all.filter(r=>r.유형==="코터");
+  const sumS = arr => arr.reduce((s,r)=>s+r.매출공급가,0);
+  const totalParts = all.reduce((s,r)=>s+r.부품수,0);
+  const totalCost = all.reduce((s,r)=>s+r.원가공급가,0);
+  document.getElementById("mc-tot").textContent = all.length;
+  document.getElementById("mc-tot-sub").textContent = `매출 ${(sumS(all)/1e8).toFixed(2)}억`;
+  document.getElementById("mc-p-cnt").textContent = printer.length;
+  document.getElementById("mc-p-amt").textContent = (sumS(printer)/1e8).toFixed(2) + " 억";
+  document.getElementById("mc-c-cnt").textContent = coater.length;
+  document.getElementById("mc-c-amt").textContent = (sumS(coater)/1e8).toFixed(2) + " 억";
+  document.getElementById("mc-part-cnt").textContent = totalParts.toLocaleString();
+  document.getElementById("mc-part-amt").textContent = (totalCost/1e8).toFixed(2) + " 억";
+}
+
+function mcRenderTable() {
+  const tb = document.getElementById("mcTb");
+  if(!tb) return;
+  let arr = mcFiltered();
+  const srch = (document.getElementById("mc-srch")?.value||"").trim().toLowerCase();
+  const local = document.getElementById("mc-local")?.value || "";
+  const sort = document.getElementById("mc-sort")?.value || "code";
+  if(srch) arr = arr.filter(r =>
+    String(r.베이스코드).toLowerCase().includes(srch) ||
+    String(r.거래처).toLowerCase().includes(srch) ||
+    [...r.품목들].some(p => p.toLowerCase().includes(srch)));
+  if(local) arr = arr.filter(r => r.Local구분===local);
+  
+  if(sort==="code") arr.sort((a,b)=>String(a.베이스코드).localeCompare(String(b.베이스코드)));
+  else if(sort==="sales-desc") arr.sort((a,b)=>b.매출공급가-a.매출공급가);
+  else if(sort==="parts-desc") arr.sort((a,b)=>b.부품수-a.부품수);
+  else if(sort==="recent") arr.sort((a,b)=>(b.마지막일자||0)-(a.마지막일자||0));
+  
+  document.getElementById("mc-tbl-l").textContent = `(${arr.length}건)`;
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  
+  const tColor = {'프린터':'#1D4ED8','코터':'#059669'};
+  tb.innerHTML = arr.map(r => {
+    const codesArr = [...r.프로젝트코드들];
+    const 품목 = [...r.품목들][0] || "";
+    // 부품 분류 (가공품(123) / 구매품(공용)(56) ...)
+    const catEntries = Object.entries(r.부품분류||{}).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    const catText = catEntries.map(([c,n])=>`${c}(${n})`).join(" / ") || "—";
+    return `<tr>
+      <td style="font-weight:600;font-size:12.5px">${r.거래처}</td>
+      <td><a href="#" onclick="event.preventDefault();mcOpenSub('${r.베이스코드.replace(/'/g,"\\'")}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline">${r.베이스코드}</a></td>
+      <td style="text-align:center;font-size:12px">${r.Local구분||""}</td>
+      <td style="font-size:12px">${품목}</td>
+      <td style="text-align:center;color:${tColor[r.유형]||"#6B7280"};font-weight:700">${r.유형}</td>
+      <td style="font-size:11.5px;color:#374151">${catText}</td>
+      <td class="r" style="font-weight:700;color:#7C3AED">${r.부품수.toLocaleString()}</td>
+      <td class="r" style="font-weight:700">${r.매출공급가.toLocaleString()}</td>
+      <td class="r" style="color:#B91C1C">${r.원가공급가.toLocaleString()}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ─── 모달 1: 서브코드 목록 ───
+function mcOpenSub(baseCode) {
+  const modal = document.getElementById("mcSubModal");
+  const title = document.getElementById("mcSubTitle");
+  const sub = document.getElementById("mcSubSubTitle");
+  const body = document.getElementById("mcSubBody");
+  if(!modal) return;
+  
+  // 이 베이스코드의 모든 서브코드 (매출 + 매입 모든 출처에서 수집)
+  const d = window._pmsData;
+  if(!d) return;
+  const codeSet = new Set();
+  // 매출 - 베이스 일치하는 행의 프로젝트코드, 프로젝트코드_원본 둘 다
+  for(const r of (d.salesAll||[])) {
+    if(String(r["베이스코드"]||"")===baseCode) {
+      if(r["프로젝트코드"]) codeSet.add(String(r["프로젝트코드"]).trim());
+      if(r["프로젝트코드_원본"]) codeSet.add(String(r["프로젝트코드_원본"]).trim());
+    }
+  }
+  // 매입 - 프로젝트번호
+  for(const r of mcGetAllPurchases()) {
+    if(String(r["베이스코드"]||"")===baseCode) {
+      if(r["프로젝트번호"]) codeSet.add(String(r["프로젝트번호"]).trim());
+    }
+  }
+  codeSet.add(baseCode); // 베이스 자체
+  
+  // 각 서브코드 통계
+  const subStats = [];
+  for(const code of codeSet) {
+    if(!code) continue;
+    // 해당 코드의 매출
+    const sRows = (d.salesAll||[]).filter(r =>
+      String(r["프로젝트코드"]||"").trim()===code ||
+      String(r["프로젝트코드_원본"]||"").trim()===code);
+    // 해당 코드의 매입
+    const pRows = mcGetAllPurchases().filter(r =>
+      String(r["프로젝트번호"]||"").trim()===code);
+    const sAmt = sRows.reduce((s,r)=>s+(Number(r["공급가액"])||0),0);
+    const pAmt = pRows.reduce((s,r)=>s+(Number(r["입고금액"])||0),0);
+    // 거래처 (매출 우선)
+    const venS = sRows[0]?.["거래처"] || "";
+    const venP = pRows[0]?.["구매거래처"] || "";
+    const pName = pRows[0]?.["프로젝트명"] || sRows[0]?.["품목"] || "";
+    // 분류 분포
+    const catMap = {};
+    for(const p of pRows) {
+      const c = p["품목대분류"] || "—";
+      catMap[c] = (catMap[c]||0)+1;
+    }
+    subStats.push({
+      코드: code,
+      베이스여부: code===baseCode,
+      프로젝트명: pName,
+      거래처: venS || venP,
+      매출건수: sRows.length,
+      매출액: sAmt,
+      매입건수: pRows.length,
+      매입액: pAmt,
+      부품분류: catMap,
+    });
+  }
+  // 정렬: 베이스 먼저, 그다음 코드 알파벳순
+  subStats.sort((a,b) => {
+    if(a.베이스여부 && !b.베이스여부) return -1;
+    if(!a.베이스여부 && b.베이스여부) return 1;
+    return String(a.코드).localeCompare(String(b.코드));
+  });
+  
+  title.innerHTML = `🔩 ${baseCode} 서브코드 목록`;
+  sub.textContent = `${subStats.length}개 코드 · 클릭하면 부품 상세 모달이 열립니다`;
+  
+  if(subStats.length===0) {
+    body.innerHTML = '<div style="text-align:center;color:var(--t3);padding:40px">서브코드 없음</div>';
+  } else {
+    body.innerHTML = `<div style="overflow-x:auto"><table class="tbl" style="min-width:760px">
+      <thead><tr>
+        <th style="min-width:130px">코드 🔗</th>
+        <th style="min-width:60px">유형</th>
+        <th style="min-width:160px">거래처/프로젝트명</th>
+        <th style="min-width:160px">부품 분류</th>
+        <th class="r" style="min-width:70px">매출건</th>
+        <th class="r" style="min-width:100px">매출액</th>
+        <th class="r" style="min-width:70px">매입건</th>
+        <th class="r" style="min-width:100px">매입액</th>
+      </tr></thead><tbody>` + subStats.map(s => {
+        const cats = Object.entries(s.부품분류).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c}(${n})`).join(" / ") || "—";
+        const badge = s.베이스여부 ? '<span style="margin-left:5px;padding:1px 5px;border-radius:3px;background:#DBEAFE;color:#1E40AF;font-size:10px;font-weight:700">베이스</span>' : "";
+        return `<tr ${s.베이스여부?'style="background:#F0F9FF"':''}>
+          <td><a href="#" onclick="event.preventDefault();mcOpenPart('${s.코드.replace(/'/g,"\\'")}', '${baseCode.replace(/'/g,"\\'")}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline">${s.코드}</a>${badge}</td>
+          <td style="text-align:center;font-size:11.5px">${s.베이스여부?"베이스":"서브"}</td>
+          <td style="font-size:12px">${s.거래처} ${s.프로젝트명?'<span style="color:#9CA3AF">/ '+String(s.프로젝트명).substring(0,25)+'</span>':''}</td>
+          <td style="font-size:11.5px;color:#374151">${cats}</td>
+          <td class="r" style="font-size:12px">${s.매출건수}</td>
+          <td class="r" style="${s.매출액>0?'color:#059669;font-weight:700':'color:#9CA3AF'}">${s.매출액.toLocaleString()}</td>
+          <td class="r" style="font-size:12px">${s.매입건수}</td>
+          <td class="r" style="${s.매입액>0?'color:#B91C1C;font-weight:700':'color:#9CA3AF'}">${s.매입액.toLocaleString()}</td>
+        </tr>`;
+      }).join("") + '</tbody></table></div>';
+  }
+  modal.style.display = "flex";
+}
+
+function mcCloseSub() {
+  const m = document.getElementById("mcSubModal");
+  if(m) m.style.display = "none";
+}
+
+// ─── 모달 2: 부품 상세 (특정 서브코드의 모든 부품) ───
+window._mcPartData = []; // 현재 모달의 부품 데이터
+window._mcPartContext = ""; // 현재 코드 (표시용)
+
+function mcOpenPart(subCode, baseCode) {
+  const modal = document.getElementById("mcPartModal");
+  const title = document.getElementById("mcPartTitle");
+  const sub = document.getElementById("mcPartSubTitle");
+  if(!modal) return;
+  // 해당 코드의 모든 매입 행
+  const parts = mcGetAllPurchases().filter(r => String(r["프로젝트번호"]||"").trim()===subCode);
+  window._mcPartData = parts;
+  window._mcPartContext = subCode;
+  
+  // 카테고리 필터 채우기
+  const cats = [...new Set(parts.map(p=>p["품목대분류"]).filter(Boolean))].sort();
+  const catSel = document.getElementById("mc-part-cat");
+  if(catSel) catSel.innerHTML = '<option value="">전체 분류</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join("");
+  
+  // 헤더 합계
+  const totalAmt = parts.reduce((s,p)=>s+(Number(p["입고금액"])||0),0);
+  const totalQty = parts.reduce((s,p)=>s+(Number(p["입고수량"])||0),0);
+  title.innerHTML = `🔩 ${subCode} 부품 상세`;
+  sub.innerHTML = `베이스: <strong>${baseCode}</strong> · ${parts.length.toLocaleString()}개 부품 · 수량 ${totalQty.toLocaleString()} · 입고금액 <strong>${totalAmt.toLocaleString()}원</strong>`;
+  
+  // 검색창 초기화
+  const srchEl = document.getElementById("mc-part-srch");
+  if(srchEl) srchEl.value = "";
+  
+  mcRenderParts();
+  modal.style.display = "flex";
+}
+
+function mcRenderParts() {
+  const body = document.getElementById("mcPartBody");
+  if(!body) return;
+  let arr = [...(window._mcPartData||[])];
+  const srch = (document.getElementById("mc-part-srch")?.value||"").trim().toLowerCase();
+  const cat = document.getElementById("mc-part-cat")?.value || "";
+  const sort = document.getElementById("mc-part-sort")?.value || "amt-desc";
+  if(srch) arr = arr.filter(r =>
+    String(r["품명"]||"").toLowerCase().includes(srch) ||
+    String(r["품번"]||"").toLowerCase().includes(srch) ||
+    String(r["구매거래처"]||"").toLowerCase().includes(srch));
+  if(cat) arr = arr.filter(r => r["품목대분류"]===cat);
+  
+  if(sort==="amt-desc") arr.sort((a,b)=>(Number(b["입고금액"])||0)-(Number(a["입고금액"])||0));
+  else if(sort==="cat") arr.sort((a,b)=>String(a["품목대분류"]||"").localeCompare(String(b["품목대분류"]||"")));
+  else if(sort==="name") arr.sort((a,b)=>String(a["품명"]||"").localeCompare(String(b["품명"]||"")));
+  
+  document.getElementById("mc-part-count").textContent = `${arr.length}건 표시`;
+  
+  if(arr.length===0) {
+    body.innerHTML = '<div style="text-align:center;color:var(--t3);padding:40px">부품 없음</div>';
+    return;
+  }
+  
+  // 분류별 색상
+  const catColor = {
+    '가공품':'#7C3AED','구매품(공용)':'#1D4ED8','연구비':'#F59E0B','상품':'#059669','재발주':'#DC2626'
+  };
+  
+  body.innerHTML = `<div style="overflow-x:auto"><table class="tbl" style="min-width:900px;margin:0">
+    <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr>
+      <th style="min-width:140px">거래처</th>
+      <th style="min-width:110px">분류</th>
+      <th style="min-width:240px">품명</th>
+      <th style="min-width:160px">품번</th>
+      <th class="r" style="min-width:70px">수량</th>
+      <th class="r" style="min-width:100px">입고단가</th>
+      <th class="r" style="min-width:110px">입고금액</th>
+      <th class="r" style="min-width:110px">금액계</th>
+    </tr></thead><tbody>` + arr.map(r => {
+      const cat = r["품목대분류"] || "—";
+      const col = catColor[cat] || "#6B7280";
+      const dt = r["입고일"]; let dStr = "";
+      if(dt) { const d = new Date(dt); if(!isNaN(d)) dStr = d.toISOString().slice(0,10); }
+      return `<tr>
+        <td style="font-size:12px">${r["구매거래처"]||""}</td>
+        <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${col}22;color:${col};font-size:11px;font-weight:700">${cat}</span></td>
+        <td style="font-size:12px">${String(r["품명"]||"").substring(0,55)}</td>
+        <td style="font-size:11.5px;color:#6B7280;font-family:var(--m)">${r["품번"]||""}</td>
+        <td class="r" style="font-size:12px">${(Number(r["입고수량"])||0).toLocaleString()}</td>
+        <td class="r" style="font-size:12px">${(Number(r["입고단가"])||0).toLocaleString()}</td>
+        <td class="r" style="font-weight:700">${(Number(r["입고금액"])||0).toLocaleString()}</td>
+        <td class="r" style="font-size:12px;color:#6B7280">${(Number(r["금액계"])||0).toLocaleString()}</td>
+      </tr>`;
+    }).join("") + '</tbody></table></div>';
+}
+
+function mcClosePart() {
+  const m = document.getElementById("mcPartModal");
+  if(m) m.style.display = "none";
 }
 
 function imPopulateFilters(catSet, vendorSet) {
@@ -25293,7 +25750,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -28350,6 +28807,10 @@ function go(id, el) {
   if(id==="vendor-scm") {
     if(typeof vsInit === "function") vsInit();
   }
+  // 🔩 MC BOM 탭 진입 시 - PMS 자동 로드
+  if(id==="mc-bom") {
+    if(typeof mcInit === "function") mcInit();
+  }
   // 구매요청서 DB / BOM DB / 회계전표 DB는 위 분기에서 처리됨
 }
 // ─── 모바일 탭바 헬퍼 ───
@@ -28359,7 +28820,8 @@ window.addEventListener("popstate", (e)=>{
   // 모달이 열려 있으면 모달 닫기
   const openModals = [
     "slModal","slHistoryModal","custMgrPickerModal","pjCodePickerModal","pjCodeGenModal",
-    "newContactModal","quoteModal","slFileModal","slSubfolderModal"
+    "newContactModal","quoteModal","slFileModal","slSubfolderModal",
+    "mcPartModal","mcSubModal"
   ];
   for(const id of openModals) {
     const m = document.getElementById(id);
