@@ -24,6 +24,7 @@
 .dot{width:6px;height:6px;border-radius:50%;background:var(--t3);flex-shrink:0}
 .dot.live{background:var(--g);animation:pulse 2s infinite}.dot.spin{background:var(--y)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes rcPulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.6),0 2px 6px rgba(5,150,105,0.4)}50%{box-shadow:0 0 0 8px rgba(16,185,129,0),0 2px 12px rgba(5,150,105,0.6)}}
 .sb-nav{padding:8px;flex:1;overflow-y:auto}
 .sb-sec{font-size:16px;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);padding:10px 8px 3px;font-weight:700}
 .ni{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:18px;color:var(--t2);cursor:pointer;font-weight:500;margin-bottom:1px;transition:all .15s}
@@ -476,7 +477,7 @@
         <div class="kpi c1"><div class="kl">💰 총 매입금액</div><div class="kv"><span id="pkpi-amt">-</span><span style="font-size:15px;color:var(--t2)">원</span></div><div class="ks">총 <span id="pkpi-cnt">-</span>건</div></div>
         <div class="kpi c2"><div class="kl">📦 이번달 발주</div><div class="kv"><span id="pkpi-month-po">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span id="pkpi-month-po-amt">-</span>원</div></div>
         <div class="kpi c3"><div class="kl">🚚 이번달 입고</div><div class="kv"><span id="pkpi-month-in">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span id="pkpi-month-in-amt">-</span>원</div></div>
-        <div class="kpi c4"><div class="kl">⏳ 결제 대기</div><div class="kv"><span id="pkpi-unpaid">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span id="pkpi-unpaid-amt" style="color:var(--a)">-</span>원</div></div>
+        <div class="kpi c4"><div class="kl">⏳ 매입 미정산 (지급대기)</div><div class="kv"><span id="pkpi-unpaid">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span id="pkpi-unpaid-amt" style="color:var(--a)">-</span>원 · 세금계산서 미결제</div></div>
       </div>
 
       <!-- 6단계 PR 상태 KPI -->
@@ -613,7 +614,7 @@
         <div class="kpi c1"><div class="kl">전체 프로젝트</div><div class="kv"><span id="ps-tot">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="ps-tot-sub">진행중 - / 완료 -</div></div>
         <div class="kpi c2"><div class="kl">매출 프로젝트</div><div class="kv"><span id="ps-sales">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="ps-sales-amt">- 억</div></div>
         <div class="kpi c3"><div class="kl">개발 (국책+내부)</div><div class="kv"><span id="ps-dev">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks">국책 <span id="ps-govt">-</span> + 내부 <span id="ps-int">-</span></div></div>
-        <div class="kpi c4"><div class="kl">진행중 잔액</div><div class="kv"><span id="ps-bal">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks" id="ps-bal-sub">미수금</div></div>
+        <div class="kpi c4"><div class="kl">총 매입 (구매원가)</div><div class="kv"><span id="ps-bal">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks" id="ps-bal-sub">매입 - 건</div></div>
       </div>
       <div class="g2">
         <div class="card">
@@ -637,6 +638,11 @@
               <option value="재료사업">재료사업</option>
               <option value="기타">기타</option>
             </select>
+            <select id="ps-state" class="ss" style="font-size:13px" onchange="psRenderTable()">
+              <option value="">전체 상태</option>
+              <option value="진행중">🔴 진행중</option>
+              <option value="완료">✅ 완료</option>
+            </select>
             <select id="ps-gubun" class="ss" style="font-size:13px" onchange="psRenderTable()">
               <option value="">전체 구분</option>
               <option value="매출">매출</option>
@@ -656,8 +662,8 @@
             <select id="ps-sort" class="ss" style="font-size:13px" onchange="psRenderTable()">
               <option value="recent">📅 최신순 (2026~)</option>
               <option value="biz-code">사업단위/코드</option>
-              <option value="sales-desc">매출 높은순</option>
-              <option value="bal-desc">잔액 높은순</option>
+              <option value="parts-desc">부품 많은순</option>
+              <option value="cost-desc">매입원가 높은순</option>
             </select>
           </div>
         </div>
@@ -691,6 +697,7 @@
           <div class="pp" id="rc-govt" onclick="rcSelFilter('govt',this)">🏛️ 국책과제</div>
           <div class="pp" id="rc-internal" onclick="rcSelFilter('internal',this)">🔧 내부개발</div>
           <div class="pp" id="rc-common" onclick="rcSelFilter('common',this)">⚙️ 공용</div>
+          <div class="pp" id="rc-local" onclick="rcSelFilter('local',this)">📥 내부등록</div>
         </div>
         <div class="pr" id="rc-info">로딩중...</div>
       </div>
@@ -6012,17 +6019,25 @@ function psRenderAll() {
 function psRenderKPI() {
   const all = (window._pmsData?.projects)||[];
   const filt = psFilteredProjects();
-  const tot = all.length;
   const ongoing = all.filter(p=>p["진행상태"]==="진행중").length;
   const done = all.filter(p=>p["진행상태"]==="완료").length;
   const sales = filt.filter(p=>p["구분"]==="매출");
-  const govt = filt.filter(p=>p["구분"]==="개발" && (p["고객사"]==="국책과제" || (p["프로젝트유형"]==="프린터" && String(p["프로젝트코드"]).match(/[A-Z]G\d{5}|^\d{2}[A-Z]G-/))));
-  // 더 안전한 국책 식별: 고객사 == 국책과제
   const govtN = filt.filter(p=>p["고객사"]==="국책과제").length;
   const dev = filt.filter(p=>p["구분"]==="개발");
   const intN = dev.length - govtN;
   const salesAmt = sales.reduce((s,p)=>s+(Number(p["매출공급가"])||0),0);
-  const bal = filt.reduce((s,p)=>s+(Number(p["매출잔액"])||0),0);
+  
+  // 매입 통계 (필터된 프로젝트의 베이스코드에 해당하는 매입)
+  const filtBaseSet = new Set(filt.map(p=>String(p["프로젝트코드"]||"").trim()).filter(Boolean));
+  const allPurchases = [
+    ...(window._pmsData?.purchaseSales || []),
+    ...(window._pmsData?.govt || []),
+    ...(window._pmsData?.internal || []),
+  ];
+  const myPurchases = allPurchases.filter(r => filtBaseSet.has(String(r["베이스코드"]||"").trim()));
+  const purchaseCnt = myPurchases.length;
+  const purchaseAmt = myPurchases.reduce((s,r)=>s+(Number(r["입고금액"])||0),0);
+  
   document.getElementById("ps-tot").textContent = filt.length.toLocaleString();
   document.getElementById("ps-tot-sub").textContent = `진행중 ${ongoing} / 완료 ${done}`;
   document.getElementById("ps-sales").textContent = sales.length.toLocaleString();
@@ -6030,7 +6045,8 @@ function psRenderKPI() {
   document.getElementById("ps-dev").textContent = dev.length.toLocaleString();
   document.getElementById("ps-govt").textContent = govtN;
   document.getElementById("ps-int").textContent = intN;
-  document.getElementById("ps-bal").textContent = (bal/1e8).toFixed(2);
+  document.getElementById("ps-bal").textContent = (purchaseAmt/1e8).toFixed(2);
+  document.getElementById("ps-bal-sub").textContent = `매입 ${purchaseCnt.toLocaleString()} 건`;
 }
 
 function psRenderCharts() {
@@ -6080,6 +6096,7 @@ function psRenderTable() {
   let arr = psFilteredProjects();
   const srch = (document.getElementById("ps-srch")?.value || "").trim().toLowerCase();
   const biz = document.getElementById("ps-biz")?.value || "";
+  const state = document.getElementById("ps-state")?.value || "";
   const gubun = document.getElementById("ps-gubun")?.value || "";
   const type = document.getElementById("ps-type")?.value || "";
   const sort = document.getElementById("ps-sort")?.value || "recent";
@@ -6088,6 +6105,7 @@ function psRenderTable() {
     String(p["품목"]||"").toLowerCase().includes(srch) ||
     String(p["고객사"]||"").toLowerCase().includes(srch));
   if(biz) arr = arr.filter(p => p["사업단위"]===biz);
+  if(state) arr = arr.filter(p => p["진행상태"]===state);
   if(gubun) arr = arr.filter(p => p["구분"]===gubun);
   if(type) arr = arr.filter(p => p["프로젝트유형"]===type);
   
@@ -6102,14 +6120,27 @@ function psRenderTable() {
   const recencyKey = p => {
     const d = new Date(p["마지막인식일"]);
     if(!isNaN(d)) return d.getTime();
-    // 매출 없는 프로젝트 → 코드 연도로 fallback (12월 31일로 정렬)
     const yr = codeYear(p["프로젝트코드"]);
     return yr ? new Date(yr, 11, 31).getTime() : 0;
   };
   
+  // 매입 통계 헬퍼 (정렬용)
+  const allPurchases = [
+    ...(window._pmsData?.purchaseSales || []),
+    ...(window._pmsData?.govt || []),
+    ...(window._pmsData?.internal || []),
+  ];
+  const purchaseStat = base => {
+    const rows = allPurchases.filter(r => String(r["베이스코드"]||"").trim() === String(base||"").trim());
+    return {
+      cnt: rows.length,
+      amt: rows.reduce((s,r)=>s+(Number(r["입고금액"])||0), 0)
+    };
+  };
+  
   if(sort==="biz-code") arr.sort((a,b)=>(a["사업단위"]||"").localeCompare(b["사업단위"]||"")||(String(a["프로젝트코드"]||"")).localeCompare(String(b["프로젝트코드"]||""))); 
-  else if(sort==="sales-desc") arr.sort((a,b)=>(Number(b["매출공급가"])||0)-(Number(a["매출공급가"])||0));
-  else if(sort==="bal-desc") arr.sort((a,b)=>(Number(b["매출잔액"])||0)-(Number(a["매출잔액"])||0));
+  else if(sort==="parts-desc") arr.sort((a,b)=>purchaseStat(b["프로젝트코드"]).cnt - purchaseStat(a["프로젝트코드"]).cnt);
+  else if(sort==="cost-desc") arr.sort((a,b)=>purchaseStat(b["프로젝트코드"]).amt - purchaseStat(a["프로젝트코드"]).amt);
   else if(sort==="recent") arr.sort((a,b)=>recencyKey(b)-recencyKey(a));
   
   document.getElementById("ps-tbl-l").textContent = `(${arr.length}건)`;
@@ -6172,7 +6203,152 @@ function rcGetAllRows() {
     else internal.push({...r, _분류:"내부개발"});
   }
   const govt = tag(d.govt||[], "국책과제");
-  return [...sales, ...govt, ...internal, ...common];
+  // 🆕 내부등록 (구매활동에서 거래명세서까지 등록된 매입 - PMS 엑셀과 별개)
+  const local = rcBuildLocalRows();
+  return [...sales, ...govt, ...internal, ...common, ...local];
+}
+
+// 구매활동 데이터(_pdlvData)를 매입완료 행 형태로 변환
+function rcBuildLocalRows() {
+  const out = [];
+  if(typeof _pdlvData === "undefined" || !Array.isArray(_pdlvData)) return out;
+  // 거래명세서 단계 도달한 PR만 (그 이상도 포함)
+  const validStages = new Set(["입고확인","완료예정","매입완료"]);
+  
+  // 베이스코드 정규화 함수 (영업코드 → 베이스코드)
+  const normalizeBase = code => {
+    const s = String(code||"").trim().split(" ")[0];
+    const m1 = s.match(/^[A-Z]{2}\d{5}/);
+    if(m1) return m1[0];
+    const m2 = s.match(/^\d{2}[A-Z]{2}-\d{3}/);
+    if(m2) return m2[0];
+    const m3 = s.match(/^([A-Z]{2}\d{5})-/);
+    if(m3) return m3[1];
+    return s;
+  };
+  
+  // 베이스코드 → 분류(프로젝트유형) 추론
+  // 프로젝트현황 시트에서 베이스코드로 분류 찾기
+  const baseClassify = base => {
+    const projects = (window._pmsData?.projects)||[];
+    const p = projects.find(x => String(x["프로젝트코드"]||"").trim() === base);
+    if(!p) return { 분류: "내부등록", 프로젝트유형: "기타" };
+    const gubun = p["구분"];
+    const 고객사 = p["고객사"];
+    let 분류;
+    if(gubun === "매출") 분류 = "매출연계";
+    else if(고객사 === "국책과제") 분류 = "국책과제";
+    else if(gubun === "공용") 분류 = "공용";
+    else 분류 = "내부개발";
+    return { 분류, 프로젝트유형: p["프로젝트유형"] || "", 사업단위: p["사업단위"] || "", 프로젝트명: p["품목"] || "" };
+  };
+  
+  for(const dlv of _pdlvData) {
+    // 단계 체크: PR에 매칭되는 게 있다면 그 status 사용, 없으면 거래명세서 자체로 입고확인 단계
+    let prStatus = "입고확인";
+    if(typeof _prMaster !== "undefined" && Array.isArray(_prMaster)) {
+      const pr = _prMaster.find(p => 
+        (dlv.prCode && p.prCode === dlv.prCode) || 
+        (dlv.salesCode && p.salesCode === dlv.salesCode)
+      );
+      if(pr) prStatus = pr.status || "입고확인";
+    }
+    if(!validStages.has(prStatus)) continue;
+    
+    const projectNo = String(dlv.salesCode || dlv.poCode || dlv.prCode || "").trim();
+    if(!projectNo) continue;
+    const base = normalizeBase(projectNo);
+    const info = baseClassify(base);
+    
+    // items[] 펼치기 - 각 품목당 한 행
+    const items = Array.isArray(dlv.items) ? dlv.items : 
+                  (typeof dlv.items === "string" ? [] : []); // 문자열일 경우는 단일 행 처리
+    
+    if(items.length > 0) {
+      // 다중 품목
+      for(const it of items) {
+        out.push({
+          "사업단위": info.사업단위,
+          "입고일": dlv.dlvDate,
+          "입고번호": dlv.dlvNo,
+          "구매거래처": dlv.vendor,
+          "정산일": "",
+          "품목대분류": it.category || "구매품(공용)",
+          "품목중분류": "",
+          "품목소분류": "",
+          "품명": it.name || it.품명 || "",
+          "품번": it.code || it.품번 || "",
+          "규격": it.spec || "",
+          "제조사": "",
+          "내외자구분": "내자",
+          "통화": "KRW",
+          "환율": 1,
+          "입고단가": Number(it.unitPrice || it.단가 || 0),
+          "입고수량": Number(it.qty || it.수량 || 0),
+          "입고금액": (Number(it.unitPrice||0)) * (Number(it.qty||0)),
+          "부가세포함여부": "별도",
+          "부가세율": 10,
+          "부가세": Math.round((Number(it.unitPrice||0)) * (Number(it.qty||0)) * 0.1),
+          "금액계": Math.round((Number(it.unitPrice||0)) * (Number(it.qty||0)) * 1.1),
+          "창고": "",
+          "세금계산서일": "",
+          "지급예정일": dlv.paymentDate || "",
+          "증빙": "거래명세서",
+          "지급방법": "",
+          "기준단위수량": Number(it.qty || it.수량 || 0),
+          "전표행번호": "",
+          "프로젝트명": info.프로젝트명,
+          "프로젝트번호": projectNo,
+          "프로젝트유형": info.프로젝트유형,
+          "베이스코드": base,
+          "_분류": "내부등록",
+          "_prStatus": prStatus,
+          "_localId": dlv.id,  // 출처 식별
+        });
+      }
+    } else {
+      // 품목 정보 없으면 거래명세서 자체를 1행으로
+      out.push({
+        "사업단위": info.사업단위,
+        "입고일": dlv.dlvDate,
+        "입고번호": dlv.dlvNo,
+        "구매거래처": dlv.vendor,
+        "정산일": "",
+        "품목대분류": "구매품(공용)",
+        "품목중분류": "",
+        "품목소분류": "",
+        "품명": dlv.items || `(거래명세서 ${dlv.dlvNo})`,
+        "품번": "",
+        "규격": "",
+        "제조사": "",
+        "내외자구분": "내자",
+        "통화": "KRW",
+        "환율": 1,
+        "입고단가": Number(dlv.supplyAmount) || 0,
+        "입고수량": 1,
+        "입고금액": Number(dlv.supplyAmount) || 0,
+        "부가세포함여부": "별도",
+        "부가세율": 10,
+        "부가세": Number(dlv.vatAmount) || 0,
+        "금액계": Number(dlv.totalAmount) || 0,
+        "창고": "",
+        "세금계산서일": "",
+        "지급예정일": dlv.paymentDate || "",
+        "증빙": "거래명세서",
+        "지급방법": "",
+        "기준단위수량": 1,
+        "전표행번호": "",
+        "프로젝트명": info.프로젝트명,
+        "프로젝트번호": projectNo,
+        "프로젝트유형": info.프로젝트유형,
+        "베이스코드": base,
+        "_분류": "내부등록",
+        "_prStatus": prStatus,
+        "_localId": dlv.id,
+      });
+    }
+  }
+  return out;
 }
 
 function rcFiltered() {
@@ -6182,6 +6358,7 @@ function rcFiltered() {
   else if(f==="govt") arr = arr.filter(r=>r._분류==="국책과제");
   else if(f==="internal") arr = arr.filter(r=>r._분류==="내부개발");
   else if(f==="common") arr = arr.filter(r=>r._분류==="공용");
+  else if(f==="local") arr = arr.filter(r=>r._분류==="내부등록");
   return arr;
 }
 
@@ -6234,11 +6411,11 @@ function rcRenderKPI() {
 
 function rcRenderCharts() {
   const all = rcGetAllRows();
-  const dist = {매출연계:0, 국책과제:0, 내부개발:0, 공용:0};
+  const dist = {매출연계:0, 국책과제:0, 내부개발:0, 공용:0, 내부등록:0};
   for(const r of all) dist[r._분류] = (dist[r._분류]||0) + rcSafeNum(r["입고금액"]);
   const labels = Object.keys(dist);
   const data = labels.map(k=>Math.round(dist[k]/1e6));
-  const colors = ['#10B981','#7C3AED','#F59E0B','#9CA3AF'];
+  const colors = ['#10B981','#7C3AED','#F59E0B','#9CA3AF','#3B82F6'];
   if(window._rcCharts.dist) window._rcCharts.dist.destroy();
   const ctx = document.getElementById("rcDistC");
   if(ctx && typeof Chart !== "undefined") {
@@ -6350,7 +6527,7 @@ function rcRenderTable() {
   document.getElementById("rc-tbl-l").textContent = `(${arr.length.toLocaleString()}개 프로젝트 · ${rows.length.toLocaleString()}건 매입)`;
   if(arr.length===0) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
   const display = arr.slice(0, 500);
-  const cColor = {'매출연계':'#10B981','국책과제':'#7C3AED','내부개발':'#F59E0B','공용':'#9CA3AF'};
+  const cColor = {'매출연계':'#10B981','국책과제':'#7C3AED','내부개발':'#F59E0B','공용':'#9CA3AF','내부등록':'#3B82F6'};
   
   // 캐시: 모달이 코드로 빠르게 데이터 가져올 수 있도록
   window._rcAggCache = {};
@@ -6397,7 +6574,7 @@ function rcOpenPart(projectNo) {
   
   const title = document.getElementById("rcPartTitle");
   const sub = document.getElementById("rcPartSubTitle");
-  const cColor = {'매출연계':'#10B981','국책과제':'#7C3AED','내부개발':'#F59E0B','공용':'#9CA3AF'};
+  const cColor = {'매출연계':'#10B981','국책과제':'#7C3AED','내부개발':'#F59E0B','공용':'#9CA3AF','내부등록':'#3B82F6'};
   title.innerHTML = `📦 ${projectNo} 부품 상세 <span style="margin-left:8px;padding:2px 8px;border-radius:5px;background:${cColor[agg.분류]}22;color:${cColor[agg.분류]};font-size:12px;font-weight:700">${agg.분류}</span>`;
   sub.innerHTML = `${agg.프로젝트명?'<strong>'+agg.프로젝트명+'</strong> · ':''}${agg.부품수.toLocaleString()}건 · 수량 ${agg.총수량.toLocaleString()} · 합계 <strong>${agg.총금액.toLocaleString()}원</strong>`;
   
@@ -21200,6 +21377,17 @@ function renderSLCards(data, container, FILE_TYPES) {
           style="background:${cnt>0?"var(--gd)":"var(--pd)"};color:${cnt>0?"var(--g)":"var(--p)"};border-color:${cnt>0?"var(--g)":"var(--p)"}">
           ${ft.label} ${cnt>0?cnt+"개":"작성"}</button>`;
       }
+      // 🆕 구매요청서(자료) - 강조 + 품목수
+      if(ft.key==="proposal") {
+        const prRows = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+          ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+        const prItemCount = prRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
+        if(cnt>0) {
+          return `<button onclick="openSLSubfolderModal('${r.id}')" class="sl-card-btn"
+            style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;border-color:#1D4ED8;font-weight:800;box-shadow:0 2px 6px rgba(29,78,216,0.3)">📁 ${cnt}(${prItemCount})</button>`;
+        }
+        return `<button onclick="openSLSubfolderModal('${r.id}')" class="sl-card-btn" style="color:var(--t3);border-color:var(--border2)">📂 ⬆</button>`;
+      }
       // 견적서: 파일 있으면 목록, 없으면 ✏️작성 + ⬆업로드 버튼 둘 다
       if(ft.key==="estimate") {
         if(cnt>0) {
@@ -21213,11 +21401,46 @@ function renderSLCards(data, container, FILE_TYPES) {
           <button onclick="uploadSLFile('${r.id}','estimate')" class="sl-card-btn" style="color:var(--t3);border-color:var(--border2)">⬆</button>
         </div>`;
       }
+      // 🆕 발주서 - 강조 + 품목수 + PR과 동일 시 깜빡
+      if(ft.key==="order") {
+        const prRows = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+          ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+        const prItemCount = prRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
+        const poRows = (typeof _pordData !== "undefined" && Array.isArray(_pordData))
+          ? _pordData.filter(p => p.parentSLId === r.id) : [];
+        const poItemCount = poRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : 0), 0);
+        const isMatch = prItemCount > 0 && poItemCount > 0 && prItemCount === poItemCount;
+        const blinkStyle = isMatch ? "animation:rcPulse 1.2s infinite;" : "";
+        if(cnt>0) {
+          return `<button onclick="openSLFileModal('${r.id}','order')" class="sl-card-btn"
+            style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;border-color:#6D28D9;font-weight:800;box-shadow:0 2px 6px rgba(109,40,217,0.3);${blinkStyle}">📦 ${cnt}(${poItemCount})${isMatch?' ✨':''}</button>`;
+        }
+        return `<button onclick="uploadSLFile('${r.id}','order')" class="sl-card-btn" style="color:var(--t3);border-color:var(--border2)">${ft.label} ⬆</button>`;
+      }
       // 나머지 파일 타입
       return cnt>0
         ? `<button onclick="openSLFileModal('${r.id}','${ft.key}')" class="sl-card-btn" style="background:var(--gd);color:var(--g);border-color:var(--g)">${ft.label} ${cnt}개</button>`
         : `<button onclick="uploadSLFile('${r.id}','${ft.key}')" class="sl-card-btn" style="color:var(--t3);border-color:var(--border2)">${ft.label} ⬆</button>`;
     }).join("");
+    
+    // 🆕 매입완료 이동 버튼 (모바일) - 모든 단계 완료 시
+    const prRowsM = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+      ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+    const poRowsM = (typeof _pordData !== "undefined" && Array.isArray(_pordData))
+      ? _pordData.filter(p => p.parentSLId === r.id) : [];
+    const dlvRowsM = (typeof _pdlvData !== "undefined" && Array.isArray(_pdlvData))
+      ? _pdlvData.filter(p => p.parentSLId === r.id) : [];
+    const taxRowsM = (typeof _ptaxData !== "undefined" && Array.isArray(_ptaxData))
+      ? _ptaxData.filter(p => p.parentSLId === r.id) : [];
+    const stlRowsM = (typeof _pstlData !== "undefined" && Array.isArray(_pstlData))
+      ? _pstlData.filter(p => p.parentSLId === r.id) : [];
+    const prItemsM = prRowsM.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
+    const poItemsM = poRowsM.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : 0), 0);
+    const allDocsReadyM = prItemsM > 0 && poItemsM > 0 && prItemsM === poItemsM
+      && dlvRowsM.length > 0 && taxRowsM.length > 0 && stlRowsM.length > 0;
+    const moveBtnMobile = allDocsReadyM
+      ? `<button onclick="moveToReceipt('${r.id}')" class="sl-card-btn" style="background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-color:#059669;font-weight:800;box-shadow:0 2px 6px rgba(5,150,105,0.4);animation:rcPulse 1.5s infinite">✅ 매입완료 →</button>`
+      : "";
 
     // 🆕 요청 대기 + 완료 실패 여부 체크
     const pendingReqCard = (typeof pjCodeRequests !== "undefined" && Array.isArray(pjCodeRequests))
@@ -21318,7 +21541,7 @@ function renderSLCards(data, container, FILE_TYPES) {
             </div>
 
             <!-- 파일 버튼들 -->
-            <div class="sl-card-files">${fileBtns}</div>
+            <div class="sl-card-files">${fileBtns}${moveBtnMobile}</div>
 
             <!-- 데스크톱용 하단 액션 (모바일에서는 CSS로 숨김) -->
             <div class="sl-card-actions">
@@ -21471,9 +21694,13 @@ function renderSLTable(data) {
       }
       // 자료(proposal): 항상 서브폴더 모달 → 폴더 선택 후 업로드
       if(ft.key==="proposal") {
+        // 🆕 구매요청서(자료) - PR 마스터에서 이 영업활동의 품목 총 수 가져오기
+        const prRows = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+          ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+        const prItemCount = prRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
         return `<td style="text-align:center;white-space:nowrap">
           ${cnt>0
-            ?`<button onclick="openSLSubfolderModal('${r.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--g);background:var(--gd);color:var(--g);font-size:13px;cursor:pointer;font-weight:700">📁 ${cnt}개</button>`
+            ?`<button onclick="openSLSubfolderModal('${r.id}')" style="padding:5px 11px;border-radius:7px;border:2px solid #1D4ED8;background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;font-size:14px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(29,78,216,0.3);white-space:nowrap" title="${cnt}개 파일 · 품목 ${prItemCount}개">📁 ${cnt}(${prItemCount})</button>`
             :`<button onclick="openSLSubfolderModal('${r.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--t3);font-size:13px;cursor:pointer">📂 ⬆</button>`}
         </td>`;
       }
@@ -21487,7 +21714,23 @@ function renderSLTable(data) {
           <button onclick="openQuoteModal('${r.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--a);background:var(--ad);color:var(--a);font-size:13px;cursor:pointer;font-weight:700;margin-left:2px">✏️</button>
         </td>`;
       }
-      // 나머지 (발주서, 계약서, 세금계산서)
+      // 🆕 발주서: 파일수(품목수) + PR 동일 시 깜빡
+      if(ft.key==="order") {
+        const prRows = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+          ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+        const prItemCount = prRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
+        const poRows = (typeof _pordData !== "undefined" && Array.isArray(_pordData))
+          ? _pordData.filter(p => p.parentSLId === r.id) : [];
+        const poItemCount = poRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : 0), 0);
+        const isMatch = prItemCount > 0 && poItemCount > 0 && prItemCount === poItemCount;
+        const blinkStyle = isMatch ? "animation:rcPulse 1.2s infinite;" : "";
+        return `<td style="text-align:center;white-space:nowrap">
+          ${cnt>0
+            ?`<button onclick="openSLFileModal('${r.id}','order')" style="padding:5px 11px;border-radius:7px;border:2px solid #6D28D9;background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;font-size:14px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(109,40,217,0.3);${blinkStyle}white-space:nowrap" title="${cnt}개 파일 · 품목 ${poItemCount}개${isMatch?' ✨ PR과 일치':''}">📦 ${cnt}(${poItemCount})${isMatch?' ✨':''}</button>`
+            :`<button onclick="uploadSLFile('${r.id}','order')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--t3);font-size:14px;cursor:pointer;white-space:nowrap">⬆</button>`}
+        </td>`;
+      }
+      // 나머지 (계약서, 거래명세서, 세금계산서, 납품확인서)
       return `<td style="text-align:center">
         ${cnt>0
           ?`<button onclick="openSLFileModal('${r.id}','${ft.key}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--g);background:var(--gd);color:var(--g);font-size:14px;cursor:pointer;font-weight:700;white-space:nowrap">${ft.label} ${cnt}개</button>`
@@ -21495,6 +21738,25 @@ function renderSLTable(data) {
         }
       </td>`;
     }).join("");
+    
+    // 🆕 매입완료 이동 버튼: 전표까지 다 업로드된 경우만 표시
+    const prRows4Btn = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+      ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+    const poRows4Btn = (typeof _pordData !== "undefined" && Array.isArray(_pordData))
+      ? _pordData.filter(p => p.parentSLId === r.id) : [];
+    const dlvRows4Btn = (typeof _pdlvData !== "undefined" && Array.isArray(_pdlvData))
+      ? _pdlvData.filter(p => p.parentSLId === r.id) : [];
+    const taxRows4Btn = (typeof _ptaxData !== "undefined" && Array.isArray(_ptaxData))
+      ? _ptaxData.filter(p => p.parentSLId === r.id) : [];
+    const stlRows4Btn = (typeof _pstlData !== "undefined" && Array.isArray(_pstlData))
+      ? _pstlData.filter(p => p.parentSLId === r.id) : [];
+    const prItems4Btn = prRows4Btn.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
+    const poItems4Btn = poRows4Btn.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : 0), 0);
+    const allDocsReady = prItems4Btn > 0 && poItems4Btn > 0 && prItems4Btn === poItems4Btn 
+      && dlvRows4Btn.length > 0 && taxRows4Btn.length > 0 && stlRows4Btn.length > 0;
+    const moveBtnHTML = allDocsReady
+      ? `<button onclick="moveToReceipt('${r.id}')" title="매입완료 탭으로 이동" style="padding:5px 11px;border-radius:7px;border:2px solid #059669;background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-size:13px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(5,150,105,0.4);animation:rcPulse 1.5s infinite;white-space:nowrap;margin-right:4px">✅ 매입완료 →</button>`
+      : "";
     return `<tr>
       <td>
         <div style="font-size:15px;font-weight:700;color:var(--t)">${r.company}</div>
@@ -21527,6 +21789,7 @@ function renderSLTable(data) {
       </td>
       ${fileCols}
       <td style="white-space:nowrap">
+        ${moveBtnHTML}
         <span style="font-size:14px;color:var(--p);cursor:pointer" onclick="openSLModal(slData.find(x=>x.id==='${r.id}'))">✏️</span>
         <span style="font-size:14px;color:var(--r);cursor:pointer;margin-left:4px" onclick="deleteSLActivity('${r.id}')">🗑️</span>
       </td>
@@ -24576,6 +24839,198 @@ async function saveQuoteToDashboard(silent=false) {
       alert("임시저장 실패: " + e.message);
     }
   }
+}
+
+// 🆕 매입완료 탭으로 이동 (구매활동 → 매입완료 수동 트리거)
+function moveToReceipt(slActId) {
+  const act = (typeof slData !== "undefined" && Array.isArray(slData))
+    ? slData.find(x => x.id === slActId) : null;
+  if(!act) { alert("구매활동을 찾을 수 없습니다."); return; }
+  
+  const projectCode = act.pjcode || "";
+  if(!projectCode) { alert("프로젝트코드가 없는 구매활동입니다."); return; }
+  
+  if(!confirm(`✅ "${act.company}" (${projectCode})\n→ 매입완료 탭으로 이동하시겠습니까?\n\n• 매입 내역 자동 표시\n• 품목마스터 통계 자동 업데이트`)) return;
+  
+  // 🆕 품목마스터 업데이트 (메모리상 통계 반영)
+  const imResult = updateItemMasterFromActivity(slActId);
+  
+  // 매입완료 탭으로 전환
+  if(typeof go === "function") {
+    const sidebarItem = document.querySelector(`[onclick*="go('receipt'"]`);
+    if(sidebarItem) go('receipt', sidebarItem);
+    else go('receipt');
+  }
+  
+  // 탭 진입 후 검색창에 프로젝트번호 입력 + 내부등록 필터 (rcInit 완료 대기)
+  setTimeout(() => {
+    // 내부등록 필터로 먼저 변경
+    const localBtn = document.getElementById("rc-local");
+    if(localBtn && typeof rcSelFilter === "function") {
+      rcSelFilter("local", localBtn);
+    }
+    // 검색창에 프로젝트코드 자동 입력
+    const srchEl = document.getElementById("rc-srch");
+    if(srchEl) {
+      srchEl.value = projectCode;
+      if(typeof rcRenderTable === "function") rcRenderTable();
+    }
+    // 사용자 알림
+    if(imResult.updated > 0 || imResult.added > 0) {
+      console.log(`🧩 품목마스터 업데이트: 신규 ${imResult.added}건, 업데이트 ${imResult.updated}건`);
+    }
+  }, 700);
+}
+
+// 🆕 구매활동 → 품목마스터 통계 자동 업데이트
+// 거래명세서(_pdlvData)의 items[] 기반으로 품목마스터 메모리 데이터 갱신
+function updateItemMasterFromActivity(slActId) {
+  const result = { added: 0, updated: 0, skipped: 0 };
+  
+  if(!Array.isArray(window._imData)) {
+    console.warn("⚠️ 품목마스터 데이터가 아직 로드되지 않음 - 업데이트 스킵");
+    return result;
+  }
+  if(typeof _pdlvData === "undefined" || !Array.isArray(_pdlvData)) return result;
+  
+  const act = slData.find(x => x.id === slActId);
+  if(!act) return result;
+  const projectCode = act.pjcode || "";
+  
+  // 이 활동의 모든 거래명세서
+  const dlvRows = _pdlvData.filter(p => p.parentSLId === slActId);
+  if(dlvRows.length === 0) return result;
+  
+  const today = new Date().toISOString().slice(0,10);
+  
+  // 모든 거래명세서의 모든 품목을 순회
+  for(const dlv of dlvRows) {
+    const items = Array.isArray(dlv.items) ? dlv.items : [];
+    if(items.length === 0) continue;
+    const vendor = dlv.vendor || "";
+    const dlvDate = dlv.dlvDate || today;
+    
+    for(const it of items) {
+      const 품번 = String(it.code || it.품번 || "").trim();
+      const 품명 = String(it.name || it.품명 || "").trim();
+      if(!품명) continue;
+      
+      const qty = Number(it.qty || it.수량 || 0);
+      const unitPrice = Number(it.unitPrice || it.단가 || 0);
+      const amount = qty * unitPrice;
+      const 분류 = String(it.category || "구매품(공용)").trim();
+      
+      // 매칭: 품번 우선, 없으면 품명+분류로 매칭
+      let existing = null;
+      if(품번) {
+        existing = window._imData.find(im => String(im.품번||"").trim() === 품번);
+      }
+      if(!existing && 품명) {
+        existing = window._imData.find(im => 
+          String(im.품명||"").trim() === 품명 && 
+          String(im.분류||"").trim() === 분류);
+      }
+      
+      if(existing) {
+        // 기존 품목 통계 업데이트
+        const prevCnt = existing.구매건수 || 0;
+        const prevQty = existing.총수량 || 0;
+        const prevAmt = existing.총구매금액 || 0;
+        
+        existing.구매건수 = prevCnt + 1;
+        existing.총수량 = prevQty + qty;
+        existing.총구매금액 = prevAmt + amount;
+        
+        // 단가 통계
+        if(unitPrice > 0) {
+          if(!existing.최저단가 || unitPrice < existing.최저단가) existing.최저단가 = unitPrice;
+          if(!existing.최고단가 || unitPrice > existing.최고단가) existing.최고단가 = unitPrice;
+          existing.최근단가 = unitPrice;
+          // 평균단가 = 총구매금액 / 총수량
+          if(existing.총수량 > 0) existing.평균단가 = Math.round(existing.총구매금액 / existing.총수량);
+          // 네고율 = (평균 - 최저) / 평균 * 100
+          if(existing.평균단가 > 0 && existing.최저단가 > 0) {
+            existing.네고율 = Math.round((existing.평균단가 - existing.최저단가) / existing.평균단가 * 100);
+          }
+        }
+        
+        // 거래처 추가/순위 갱신 (단순 누적, 1순위로 vendor 올림)
+        if(vendor) {
+          // 기존 거래처들과 vendor 합쳐서 금액 누적
+          const venMap = {};
+          if(existing.주력거래처1) venMap[existing.주력거래처1] = existing.거래처1금액 || 0;
+          if(existing.주력거래처2) venMap[existing.주력거래처2] = (venMap[existing.주력거래처2]||0) + (existing.거래처2금액 || 0);
+          if(existing.주력거래처3) venMap[existing.주력거래처3] = (venMap[existing.주력거래처3]||0) + (existing.거래처3금액 || 0);
+          venMap[vendor] = (venMap[vendor]||0) + amount;
+          
+          // 금액 내림차순으로 TOP3 다시 할당
+          const sorted = Object.entries(venMap).sort((a,b) => b[1]-a[1]);
+          existing.주력거래처1 = sorted[0]?.[0] || "";
+          existing.거래처1금액 = sorted[0]?.[1] || 0;
+          existing.주력거래처2 = sorted[1]?.[0] || "";
+          existing.거래처2금액 = sorted[1]?.[1] || 0;
+          existing.주력거래처3 = sorted[2]?.[0] || "";
+          existing.거래처3금액 = sorted[2]?.[1] || 0;
+          existing.거래처수 = sorted.length;
+        }
+        
+        // 프로젝트수 (중복 체크는 못하므로 단순 증가)
+        if(!existing._projectSet) existing._projectSet = new Set();
+        if(projectCode) existing._projectSet.add(projectCode);
+        existing.프로젝트수 = existing._projectSet.size || (existing.프로젝트수 || 1);
+        
+        // 날짜 갱신
+        if(!existing.첫구매 || dlvDate < existing.첫구매) existing.첫구매 = dlvDate;
+        if(!existing.최근구매 || dlvDate > existing.최근구매) existing.최근구매 = dlvDate;
+        
+        result.updated++;
+      } else {
+        // 신규 품목 추가
+        const newItem = {
+          no: (window._imData.length + 1),
+          품번: 품번,
+          품명: 품명,
+          원본품명: 품명,
+          분류: 분류,
+          중분류: "",
+          구매건수: 1,
+          총수량: qty,
+          총구매금액: amount,
+          최저단가: unitPrice,
+          평균단가: unitPrice,
+          최고단가: unitPrice,
+          최근단가: unitPrice,
+          네고율: 0,
+          주력거래처1: vendor,
+          거래처1금액: amount,
+          주력거래처2: "",
+          거래처2금액: 0,
+          주력거래처3: "",
+          거래처3금액: 0,
+          거래처수: vendor ? 1 : 0,
+          프로젝트수: projectCode ? 1 : 0,
+          완료건수: 0,
+          첫구매: dlvDate,
+          최근구매: dlvDate,
+          _localOrigin: true,  // 메모리 임시 추가 마크 (엑셀에는 없음)
+        };
+        window._imData.push(newItem);
+        result.added++;
+      }
+    }
+  }
+  
+  // 사이드바 배지 갱신
+  const badge = document.getElementById("badge-bom");
+  if(badge && Array.isArray(window._imData)) badge.textContent = window._imData.length.toLocaleString();
+  
+  // 품목마스터 탭이 활성 상태면 화면 갱신
+  if(typeof imRenderAll === "function" && document.getElementById("tab-bom-db")?.classList.contains("on")) {
+    imRenderAll();
+  }
+  
+  console.log(`🧩 품목마스터 업데이트 (메모리): 신규 ${result.added}건, 업데이트 ${result.updated}건`);
+  return result;
 }
 
 function openSLModal(act) {
