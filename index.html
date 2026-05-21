@@ -654,28 +654,26 @@
               <option value="공용품">공용품</option>
             </select>
             <select id="ps-sort" class="ss" style="font-size:13px" onchange="psRenderTable()">
+              <option value="recent">📅 최신순 (2026~)</option>
               <option value="biz-code">사업단위/코드</option>
               <option value="sales-desc">매출 높은순</option>
               <option value="bal-desc">잔액 높은순</option>
-              <option value="recent">최근 매출순</option>
             </select>
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto"><table class="tbl" style="min-width:900px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:780px">
             <thead><tr>
               <th style="min-width:80px">사업단위</th>
-              <th style="min-width:120px">프로젝트코드</th>
+              <th style="min-width:140px">프로젝트코드 🔗</th>
               <th style="min-width:240px">품목</th>
               <th style="min-width:70px">유형</th>
               <th style="min-width:140px">고객사</th>
               <th style="min-width:70px">상태</th>
               <th style="min-width:60px">구분</th>
               <th style="min-width:60px">서브</th>
-              <th class="r" style="min-width:110px">매출공급가</th>
-              <th class="r" style="min-width:90px">잔액</th>
             </tr></thead>
-            <tbody id="psTb"><tr><td colspan="10"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+            <tbody id="psTb"><tr><td colspan="8"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
           <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="ps-tbl-note"></div>
         </div>
@@ -870,9 +868,9 @@
       </div>
       <div class="kr">
         <div class="kpi c1"><div class="kl">장비 베이스</div><div class="kv"><span id="mc-tot">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-tot-sub">매출구분=장비</div></div>
-        <div class="kpi c2"><div class="kl">프린터</div><div class="kv"><span id="mc-p-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-p-amt">- 억</div></div>
-        <div class="kpi c3"><div class="kl">코터</div><div class="kv"><span id="mc-c-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-c-amt">- 억</div></div>
-        <div class="kpi c4"><div class="kl">총 부품수</div><div class="kv"><span id="mc-part-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="mc-part-amt">- 억</div></div>
+        <div class="kpi c2"><div class="kl">프린터</div><div class="kv"><span id="mc-p-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-p-amt">부품 - 건</div></div>
+        <div class="kpi c3"><div class="kl">코터</div><div class="kv"><span id="mc-c-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="mc-c-amt">부품 - 건</div></div>
+        <div class="kpi c4"><div class="kl">총 부품 원가</div><div class="kv"><span id="mc-part-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="mc-part-amt">- 억</div></div>
       </div>
       <div class="card">
         <div class="ch">
@@ -885,15 +883,15 @@
               <option value="수출">수출</option>
             </select>
             <select id="mc-sort" class="ss" style="font-size:13px" onchange="mcRenderTable()">
+              <option value="recent">📅 최신순 (2026~)</option>
               <option value="code">베이스코드</option>
-              <option value="sales-desc">매출 높은순</option>
               <option value="parts-desc">부품 많은순</option>
-              <option value="recent">최근순</option>
+              <option value="cost-desc">원가 높은순</option>
             </select>
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto"><table class="tbl" style="min-width:1000px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:920px">
             <thead><tr>
               <th style="min-width:130px">거래처</th>
               <th style="min-width:130px">베이스코드 🔗</th>
@@ -902,10 +900,9 @@
               <th style="min-width:70px">유형</th>
               <th style="min-width:180px">부품 분류</th>
               <th class="r" style="min-width:90px">부품수</th>
-              <th class="r" style="min-width:110px">매출공급가</th>
               <th class="r" style="min-width:110px">원가공급가</th>
             </tr></thead>
-            <tbody id="mcTb"><tr><td colspan="9"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+            <tbody id="mcTb"><tr><td colspan="8"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
           <div style="font-size:12.5px;color:var(--t3);margin-top:8px;padding:8px 12px;background:#F9FAFB;border-radius:6px;line-height:1.6">
             💡 <strong>베이스코드 클릭</strong> → 서브코드 목록 모달 / <strong>서브코드 클릭</strong> → 해당 코드의 부품 상세 (가공품/구매품/연구비 등)
@@ -6053,7 +6050,7 @@ function psRenderTable() {
   const biz = document.getElementById("ps-biz")?.value || "";
   const gubun = document.getElementById("ps-gubun")?.value || "";
   const type = document.getElementById("ps-type")?.value || "";
-  const sort = document.getElementById("ps-sort")?.value || "biz-code";
+  const sort = document.getElementById("ps-sort")?.value || "recent";
   if(srch) arr = arr.filter(p => 
     String(p["프로젝트코드"]||"").toLowerCase().includes(srch) ||
     String(p["품목"]||"").toLowerCase().includes(srch) ||
@@ -6062,13 +6059,29 @@ function psRenderTable() {
   if(gubun) arr = arr.filter(p => p["구분"]===gubun);
   if(type) arr = arr.filter(p => p["프로젝트유형"]===type);
   
+  // 정렬 - "최신순"은 마지막인식일 내림차순 (없으면 베이스코드에서 연도 추출 fallback)
+  const codeYear = code => {
+    const s = String(code||"");
+    const m1 = s.match(/^(\d{2})/);                    // nnAA-nnn
+    const m2 = s.match(/^[A-Z]{2}(\d{2})/);            // AAnnnnn
+    const yy = m1 ? m1[1] : (m2 ? m2[1] : null);
+    return yy ? 2000 + Number(yy) : 0;
+  };
+  const recencyKey = p => {
+    const d = new Date(p["마지막인식일"]);
+    if(!isNaN(d)) return d.getTime();
+    // 매출 없는 프로젝트 → 코드 연도로 fallback (12월 31일로 정렬)
+    const yr = codeYear(p["프로젝트코드"]);
+    return yr ? new Date(yr, 11, 31).getTime() : 0;
+  };
+  
   if(sort==="biz-code") arr.sort((a,b)=>(a["사업단위"]||"").localeCompare(b["사업단위"]||"")||(String(a["프로젝트코드"]||"")).localeCompare(String(b["프로젝트코드"]||""))); 
   else if(sort==="sales-desc") arr.sort((a,b)=>(Number(b["매출공급가"])||0)-(Number(a["매출공급가"])||0));
   else if(sort==="bal-desc") arr.sort((a,b)=>(Number(b["매출잔액"])||0)-(Number(a["매출잔액"])||0));
-  else if(sort==="recent") arr.sort((a,b)=>new Date(b["마지막인식일"]||0)-new Date(a["마지막인식일"]||0));
+  else if(sort==="recent") arr.sort((a,b)=>recencyKey(b)-recencyKey(a));
   
   document.getElementById("ps-tbl-l").textContent = `(${arr.length}건)`;
-  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
   const display = arr.slice(0, 500);
   const bizColor = {'장비사업':'#DBEAFE','기술연구소':'#F0FDF4','재료사업':'#FEF3C7','기타':'#F3F4F6'};
   const gColor = {'매출':'#15803D','개발':'#7C3AED','공용':'#F59E0B'};
@@ -6078,18 +6091,16 @@ function psRenderTable() {
     const bbg = bizColor[p["사업단위"]] || "#FFF";
     const code = p["프로젝트코드"]||"";
     const sub = Number(p["서브코드수"]||1);
-    const subBadge = sub>1 ? `<span style="margin-left:4px;padding:1px 5px;border-radius:3px;background:#E5E7EB;font-size:10px;color:#374151">+${sub-1}</span>` : "";
+    const subBadge = sub>1 ? `<span style="margin-left:4px;padding:1px 5px;border-radius:3px;background:#DBEAFE;color:#1E40AF;font-size:10px;font-weight:700">+${sub-1}</span>` : "";
     return `<tr style="background:${bbg}">
       <td style="font-weight:600;text-align:center">${p["사업단위"]||""}</td>
-      <td style="font-weight:700;color:#1E40AF">${code}${subBadge}</td>
+      <td><a href="#" onclick="event.preventDefault();mcOpenSub('${code.replace(/'/g,"\\'")}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline;cursor:pointer">${code}</a>${subBadge}</td>
       <td style="font-size:12.5px">${(p["품목"]||"").substring(0,60)}</td>
       <td style="text-align:center;color:${tColor[p["프로젝트유형"]]||"#6B7280"};font-weight:700">${p["프로젝트유형"]||"-"}</td>
       <td>${p["고객사"]||""}</td>
       <td style="text-align:center;color:${sColor[p["진행상태"]]||"#6B7280"};font-weight:700">${p["진행상태"]||""}</td>
       <td style="text-align:center;color:${gColor[p["구분"]]||"#6B7280"};font-weight:700">${p["구분"]||""}</td>
       <td style="text-align:center">${sub}</td>
-      <td class="r">${(Number(p["매출공급가"])||0).toLocaleString()}</td>
-      <td class="r" style="${(Number(p["매출잔액"])||0)>0?'color:#B91C1C;font-weight:700':''}">${(Number(p["매출잔액"])||0).toLocaleString()}</td>
     </tr>`;
   }).join("");
   document.getElementById("ps-tbl-note").textContent = arr.length > 500 ? `상위 500건 표시 (전체 ${arr.length}건)` : "";
@@ -6575,15 +6586,16 @@ function mcRenderKPI() {
   const all = mcEquipBases();
   const printer = all.filter(r=>r.유형==="프린터");
   const coater = all.filter(r=>r.유형==="코터");
-  const sumS = arr => arr.reduce((s,r)=>s+r.매출공급가,0);
-  const totalParts = all.reduce((s,r)=>s+r.부품수,0);
-  const totalCost = all.reduce((s,r)=>s+r.원가공급가,0);
+  const sumP = arr => arr.reduce((s,r)=>s+r.부품수,0);
+  const sumC = arr => arr.reduce((s,r)=>s+r.원가공급가,0);
+  const totalParts = sumP(all);
+  const totalCost = sumC(all);
   document.getElementById("mc-tot").textContent = all.length;
-  document.getElementById("mc-tot-sub").textContent = `매출 ${(sumS(all)/1e8).toFixed(2)}억`;
+  document.getElementById("mc-tot-sub").textContent = `프린터 ${printer.length} / 코터 ${coater.length}`;
   document.getElementById("mc-p-cnt").textContent = printer.length;
-  document.getElementById("mc-p-amt").textContent = (sumS(printer)/1e8).toFixed(2) + " 억";
+  document.getElementById("mc-p-amt").textContent = `부품 ${sumP(printer).toLocaleString()}건`;
   document.getElementById("mc-c-cnt").textContent = coater.length;
-  document.getElementById("mc-c-amt").textContent = (sumS(coater)/1e8).toFixed(2) + " 억";
+  document.getElementById("mc-c-amt").textContent = `부품 ${sumP(coater).toLocaleString()}건`;
   document.getElementById("mc-part-cnt").textContent = totalParts.toLocaleString();
   document.getElementById("mc-part-amt").textContent = (totalCost/1e8).toFixed(2) + " 억";
 }
@@ -6594,26 +6606,38 @@ function mcRenderTable() {
   let arr = mcFiltered();
   const srch = (document.getElementById("mc-srch")?.value||"").trim().toLowerCase();
   const local = document.getElementById("mc-local")?.value || "";
-  const sort = document.getElementById("mc-sort")?.value || "code";
+  const sort = document.getElementById("mc-sort")?.value || "recent";
   if(srch) arr = arr.filter(r =>
     String(r.베이스코드).toLowerCase().includes(srch) ||
     String(r.거래처).toLowerCase().includes(srch) ||
     [...r.품목들].some(p => p.toLowerCase().includes(srch)));
   if(local) arr = arr.filter(r => r.Local구분===local);
   
-  if(sort==="code") arr.sort((a,b)=>String(a.베이스코드).localeCompare(String(b.베이스코드)));
-  else if(sort==="sales-desc") arr.sort((a,b)=>b.매출공급가-a.매출공급가);
+  // 코드에서 연도 추출 (마지막일자 없는 경우 fallback)
+  const codeYear = code => {
+    const s = String(code||"");
+    const m1 = s.match(/^(\d{2})/);                    // nnAA-nnn
+    const m2 = s.match(/^[A-Z]{2}(\d{2})/);            // AAnnnnn
+    const yy = m1 ? m1[1] : (m2 ? m2[1] : null);
+    return yy ? 2000 + Number(yy) : 0;
+  };
+  const recencyKey = r => {
+    if(r.마지막일자 instanceof Date) return r.마지막일자.getTime();
+    const yr = codeYear(r.베이스코드);
+    return yr ? new Date(yr, 11, 31).getTime() : 0;
+  };
+  
+  if(sort==="recent") arr.sort((a,b)=>recencyKey(b)-recencyKey(a));
+  else if(sort==="code") arr.sort((a,b)=>String(a.베이스코드).localeCompare(String(b.베이스코드)));
   else if(sort==="parts-desc") arr.sort((a,b)=>b.부품수-a.부품수);
-  else if(sort==="recent") arr.sort((a,b)=>(b.마지막일자||0)-(a.마지막일자||0));
+  else if(sort==="cost-desc") arr.sort((a,b)=>b.원가공급가-a.원가공급가);
   
   document.getElementById("mc-tbl-l").textContent = `(${arr.length}건)`;
-  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
   
   const tColor = {'프린터':'#1D4ED8','코터':'#059669'};
   tb.innerHTML = arr.map(r => {
-    const codesArr = [...r.프로젝트코드들];
     const 품목 = [...r.품목들][0] || "";
-    // 부품 분류 (가공품(123) / 구매품(공용)(56) ...)
     const catEntries = Object.entries(r.부품분류||{}).sort((a,b)=>b[1]-a[1]).slice(0,4);
     const catText = catEntries.map(([c,n])=>`${c}(${n})`).join(" / ") || "—";
     return `<tr>
@@ -6624,8 +6648,7 @@ function mcRenderTable() {
       <td style="text-align:center;color:${tColor[r.유형]||"#6B7280"};font-weight:700">${r.유형}</td>
       <td style="font-size:11.5px;color:#374151">${catText}</td>
       <td class="r" style="font-weight:700;color:#7C3AED">${r.부품수.toLocaleString()}</td>
-      <td class="r" style="font-weight:700">${r.매출공급가.toLocaleString()}</td>
-      <td class="r" style="color:#B91C1C">${r.원가공급가.toLocaleString()}</td>
+      <td class="r" style="color:#B91C1C;font-weight:700">${r.원가공급가.toLocaleString()}</td>
     </tr>`;
   }).join("");
 }
@@ -6705,26 +6728,22 @@ function mcOpenSub(baseCode) {
   if(subStats.length===0) {
     body.innerHTML = '<div style="text-align:center;color:var(--t3);padding:40px">서브코드 없음</div>';
   } else {
-    body.innerHTML = `<div style="overflow-x:auto"><table class="tbl" style="min-width:760px">
+    body.innerHTML = `<div style="overflow-x:auto"><table class="tbl" style="min-width:680px">
       <thead><tr>
         <th style="min-width:130px">코드 🔗</th>
         <th style="min-width:60px">유형</th>
-        <th style="min-width:160px">거래처/프로젝트명</th>
-        <th style="min-width:160px">부품 분류</th>
-        <th class="r" style="min-width:70px">매출건</th>
-        <th class="r" style="min-width:100px">매출액</th>
+        <th style="min-width:200px">프로젝트명</th>
+        <th style="min-width:180px">부품 분류</th>
         <th class="r" style="min-width:70px">매입건</th>
-        <th class="r" style="min-width:100px">매입액</th>
+        <th class="r" style="min-width:110px">매입금액</th>
       </tr></thead><tbody>` + subStats.map(s => {
         const cats = Object.entries(s.부품분류).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c}(${n})`).join(" / ") || "—";
         const badge = s.베이스여부 ? '<span style="margin-left:5px;padding:1px 5px;border-radius:3px;background:#DBEAFE;color:#1E40AF;font-size:10px;font-weight:700">베이스</span>' : "";
         return `<tr ${s.베이스여부?'style="background:#F0F9FF"':''}>
           <td><a href="#" onclick="event.preventDefault();mcOpenPart('${s.코드.replace(/'/g,"\\'")}', '${baseCode.replace(/'/g,"\\'")}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline">${s.코드}</a>${badge}</td>
           <td style="text-align:center;font-size:11.5px">${s.베이스여부?"베이스":"서브"}</td>
-          <td style="font-size:12px">${s.거래처} ${s.프로젝트명?'<span style="color:#9CA3AF">/ '+String(s.프로젝트명).substring(0,25)+'</span>':''}</td>
+          <td style="font-size:12px">${String(s.프로젝트명||"").substring(0,40)}</td>
           <td style="font-size:11.5px;color:#374151">${cats}</td>
-          <td class="r" style="font-size:12px">${s.매출건수}</td>
-          <td class="r" style="${s.매출액>0?'color:#059669;font-weight:700':'color:#9CA3AF'}">${s.매출액.toLocaleString()}</td>
           <td class="r" style="font-size:12px">${s.매입건수}</td>
           <td class="r" style="${s.매입액>0?'color:#B91C1C;font-weight:700':'color:#9CA3AF'}">${s.매입액.toLocaleString()}</td>
         </tr>`;
