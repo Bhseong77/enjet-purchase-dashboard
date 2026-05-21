@@ -397,8 +397,8 @@
     <nav class="sb-nav">
       <div class="sb-sec">구매</div>
       <div class="ni on" onclick="go('purchase',this)">📊 구매 현황</div>
-      <div class="ni" onclick="go('cashflow',this)">💰 현금흐름</div>
-      <div class="ni" onclick="go('receipt',this)">📦 입고완료 <span class="nb nbg" id="badge-rc">-</span></div>
+      <div class="ni" onclick="go('project-status',this)">📋 프로젝트현황 <span class="nb nbg" id="badge-prj">-</span></div>
+      <div class="ni" onclick="go('receipt',this)">✅ 매입완료 <span class="nb nbg" id="badge-rc">-</span></div>
       <div class="sb-sec">구매활동</div>
       <div class="ni" onclick="go('purchase-log',this)">📋 구매활동 <span class="nb nbg" id="badge-pa">-</span></div>
       <div class="ni" onclick="go('purchase-todo',this)">✅ 구매Todo <span class="nb nbg" id="badge-todo" style="background:var(--r);color:#fff">0</span></div>
@@ -416,6 +416,7 @@
         <div class="ni sb-sub-item" onclick="go('settle-db',this)" style="padding-left:22px">💼 회계전표 DB <span class="nb nbg" id="badge-stl">0</span></div>
       </div>
       <div class="ni" onclick="go('bom-db',this)">🧩 품목마스터 <span class="nb nbg" id="badge-bom">0</span></div>
+      <div class="ni" onclick="go('vendor-scm',this)">🏪 거래처 SCM <span class="nb nbg" id="badge-vscm">-</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -596,124 +597,265 @@
       </div>
     </div>
 
-    <!-- 현금흐름 -->
-    <div class="page" id="tab-cashflow">
+    <!-- 📋 프로젝트현황 - PMS 데이터 기반 -->
+    <div class="page" id="tab-project-status">
       <div class="pbar">
-        <div class="pl">📅 조회 기간</div>
+        <div class="pl">📋 프로젝트 현황</div>
         <div class="pps">
-          <div class="pw">
-            <div class="pp" id="cf-m" onclick="tdrop('cfm',this)">월간 ▾</div>
-            <div class="dm" id="dm-cfm">
-              <div class="dsec">2026</div><div class="di" onclick="selCF('m',2026,4,'2026년 4월',this)">4월</div><div class="di" onclick="selCF('m',2026,3,'2026년 3월',this)">3월</div><div class="di" onclick="selCF('m',2026,2,'2026년 2월',this)">2월</div><div class="di" onclick="selCF('m',2026,1,'2026년 1월',this)">1월</div>
-              <div class="dsec">2025</div><div class="di" onclick="selCF('m',2025,12,'2025년 12월',this)">12월</div><div class="di" onclick="selCF('m',2025,11,'2025년 11월',this)">11월</div><div class="di" onclick="selCF('m',2025,10,'2025년 10월',this)">10월</div><div class="di" onclick="selCF('m',2025,9,'2025년 9월',this)">9월</div><div class="di" onclick="selCF('m',2025,8,'2025년 8월',this)">8월</div><div class="di" onclick="selCF('m',2025,7,'2025년 7월',this)">7월</div><div class="di" onclick="selCF('m',2025,6,'2025년 6월',this)">6월</div><div class="di" onclick="selCF('m',2025,5,'2025년 5월',this)">5월</div><div class="di" onclick="selCF('m',2025,4,'2025년 4월',this)">4월</div><div class="di" onclick="selCF('m',2025,3,'2025년 3월',this)">3월</div><div class="di" onclick="selCF('m',2025,2,'2025년 2월',this)">2월</div><div class="di" onclick="selCF('m',2025,1,'2025년 1월',this)">1월</div>
-              <div class="dsec">2024</div><div class="di" onclick="selCF('m',2024,12,'2024년 12월',this)">12월</div><div class="di" onclick="selCF('m',2024,11,'2024년 11월',this)">11월</div><div class="di" onclick="selCF('m',2024,10,'2024년 10월',this)">10월</div><div class="di" onclick="selCF('m',2024,9,'2024년 9월',this)">9월</div><div class="di" onclick="selCF('m',2024,8,'2024년 8월',this)">8월</div><div class="di" onclick="selCF('m',2024,7,'2024년 7월',this)">7월</div><div class="di" onclick="selCF('m',2024,6,'2024년 6월',this)">6월</div><div class="di" onclick="selCF('m',2024,5,'2024년 5월',this)">5월</div><div class="di" onclick="selCF('m',2024,4,'2024년 4월',this)">4월</div><div class="di" onclick="selCF('m',2024,3,'2024년 3월',this)">3월</div><div class="di" onclick="selCF('m',2024,2,'2024년 2월',this)">2월</div><div class="di" onclick="selCF('m',2024,1,'2024년 1월',this)">1월</div>
-              <div class="dsec">2023</div><div class="di" onclick="selCF('m',2023,12,'2023년 12월',this)">12월</div><div class="di" onclick="selCF('m',2023,6,'2023년 6월',this)">6월</div><div class="di" onclick="selCF('m',2023,1,'2023년 1월',this)">1월</div>
-              <div class="dsec">2022</div><div class="di" onclick="selCF('m',2022,12,'2022년 12월',this)">12월</div><div class="di" onclick="selCF('m',2022,6,'2022년 6월',this)">6월</div><div class="di" onclick="selCF('m',2022,1,'2022년 1월',this)">1월</div>
-            </div>
-          </div>
-          <div class="pw">
-            <div class="pp" id="cf-q" onclick="tdrop('cfq',this)">분기 ▾</div>
-            <div class="dm" id="dm-cfq">
-              <div class="dsec">2026</div><div class="di" onclick="selCF('q',2026,2,'2026 Q2',this)">Q2</div><div class="di" onclick="selCF('q',2026,1,'2026 Q1',this)">Q1</div>
-              <div class="dsec">2025</div><div class="di" onclick="selCF('q',2025,4,'2025 Q4',this)">Q4</div><div class="di" onclick="selCF('q',2025,3,'2025 Q3',this)">Q3</div><div class="di" onclick="selCF('q',2025,2,'2025 Q2',this)">Q2</div><div class="di" onclick="selCF('q',2025,1,'2025 Q1',this)">Q1</div>
-              <div class="dsec">2024</div><div class="di" onclick="selCF('q',2024,4,'2024 Q4',this)">Q4</div><div class="di" onclick="selCF('q',2024,3,'2024 Q3',this)">Q3</div><div class="di" onclick="selCF('q',2024,2,'2024 Q2',this)">Q2</div><div class="di" onclick="selCF('q',2024,1,'2024 Q1',this)">Q1</div>
-              <div class="dsec">2023</div><div class="di" onclick="selCF('q',2023,4,'2023 Q4',this)">Q4</div><div class="di" onclick="selCF('q',2023,1,'2023 Q1',this)">Q1</div>
-              <div class="dsec">2022</div><div class="di" onclick="selCF('q',2022,4,'2022 Q4',this)">Q4</div><div class="di" onclick="selCF('q',2022,1,'2022 Q1',this)">Q1</div>
-            </div>
-          </div>
-          <div class="pw">
-            <div class="pp" id="cf-a" onclick="tdrop('cfa',this)">연간 ▾</div>
-            <div class="dm" id="dm-cfa">
-              <div class="di" onclick="selCF('a',2026,0,'2026년',this)">2026년</div>
-              <div class="di" onclick="selCF('a',2025,0,'2025년',this)">2025년</div>
-              <div class="di" onclick="selCF('a',2024,0,'2024년',this)">2024년</div>
-              <div class="di" onclick="selCF('a',2023,0,'2023년',this)">2023년</div>
-              <div class="di" onclick="selCF('a',2022,0,'2022년',this)">2022년</div>
-            </div>
-          </div>
-          <div class="pp on" id="cf-all" onclick="selCF('all',0,0,'전체',this)">전체</div>
+          <div class="pp on" id="ps-all" onclick="psSelFilter('all',this)">전체</div>
+          <div class="pp" id="ps-진행중" onclick="psSelFilter('진행중',this)">🔴 진행중</div>
+          <div class="pp" id="ps-완료" onclick="psSelFilter('완료',this)">✅ 완료</div>
         </div>
-        <div class="pr" id="cf-range">전체 · SharePoint 연동</div>
+        <div class="pr" id="ps-info">로딩중...</div>
       </div>
       <div class="kr">
-        <div class="kpi c1"><div class="kl">공급가액</div><div class="kv"><span id="cf-tax">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks" id="cf-sub">로딩중</div></div>
-        <div class="kpi c2"><div class="kl">입금 완료</div><div class="kv"><span id="cf-inc">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks">수금률 <span id="cf-rate">-%</span></div></div>
-        <div class="kpi c3"><div class="kl">잔금 (미수금)</div><div class="kv"><span id="cf-unp">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks"><span class="badge warn">수금 필요</span></div></div>
-        <div class="kpi c4"><div class="kl">건수</div><div class="kv"><span id="cf-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="cf-cnt-s"></div></div>
+        <div class="kpi c1"><div class="kl">전체 프로젝트</div><div class="kv"><span id="ps-tot">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="ps-tot-sub">진행중 - / 완료 -</div></div>
+        <div class="kpi c2"><div class="kl">매출 프로젝트</div><div class="kv"><span id="ps-sales">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="ps-sales-amt">- 억</div></div>
+        <div class="kpi c3"><div class="kl">개발 (국책+내부)</div><div class="kv"><span id="ps-dev">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks">국책 <span id="ps-govt">-</span> + 내부 <span id="ps-int">-</span></div></div>
+        <div class="kpi c4"><div class="kl">진행중 잔액</div><div class="kv"><span id="ps-bal">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks" id="ps-bal-sub">미수금</div></div>
       </div>
       <div class="g2">
         <div class="card">
-          <div class="ch"><div class="ct"><div class="ci c1">📊</div>연도별 매출흐름 (감사보고서 기준)</div></div>
-          <div class="cb"><div style="height:200px"><canvas id="cfC"></canvas></div></div>
-          <div class="cn">※ 감사보고서 확정 2022~2025 · 2026 매출기록부 · 잔금은 영업기록부 기준</div>
+          <div class="ch"><div class="ct"><div class="ci c1">🏢</div>사업단위별 분포</div></div>
+          <div class="cb"><div style="height:200px"><canvas id="psBizC"></canvas></div></div>
         </div>
         <div class="card">
-          <div class="ch"><div class="ct"><div class="ci c3">⚠️</div>미수금 현황</div><span style="font-size:14px;font-family:var(--m);font-weight:700;color:var(--r)" id="unp-total">-</span></div>
-          <div class="cb" id="unpaidList"><div class="sw"><div class="spr"></div></div></div>
+          <div class="ch"><div class="ct"><div class="ci c3">🎯</div>프로젝트유형 (매출기준)</div></div>
+          <div class="cb"><div style="height:200px"><canvas id="psTypeC"></canvas></div></div>
         </div>
       </div>
       <div class="card">
         <div class="ch">
-          <div class="ct"><div class="ci c1">📋</div>매출 내역 <span id="cf-tbl-l" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">로딩중...</span></div>
+          <div class="ct"><div class="ci c1">📋</div>프로젝트 목록 <span id="ps-tbl-l" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">-</span></div>
           <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-            <input id="cf-srch" class="si" type="text" placeholder="🔍 거래처/프로젝트..." style="width:160px;font-size:13px" oninput="renderCFFiltered()">
-            <select id="cf-div" class="ss" style="font-size:13px" onchange="renderCFFiltered()">
+            <input id="ps-srch" class="si" type="text" placeholder="🔍 코드/품목/고객사..." style="width:180px;font-size:13px" oninput="psRenderTable()">
+            <select id="ps-biz" class="ss" style="font-size:13px" onchange="psRenderTable()">
+              <option value="">전체 사업단위</option>
+              <option value="장비사업">장비사업</option>
+              <option value="기술연구소">기술연구소</option>
+              <option value="재료사업">재료사업</option>
+              <option value="기타">기타</option>
+            </select>
+            <select id="ps-gubun" class="ss" style="font-size:13px" onchange="psRenderTable()">
               <option value="">전체 구분</option>
-              <option value="국내">내수</option>
-              <option value="해외">수출</option>
+              <option value="매출">매출</option>
+              <option value="개발">개발</option>
+              <option value="공용">공용</option>
             </select>
-            <select id="cf-yr" class="ss" style="font-size:13px" onchange="renderCFFiltered()">
-              <option value="">전체 연도</option>
+            <select id="ps-type" class="ss" style="font-size:13px" onchange="psRenderTable()">
+              <option value="">전체 유형</option>
+              <option value="프린터">프린터</option>
+              <option value="코터">코터</option>
+              <option value="소모품">소모품</option>
+              <option value="부품">부품</option>
+              <option value="잉크">잉크</option>
+              <option value="용역">용역</option>
+              <option value="공용품">공용품</option>
             </select>
-            <select id="cf-sort" class="ss" style="font-size:13px" onchange="renderCFFiltered()">
-              <option value="date-desc">날짜 최신순</option>
-              <option value="date-asc">날짜 오래된순</option>
-              <option value="amt-desc">금액 높은순</option>
-              <option value="amt-asc">금액 낮은순</option>
-              <option value="bal-desc">잔금 많은순</option>
+            <select id="ps-sort" class="ss" style="font-size:13px" onchange="psRenderTable()">
+              <option value="biz-code">사업단위/코드</option>
+              <option value="sales-desc">매출 높은순</option>
+              <option value="bal-desc">잔액 높은순</option>
+              <option value="recent">최근 매출순</option>
             </select>
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto"><table class="tbl" style="min-width:600px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:900px">
             <thead><tr>
-              <th style="min-width:95px">수익인식일</th>
-              <th style="min-width:130px">거래처</th>
-              <th style="min-width:110px">프로젝트코드</th>
-              <th style="min-width:55px">구분</th>
-              <th class="r" style="min-width:90px">공급가액</th>
-              <th class="r" style="min-width:90px">입금액</th>
-              <th class="r" style="min-width:90px">잔금</th>
+              <th style="min-width:80px">사업단위</th>
+              <th style="min-width:120px">프로젝트코드</th>
+              <th style="min-width:240px">품목</th>
+              <th style="min-width:70px">유형</th>
+              <th style="min-width:140px">고객사</th>
+              <th style="min-width:70px">상태</th>
+              <th style="min-width:60px">구분</th>
+              <th style="min-width:60px">서브</th>
+              <th class="r" style="min-width:110px">매출공급가</th>
+              <th class="r" style="min-width:90px">잔액</th>
             </tr></thead>
-            <tbody id="cfTb"><tr><td colspan="7"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+            <tbody id="psTb"><tr><td colspan="10"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
-          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="cf-tbl-note">최대 300건 표시</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="ps-tbl-note"></div>
         </div>
       </div>
     </div>
 
-    <!-- 입고완료 - ENJET ERP 입고완료 현황 -->
+
+    <!-- ✅ 매입완료 - PMS 통합 (구매매입+국책+내부+공용) -->
     <div class="page" id="tab-receipt">
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:500px;padding:40px 20px;text-align:center">
-        <div style="font-size:72px;margin-bottom:20px">📦</div>
-        <div style="font-size:24px;font-weight:900;color:var(--t);margin-bottom:12px">입고완료 모듈 준비 중</div>
-        <div style="font-size:14px;color:var(--t2);line-height:1.8;max-width:560px;margin-bottom:24px">
-          ERP 프로젝트구매입고정산처리 다운로드 파일을 기반으로<br>
-          새로운 입고완료 현황 페이지를 준비하고 있습니다.<br>
-          <span style="color:var(--t3);font-size:12.5px">기존 파이프라인 / 거래처 SCM 탭은 영구 삭제되었습니다.</span>
+      <div class="pbar">
+        <div class="pl">✅ 매입완료</div>
+        <div class="pps">
+          <div class="pp on" id="rc-all" onclick="rcSelFilter('all',this)">전체</div>
+          <div class="pp" id="rc-sales" onclick="rcSelFilter('sales',this)">🛒 매출연계</div>
+          <div class="pp" id="rc-govt" onclick="rcSelFilter('govt',this)">🏛️ 국책과제</div>
+          <div class="pp" id="rc-internal" onclick="rcSelFilter('internal',this)">🔧 내부개발</div>
+          <div class="pp" id="rc-common" onclick="rcSelFilter('common',this)">⚙️ 공용</div>
         </div>
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 22px;max-width:560px;text-align:left">
-          <div style="font-weight:700;color:#1e40af;margin-bottom:8px;font-size:13px">🛠️ 진행 예정</div>
-          <ul style="margin:0;padding-left:20px;font-size:12.5px;color:var(--t2);line-height:1.8">
-            <li>ENJET_입고완료.xlsx (ERP 입고 정산 245건+) SP 업로드</li>
-            <li>거래처 마스터 + 분류표 재설계</li>
-            <li>입고완료 KPI · 프로젝트별/품목별 분포 · 거래내역 테이블</li>
-            <li>품목마스터 거래이력 연동</li>
-          </ul>
+        <div class="pr" id="rc-info">로딩중...</div>
+      </div>
+      <div class="kr">
+        <div class="kpi c1"><div class="kl">전체 매입</div><div class="kv"><span id="rc-tot">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="rc-tot-amt">- 억</div></div>
+        <div class="kpi c2"><div class="kl">매출연계</div><div class="kv"><span id="rc-sl-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="rc-sl-amt">- 억</div></div>
+        <div class="kpi c3"><div class="kl">국책과제</div><div class="kv"><span id="rc-gv-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="rc-gv-amt">- 억</div></div>
+        <div class="kpi c4"><div class="kl">내부개발 + 공용</div><div class="kv"><span id="rc-in-cnt">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks" id="rc-in-amt">- 억</div></div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c1">📊</div>분류별 매입 비중</div></div>
+          <div class="cb"><div style="height:200px"><canvas id="rcDistC"></canvas></div></div>
         </div>
-        <div style="margin-top:24px;font-size:11.5px;color:var(--t3)">데이터 소스: 💰 재무·회계/99.Dashboard(real-time)/ENJET_입고완료.xlsx</div>
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c2">🏆</div>거래처 TOP 10 (선택분류)</div></div>
+          <div class="cb" id="rcTopVen"><div class="sw"><div class="spr"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">📋</div>매입 내역 <span id="rc-tbl-l" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">-</span></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+            <input id="rc-srch" class="si" type="text" placeholder="🔍 거래처/프로젝트/품명..." style="width:200px;font-size:13px" oninput="rcRenderTable()">
+            <select id="rc-yr" class="ss" style="font-size:13px" onchange="rcRenderTable()">
+              <option value="">전체 연도</option>
+            </select>
+            <select id="rc-pjtype" class="ss" style="font-size:13px" onchange="rcRenderTable()">
+              <option value="">전체 유형</option>
+            </select>
+            <select id="rc-sort" class="ss" style="font-size:13px" onchange="rcRenderTable()">
+              <option value="date-desc">날짜 최신순</option>
+              <option value="date-asc">날짜 오래된순</option>
+              <option value="amt-desc">금액 높은순</option>
+              <option value="amt-asc">금액 낮은순</option>
+            </select>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:900px">
+            <thead><tr>
+              <th style="min-width:90px">입고일</th>
+              <th style="min-width:120px">프로젝트번호</th>
+              <th style="min-width:80px">분류</th>
+              <th style="min-width:140px">구매거래처</th>
+              <th style="min-width:200px">품명</th>
+              <th class="r" style="min-width:60px">수량</th>
+              <th class="r" style="min-width:100px">단가</th>
+              <th class="r" style="min-width:110px">금액</th>
+            </tr></thead>
+            <tbody id="rcTb"><tr><td colspan="8"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+          </table></div>
+          <div style="font-size:13px;color:var(--t3);margin-top:6px;text-align:right" id="rc-tbl-note">최대 500건 표시</div>
+        </div>
       </div>
     </div>
+    <!-- 🏪 거래처 SCM (분류 + 마스터) -->
+    <div class="page" id="tab-vendor-scm">
+      <div class="pbar">
+        <div class="pl">🏪 거래처 SCM</div>
+        <div class="pps">
+          <div class="pp on" id="vs-cat" onclick="vsSelView('cat',this)">📊 카테고리 분류</div>
+          <div class="pp" id="vs-mst" onclick="vsSelView('mst',this)">📇 거래처마스터</div>
+        </div>
+        <div class="pr" id="vs-info">로딩중...</div>
+      </div>
+      <div class="kr">
+        <div class="kpi c1"><div class="kl">전체 거래처</div><div class="kv"><span id="vs-tot">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks" id="vs-tot-sub">마스터 기준</div></div>
+        <div class="kpi c2"><div class="kl">SCM 분류 완료</div><div class="kv"><span id="vs-cat-cnt">-</span><span style="font-size:15px;color:var(--t2)">개</span></div><div class="ks">13개 카테고리</div></div>
+        <div class="kpi c3"><div class="kl">누적 발주금액</div><div class="kv"><span id="vs-amt">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks" id="vs-amt-sub">분류 거래처 합계</div></div>
+        <div class="kpi c4"><div class="kl">미납금액</div><div class="kv"><span id="vs-unp">-</span><span style="font-size:15px;color:var(--t2)">억</span></div><div class="ks"><span class="badge warn">관리 필요</span></div></div>
+      </div>
+      <div class="g2" id="vs-cat-charts">
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c1">📊</div>카테고리별 발주금액</div></div>
+          <div class="cb"><div style="height:220px"><canvas id="vsCatC"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c2">🏆</div>발주금액 TOP 10 거래처</div></div>
+          <div class="cb" id="vsTopVen"><div class="sw"><div class="spr"></div></div></div>
+        </div>
+      </div>
+      <div class="g2" id="vs-mst-charts" style="display:none">
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c1">👥</div>거래처 종류별 분포</div></div>
+          <div class="cb"><div style="height:220px"><canvas id="vsVenC"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct"><div class="ci c2">🏢</div>관리부서별 거래처 수</div></div>
+          <div class="cb"><div style="height:220px"><canvas id="vsDeptC"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- 카테고리 분류 테이블 -->
+      <div class="card" id="vs-cat-card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">📊</div>카테고리 분류 <span id="vs-cat-tbl-l" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">-</span></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+            <input id="vs-cat-srch" class="si" type="text" placeholder="🔍 거래처/주력품목..." style="width:180px;font-size:13px" oninput="vsRenderCat()">
+            <select id="vs-cat-filter" class="ss" style="font-size:13px" onchange="vsRenderCat()">
+              <option value="">전체 카테고리</option>
+            </select>
+            <select id="vs-cat-sort" class="ss" style="font-size:13px" onchange="vsRenderCat()">
+              <option value="amt-desc">발주금액 높은순</option>
+              <option value="unpaid-desc">미납 많은순</option>
+              <option value="recent">최근거래순</option>
+              <option value="name">거래처명</option>
+            </select>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:900px">
+            <thead><tr>
+              <th style="min-width:160px">거래처</th>
+              <th style="min-width:140px">카테고리</th>
+              <th style="min-width:160px">주력품명</th>
+              <th class="r" style="min-width:55px">발주건</th>
+              <th class="r" style="min-width:110px">발주금액</th>
+              <th class="r" style="min-width:110px">납품금액</th>
+              <th class="r" style="min-width:100px">미납금</th>
+              <th style="min-width:95px">마지막거래</th>
+            </tr></thead>
+            <tbody id="vsCatTb"><tr><td colspan="8"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- 거래처 마스터 테이블 -->
+      <div class="card" id="vs-mst-card" style="display:none">
+        <div class="ch">
+          <div class="ct"><div class="ci c2">📇</div>거래처 마스터 <span id="vs-mst-tbl-l" style="font-size:14px;color:var(--t3);font-weight:400;margin-left:4px">-</span></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+            <input id="vs-mst-srch" class="si" type="text" placeholder="🔍 거래처/상호/사업자..." style="width:200px;font-size:13px" oninput="vsRenderMst()">
+            <select id="vs-mst-type" class="ss" style="font-size:13px" onchange="vsRenderMst()">
+              <option value="">전체 종류</option>
+            </select>
+            <select id="vs-mst-status" class="ss" style="font-size:13px" onchange="vsRenderMst()">
+              <option value="">전체 상태</option>
+              <option value="정상">정상</option>
+            </select>
+            <select id="vs-mst-dept" class="ss" style="font-size:13px" onchange="vsRenderMst()">
+              <option value="">전체 관리부서</option>
+            </select>
+          </div>
+        </div>
+        <div class="cb" style="padding:10px 14px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:1000px">
+            <thead><tr>
+              <th style="min-width:180px">거래처</th>
+              <th style="min-width:130px">거래처종류</th>
+              <th style="min-width:70px">상태</th>
+              <th style="min-width:60px">신용</th>
+              <th style="min-width:110px">사업자번호</th>
+              <th style="min-width:80px">대표자</th>
+              <th style="min-width:90px">관리부서</th>
+              <th style="min-width:70px">관리자</th>
+              <th style="min-width:200px">담당자</th>
+            </tr></thead>
+            <tbody id="vsMstTb"><tr><td colspan="9"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
     <!-- 구매활동 Log -->
     <div class="page" id="tab-purchase-log">
       <div class="kr">
@@ -2832,8 +2974,8 @@
     <span class="mob-nav-badge" id="mob-badge-pa" style="display:none"></span>
   </button>
   <button class="mob-nav-item" id="mni-receipt" onclick="go('receipt',this);closeMobMore()">
-    <span class="mob-icon">📦</span>
-    <span class="mob-label">입고완료</span>
+    <span class="mob-icon">✅</span>
+    <span class="mob-label">매입완료</span>
   </button>
   <button class="mob-nav-item" id="mni-purchase" onclick="go('purchase',this);closeMobMore()">
     <span class="mob-icon">📊</span>
@@ -2861,8 +3003,9 @@
     <div class="mob-more-item" onclick="go('settle-db',this);closeMobMore()" style="padding-left:32px"><span class="mob-icon">💼</span>회계전표 DB</div>
   </div>
   <div class="mob-more-item" onclick="go('bom-db',this);closeMobMore()"><span class="mob-icon">🧩</span>품목마스터</div>
+  <div class="mob-more-item" onclick="go('vendor-scm',this);closeMobMore()"><span class="mob-icon">🏪</span>거래처 SCM</div>
   <div class="mob-more-item" onclick="go('purchase-todo',this);closeMobMore()"><span class="mob-icon">✅</span>구매Todo</div>
-  <div class="mob-more-item" onclick="go('cashflow',this);closeMobMore()"><span class="mob-icon">💰</span>현금흐름</div>
+  <div class="mob-more-item" onclick="go('project-status',this);closeMobMore()"><span class="mob-icon">📋</span>프로젝트현황</div>
 </div>
 
 <!-- 모바일 플로팅 추가 버튼 (구매활동 탭에서만 표시) -->
@@ -2890,6 +3033,10 @@ const PTAX_SP_PATH   = "🏭 구매/99.Dashboard(real-time)/purchase-tax-db.json
 const PSTL_SP_PATH   = "🏭 구매/99.Dashboard(real-time)/purchase-settle-db.json";  // 회계전표 DB
 const BOM_SP_PATH    = "🏭 구매/99.Dashboard(real-time)/bom-db.json";              // BOM 마스터
 const PTODO_SP_PATH  = "🏭 구매/99.Dashboard(real-time)/purchase-todo.json";       // 구매 Todo
+// 🆕 프로젝트 매입&매출 통합 + 거래처 SCM 파일
+const PMS_SP_PATH    = "💰 재무·회계/99.Dashboard(real-time)/ENJET_프로젝트_매입&매출_현황.xlsx";
+const SCM_CAT_SP_PATH = "💰 재무·회계/99.Dashboard(real-time)/ENJET_거래처분류_SCM_구매.xlsx";
+const SCM_VEN_SP_PATH = "💰 재무·회계/99.Dashboard(real-time)/ENJET_거래처마스터.xlsx";
 
 // ━━ 거래처DB 엑셀 직접 읽기 (SharePoint 폴더) ━━
 const VENDOR_XLSX_PATH = "🏭 구매/2.거래처DB/거래처DB_v1.xlsx";
@@ -5448,6 +5595,110 @@ window._imData = [];
 window._imLoaded = false;
 window._imLoading = false;
 
+// ════════════════════════════════════════════════════════════════════
+// 🆕 프로젝트 매입&매출 현황 + 거래처 SCM 데이터 로더
+// ════════════════════════════════════════════════════════════════════
+window._pmsData = null;          // {projects, salesAll, purchaseSales, govt, internal, subDetail}
+window._pmsLoading = false;
+window._scmData = null;          // {categories, catSummary, vendors, venSummary}
+window._scmLoading = false;
+
+async function loadPMSData() {
+  if(window._pmsLoading) { console.log("PMS 로딩 중"); return null; }
+  if(window._pmsData) return window._pmsData;
+  window._pmsLoading = true;
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) { window._pmsLoading = false; return null; }
+    const encPath = PMS_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    if(!resp.ok) { console.warn(`PMS HTTP ${resp.status}`); window._pmsLoading = false; return null; }
+    const arrBuf = await resp.arrayBuffer();
+    console.log(`📦 PMS 다운로드: ${(arrBuf.byteLength/1024/1024).toFixed(2)}MB`);
+    if(typeof XLSX === "undefined") { window._pmsLoading = false; return null; }
+    const wb = XLSX.read(arrBuf, { type: "array", cellDates: true });
+    console.log(`📦 PMS 시트: ${wb.SheetNames.join(", ")}`);
+
+    const parse = (name) => {
+      const sh = wb.Sheets[name];
+      if(!sh) return [];
+      return XLSX.utils.sheet_to_json(sh, { defval: "", raw: true });
+    };
+    const projects      = parse("📋 프로젝트현황");
+    const subDetail     = parse("📑 프로젝트현황(상세)");
+    const salesAll      = parse("💼 영업매출현황(전체)");
+    const purchaseSales = parse("🛒 구매매입현황(매출)");
+    const govt          = parse("🏛️ 국책과제");
+    const internal      = parse("🔧 내부개발");
+    const matched       = parse("📊 프로젝트별 손익요약");
+
+    window._pmsData = { projects, subDetail, salesAll, purchaseSales, govt, internal, matched };
+    console.log(`📦 PMS 로드 완료: 프로젝트 ${projects.length} | 매출 ${salesAll.length} | 매출구매 ${purchaseSales.length} | 국책 ${govt.length} | 내부 ${internal.length}`);
+    window._pmsLoading = false;
+    return window._pmsData;
+  } catch(e) {
+    console.error("PMS 로드 실패:", e);
+    window._pmsLoading = false;
+    return null;
+  }
+}
+
+async function loadSCMData() {
+  if(window._scmLoading) { console.log("SCM 로딩 중"); return null; }
+  if(window._scmData) return window._scmData;
+  window._scmLoading = true;
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) { window._scmLoading = false; return null; }
+    const result = { categories: [], catSummary: [], vendors: [], venSummary: [], creditSummary: [] };
+
+    // 1) 거래처분류
+    const encCat = SCM_CAT_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const r1 = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encCat}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    if(r1.ok) {
+      const buf = await r1.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      result.categories = XLSX.utils.sheet_to_json(wb.Sheets["거래처분류"] || wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+      const sumSh = wb.Sheets["카테고리_요약"];
+      if(sumSh) result.catSummary = XLSX.utils.sheet_to_json(sumSh, { defval: "", raw: true });
+      console.log(`📦 SCM 거래처분류: ${result.categories.length}`);
+    }
+
+    // 2) 거래처마스터
+    const encVen = SCM_VEN_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const r2 = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encVen}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    if(r2.ok) {
+      const buf = await r2.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      result.vendors = XLSX.utils.sheet_to_json(wb.Sheets["거래처마스터"] || wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+      const sumSh = wb.Sheets["거래처종류_요약"];
+      if(sumSh) result.venSummary = XLSX.utils.sheet_to_json(sumSh, { defval: "", raw: true });
+      const cSh = wb.Sheets["신용등급_관리부서"];
+      if(cSh) result.creditSummary = XLSX.utils.sheet_to_json(cSh, { defval: "", raw: true });
+      console.log(`📦 SCM 거래처마스터: ${result.vendors.length}`);
+    }
+
+    window._scmData = result;
+    window._scmLoading = false;
+    return result;
+  } catch(e) {
+    console.error("SCM 로드 실패:", e);
+    window._scmLoading = false;
+    return null;
+  }
+}
+
 const IM_SP_PATH = "💰 재무·회계/99.Dashboard(real-time)/ENJET_품목마스터_BOM.xlsx";
 
 async function loadItemMaster() {
@@ -5585,6 +5836,544 @@ async function loadItemMaster() {
   } finally {
     window._imLoading = false;
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 📋 프로젝트현황 (project-status) 모듈
+// ════════════════════════════════════════════════════════════════════
+window._psState = { filter: "all" };
+window._psCharts = { biz: null, type: null };
+
+async function psInit() {
+  const info = document.getElementById("ps-info");
+  if(info) info.textContent = "📡 로딩 중...";
+  const data = await loadPMSData();
+  if(!data) { if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ 로드 실패 — 인증/네트워크 확인</span>'; return; }
+  if(info) info.textContent = `📊 ${data.projects.length}개 프로젝트`;
+  document.getElementById("badge-prj").textContent = data.projects.length;
+  psRenderAll();
+}
+
+function psFilteredProjects() {
+  const data = window._pmsData;
+  if(!data) return [];
+  let arr = data.projects;
+  const f = window._psState.filter;
+  if(f === "진행중") arr = arr.filter(p => p["진행상태"] === "진행중");
+  else if(f === "완료") arr = arr.filter(p => p["진행상태"] === "완료");
+  return arr;
+}
+
+function psSelFilter(f, btn) {
+  window._psState.filter = f;
+  document.querySelectorAll("#tab-project-status .pps .pp").forEach(b => b.classList.remove("on"));
+  if(btn) btn.classList.add("on");
+  psRenderAll();
+}
+
+function psRenderAll() {
+  psRenderKPI();
+  psRenderCharts();
+  psRenderTable();
+}
+
+function psRenderKPI() {
+  const all = (window._pmsData?.projects)||[];
+  const filt = psFilteredProjects();
+  const tot = all.length;
+  const ongoing = all.filter(p=>p["진행상태"]==="진행중").length;
+  const done = all.filter(p=>p["진행상태"]==="완료").length;
+  const sales = filt.filter(p=>p["구분"]==="매출");
+  const govt = filt.filter(p=>p["구분"]==="개발" && (p["고객사"]==="국책과제" || (p["프로젝트유형"]==="프린터" && String(p["프로젝트코드"]).match(/[A-Z]G\d{5}|^\d{2}[A-Z]G-/))));
+  // 더 안전한 국책 식별: 고객사 == 국책과제
+  const govtN = filt.filter(p=>p["고객사"]==="국책과제").length;
+  const dev = filt.filter(p=>p["구분"]==="개발");
+  const intN = dev.length - govtN;
+  const salesAmt = sales.reduce((s,p)=>s+(Number(p["매출공급가"])||0),0);
+  const bal = filt.reduce((s,p)=>s+(Number(p["매출잔액"])||0),0);
+  document.getElementById("ps-tot").textContent = filt.length.toLocaleString();
+  document.getElementById("ps-tot-sub").textContent = `진행중 ${ongoing} / 완료 ${done}`;
+  document.getElementById("ps-sales").textContent = sales.length.toLocaleString();
+  document.getElementById("ps-sales-amt").textContent = (salesAmt/1e8).toFixed(2) + " 억";
+  document.getElementById("ps-dev").textContent = dev.length.toLocaleString();
+  document.getElementById("ps-govt").textContent = govtN;
+  document.getElementById("ps-int").textContent = intN;
+  document.getElementById("ps-bal").textContent = (bal/1e8).toFixed(2);
+}
+
+function psRenderCharts() {
+  const filt = psFilteredProjects();
+  // 사업단위별
+  const bizMap = {};
+  for(const p of filt) {
+    const k = p["사업단위"] || "기타";
+    bizMap[k] = (bizMap[k]||0)+1;
+  }
+  const bizLabels = Object.keys(bizMap);
+  const bizData = bizLabels.map(k=>bizMap[k]);
+  const colors = ['#1D4ED8','#059669','#D97706','#9CA3AF','#7C3AED'];
+  if(window._psCharts.biz) window._psCharts.biz.destroy();
+  const ctx1 = document.getElementById("psBizC");
+  if(ctx1 && typeof Chart !== "undefined") {
+    window._psCharts.biz = new Chart(ctx1, {
+      type:"doughnut",
+      data:{labels:bizLabels,datasets:[{data:bizData,backgroundColor:colors,borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"right",labels:{font:{size:12},boxWidth:14}}}}
+    });
+  }
+  // 프로젝트유형별
+  const typeMap = {};
+  for(const p of filt) {
+    const k = p["프로젝트유형"] || "-";
+    typeMap[k] = (typeMap[k]||0)+1;
+  }
+  const tLabels = Object.keys(typeMap);
+  const tData = tLabels.map(k=>typeMap[k]);
+  const tColors = {'프린터':'#1D4ED8','코터':'#059669','소모품':'#7C2D12','부품':'#4338CA','잉크':'#BE185D','용역':'#374151','공용품':'#F59E0B','-':'#9CA3AF'};
+  const tColorArr = tLabels.map(l=>tColors[l]||'#9CA3AF');
+  if(window._psCharts.type) window._psCharts.type.destroy();
+  const ctx2 = document.getElementById("psTypeC");
+  if(ctx2 && typeof Chart !== "undefined") {
+    window._psCharts.type = new Chart(ctx2, {
+      type:"bar",
+      data:{labels:tLabels,datasets:[{data:tData,backgroundColor:tColorArr,borderWidth:0,borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{font:{size:11}}},x:{ticks:{font:{size:11}}}}}
+    });
+  }
+}
+
+function psRenderTable() {
+  const tb = document.getElementById("psTb");
+  if(!tb) return;
+  let arr = psFilteredProjects();
+  const srch = (document.getElementById("ps-srch")?.value || "").trim().toLowerCase();
+  const biz = document.getElementById("ps-biz")?.value || "";
+  const gubun = document.getElementById("ps-gubun")?.value || "";
+  const type = document.getElementById("ps-type")?.value || "";
+  const sort = document.getElementById("ps-sort")?.value || "biz-code";
+  if(srch) arr = arr.filter(p => 
+    String(p["프로젝트코드"]||"").toLowerCase().includes(srch) ||
+    String(p["품목"]||"").toLowerCase().includes(srch) ||
+    String(p["고객사"]||"").toLowerCase().includes(srch));
+  if(biz) arr = arr.filter(p => p["사업단위"]===biz);
+  if(gubun) arr = arr.filter(p => p["구분"]===gubun);
+  if(type) arr = arr.filter(p => p["프로젝트유형"]===type);
+  
+  if(sort==="biz-code") arr.sort((a,b)=>(a["사업단위"]||"").localeCompare(b["사업단위"]||"")||(String(a["프로젝트코드"]||"")).localeCompare(String(b["프로젝트코드"]||""))); 
+  else if(sort==="sales-desc") arr.sort((a,b)=>(Number(b["매출공급가"])||0)-(Number(a["매출공급가"])||0));
+  else if(sort==="bal-desc") arr.sort((a,b)=>(Number(b["매출잔액"])||0)-(Number(a["매출잔액"])||0));
+  else if(sort==="recent") arr.sort((a,b)=>new Date(b["마지막인식일"]||0)-new Date(a["마지막인식일"]||0));
+  
+  document.getElementById("ps-tbl-l").textContent = `(${arr.length}건)`;
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  const display = arr.slice(0, 500);
+  const bizColor = {'장비사업':'#DBEAFE','기술연구소':'#F0FDF4','재료사업':'#FEF3C7','기타':'#F3F4F6'};
+  const gColor = {'매출':'#15803D','개발':'#7C3AED','공용':'#F59E0B'};
+  const sColor = {'진행중':'#B91C1C','완료':'#4B5563'};
+  const tColor = {'프린터':'#1D4ED8','코터':'#059669','소모품':'#7C2D12','부품':'#4338CA','잉크':'#BE185D','용역':'#374151','공용품':'#F59E0B'};
+  tb.innerHTML = display.map(p => {
+    const bbg = bizColor[p["사업단위"]] || "#FFF";
+    const code = p["프로젝트코드"]||"";
+    const sub = Number(p["서브코드수"]||1);
+    const subBadge = sub>1 ? `<span style="margin-left:4px;padding:1px 5px;border-radius:3px;background:#E5E7EB;font-size:10px;color:#374151">+${sub-1}</span>` : "";
+    return `<tr style="background:${bbg}">
+      <td style="font-weight:600;text-align:center">${p["사업단위"]||""}</td>
+      <td style="font-weight:700;color:#1E40AF">${code}${subBadge}</td>
+      <td style="font-size:12.5px">${(p["품목"]||"").substring(0,60)}</td>
+      <td style="text-align:center;color:${tColor[p["프로젝트유형"]]||"#6B7280"};font-weight:700">${p["프로젝트유형"]||"-"}</td>
+      <td>${p["고객사"]||""}</td>
+      <td style="text-align:center;color:${sColor[p["진행상태"]]||"#6B7280"};font-weight:700">${p["진행상태"]||""}</td>
+      <td style="text-align:center;color:${gColor[p["구분"]]||"#6B7280"};font-weight:700">${p["구분"]||""}</td>
+      <td style="text-align:center">${sub}</td>
+      <td class="r">${(Number(p["매출공급가"])||0).toLocaleString()}</td>
+      <td class="r" style="${(Number(p["매출잔액"])||0)>0?'color:#B91C1C;font-weight:700':''}">${(Number(p["매출잔액"])||0).toLocaleString()}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("ps-tbl-note").textContent = arr.length > 500 ? `상위 500건 표시 (전체 ${arr.length}건)` : "";
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ✅ 매입완료 (receipt) 모듈 - PMS 4개 시트 통합
+// ════════════════════════════════════════════════════════════════════
+window._rcState = { filter: "all" };
+window._rcCharts = { dist: null };
+
+async function rcInit() {
+  const info = document.getElementById("rc-info");
+  if(info) info.textContent = "📡 로딩 중...";
+  const data = await loadPMSData();
+  if(!data) { if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ 로드 실패</span>'; return; }
+  rcPopulateFilters();
+  const total = (data.purchaseSales||[]).length + (data.govt||[]).length + (data.internal||[]).length;
+  document.getElementById("badge-rc").textContent = total;
+  if(info) info.textContent = `📦 ${total.toLocaleString()}건`;
+  rcRenderAll();
+}
+
+function rcGetAllRows() {
+  // 분류 태깅
+  const d = window._pmsData;
+  if(!d) return [];
+  const tag = (rows, type) => rows.map(r => ({...r, _분류: type}));
+  // 매출연계: 구매매입현황(매출)의 '분류' 컬럼이 '매출매칭'이거나 잠재
+  const sales = tag(d.purchaseSales||[], "매출연계");
+  // 공용/내부 분리: 내부 시트 안에서 '공용' 포함 유형은 공용으로
+  const internal = [];
+  const common = [];
+  for(const r of (d.internal||[])) {
+    const pj = String(r["프로젝트유형"]||"");
+    if(pj.includes("공용") || pj.includes("지원활동")) common.push({...r, _분류:"공용"});
+    else internal.push({...r, _분류:"내부개발"});
+  }
+  const govt = tag(d.govt||[], "국책과제");
+  return [...sales, ...govt, ...internal, ...common];
+}
+
+function rcFiltered() {
+  let arr = rcGetAllRows();
+  const f = window._rcState.filter;
+  if(f==="sales") arr = arr.filter(r=>r._분류==="매출연계");
+  else if(f==="govt") arr = arr.filter(r=>r._분류==="국책과제");
+  else if(f==="internal") arr = arr.filter(r=>r._분류==="내부개발");
+  else if(f==="common") arr = arr.filter(r=>r._분류==="공용");
+  return arr;
+}
+
+function rcSelFilter(f, btn) {
+  window._rcState.filter = f;
+  document.querySelectorAll("#tab-receipt .pps .pp").forEach(b=>b.classList.remove("on"));
+  if(btn) btn.classList.add("on");
+  rcRenderAll();
+}
+
+function rcPopulateFilters() {
+  const all = rcGetAllRows();
+  const yrs = new Set(); const types = new Set();
+  for(const r of all) {
+    const d = r["입고일"]; if(d) { const dt = new Date(d); if(!isNaN(dt)) yrs.add(dt.getFullYear()); }
+    if(r["프로젝트유형"]) types.add(String(r["프로젝트유형"]));
+  }
+  const yrSel = document.getElementById("rc-yr");
+  if(yrSel) yrSel.innerHTML = '<option value="">전체 연도</option>' + [...yrs].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y}년</option>`).join("");
+  const tSel = document.getElementById("rc-pjtype");
+  if(tSel) tSel.innerHTML = '<option value="">전체 유형</option>' + [...types].sort().map(t=>`<option value="${t}">${t}</option>`).join("");
+}
+
+function rcRenderAll() {
+  rcRenderKPI();
+  rcRenderCharts();
+  rcRenderTopVen();
+  rcRenderTable();
+}
+
+function rcSafeNum(v) { if(v==null||v==="") return 0; const n = Number(v); return isNaN(n)?0:n; }
+
+function rcRenderKPI() {
+  const all = rcGetAllRows();
+  const sale = all.filter(r=>r._분류==="매출연계");
+  const gv = all.filter(r=>r._분류==="국책과제");
+  const inOnly = all.filter(r=>r._분류==="내부개발");
+  const co = all.filter(r=>r._분류==="공용");
+  const sumAmt = arr => arr.reduce((s,r)=>s+rcSafeNum(r["입고금액"]),0);
+  const sumAll = sumAmt(all), sumS = sumAmt(sale), sumG = sumAmt(gv), sumI = sumAmt(inOnly)+sumAmt(co);
+  document.getElementById("rc-tot").textContent = all.length.toLocaleString();
+  document.getElementById("rc-tot-amt").textContent = (sumAll/1e8).toFixed(2) + " 억";
+  document.getElementById("rc-sl-cnt").textContent = sale.length.toLocaleString();
+  document.getElementById("rc-sl-amt").textContent = (sumS/1e8).toFixed(2) + " 억";
+  document.getElementById("rc-gv-cnt").textContent = gv.length.toLocaleString();
+  document.getElementById("rc-gv-amt").textContent = (sumG/1e8).toFixed(2) + " 억";
+  document.getElementById("rc-in-cnt").textContent = (inOnly.length + co.length).toLocaleString();
+  document.getElementById("rc-in-amt").textContent = (sumI/1e8).toFixed(2) + " 억";
+}
+
+function rcRenderCharts() {
+  const all = rcGetAllRows();
+  const dist = {매출연계:0, 국책과제:0, 내부개발:0, 공용:0};
+  for(const r of all) dist[r._분류] = (dist[r._분류]||0) + rcSafeNum(r["입고금액"]);
+  const labels = Object.keys(dist);
+  const data = labels.map(k=>Math.round(dist[k]/1e6));
+  const colors = ['#10B981','#7C3AED','#F59E0B','#9CA3AF'];
+  if(window._rcCharts.dist) window._rcCharts.dist.destroy();
+  const ctx = document.getElementById("rcDistC");
+  if(ctx && typeof Chart !== "undefined") {
+    window._rcCharts.dist = new Chart(ctx, {
+      type:"doughnut",
+      data:{labels:labels.map((l,i)=>`${l} (${data[i].toLocaleString()}M)`),datasets:[{data,backgroundColor:colors,borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"right",labels:{font:{size:11},boxWidth:14}}}}
+    });
+  }
+}
+
+function rcRenderTopVen() {
+  const cont = document.getElementById("rcTopVen");
+  if(!cont) return;
+  const arr = rcFiltered();
+  const venMap = {};
+  for(const r of arr) {
+    const v = r["구매거래처"] || "—";
+    venMap[v] = (venMap[v]||0) + rcSafeNum(r["입고금액"]);
+  }
+  const top = Object.entries(venMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(top.length===0) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3)">데이터 없음</div>'; return; }
+  const max = top[0][1];
+  cont.innerHTML = '<div style="padding:8px 12px">' + top.map(([v,a],i)=>{
+    const pct = (a/max*100).toFixed(0);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #F3F4F6">
+      <div style="width:24px;font-weight:700;color:#6B7280;font-size:12px">${i+1}</div>
+      <div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#1F2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v}">${v}</div>
+      <div style="flex:0 0 90px"><div style="height:6px;background:#F3F4F6;border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#10B981,#059669);"></div></div></div>
+      <div style="flex:0 0 90px;text-align:right;font-weight:700;color:#059669;font-size:12px">${(a/1e6).toFixed(1)}M</div>
+    </div>`;
+  }).join("") + '</div>';
+}
+
+function rcRenderTable() {
+  const tb = document.getElementById("rcTb");
+  if(!tb) return;
+  let arr = rcFiltered();
+  const srch = (document.getElementById("rc-srch")?.value||"").trim().toLowerCase();
+  const yr = document.getElementById("rc-yr")?.value || "";
+  const pjt = document.getElementById("rc-pjtype")?.value || "";
+  const sort = document.getElementById("rc-sort")?.value || "date-desc";
+  if(srch) arr = arr.filter(r => 
+    String(r["구매거래처"]||"").toLowerCase().includes(srch) ||
+    String(r["프로젝트번호"]||"").toLowerCase().includes(srch) ||
+    String(r["품명"]||"").toLowerCase().includes(srch) ||
+    String(r["프로젝트명"]||"").toLowerCase().includes(srch));
+  if(yr) arr = arr.filter(r => { const d=new Date(r["입고일"]); return !isNaN(d) && d.getFullYear()==Number(yr); });
+  if(pjt) arr = arr.filter(r => String(r["프로젝트유형"]||"")===pjt);
+  
+  if(sort==="date-desc") arr.sort((a,b)=>new Date(b["입고일"]||0)-new Date(a["입고일"]||0));
+  else if(sort==="date-asc") arr.sort((a,b)=>new Date(a["입고일"]||0)-new Date(b["입고일"]||0));
+  else if(sort==="amt-desc") arr.sort((a,b)=>rcSafeNum(b["입고금액"])-rcSafeNum(a["입고금액"]));
+  else if(sort==="amt-asc") arr.sort((a,b)=>rcSafeNum(a["입고금액"])-rcSafeNum(b["입고금액"]));
+  
+  document.getElementById("rc-tbl-l").textContent = `(${arr.length.toLocaleString()}건)`;
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  const display = arr.slice(0, 500);
+  const cColor = {'매출연계':'#10B981','국책과제':'#7C3AED','내부개발':'#F59E0B','공용':'#9CA3AF'};
+  tb.innerHTML = display.map(r => {
+    const d = r["입고일"]; let dStr = "";
+    if(d) { const dt = new Date(d); if(!isNaN(dt)) dStr = dt.toISOString().slice(0,10); }
+    return `<tr>
+      <td style="font-size:12px;text-align:center">${dStr}</td>
+      <td style="font-weight:700;color:#1E40AF;font-size:12px">${r["프로젝트번호"]||""}</td>
+      <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${cColor[r._분류]}22;color:${cColor[r._분류]};font-size:11px;font-weight:700">${r._분류}</span></td>
+      <td style="font-size:12.5px">${r["구매거래처"]||""}</td>
+      <td style="font-size:12px">${String(r["품명"]||"").substring(0,50)}</td>
+      <td class="r" style="font-size:12px">${rcSafeNum(r["입고수량"]).toLocaleString()}</td>
+      <td class="r" style="font-size:12px">${rcSafeNum(r["입고단가"]).toLocaleString()}</td>
+      <td class="r" style="font-weight:700">${rcSafeNum(r["입고금액"]).toLocaleString()}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("rc-tbl-note").textContent = arr.length > 500 ? `상위 500건 표시 (전체 ${arr.length.toLocaleString()}건)` : "";
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 🏪 거래처 SCM (vendor-scm) 모듈
+// ════════════════════════════════════════════════════════════════════
+window._vsState = { view: "cat" };
+window._vsCharts = { cat: null, ven: null, dept: null };
+
+async function vsInit() {
+  const info = document.getElementById("vs-info");
+  if(info) info.textContent = "📡 로딩 중...";
+  const data = await loadSCMData();
+  if(!data) { if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ SCM 로드 실패</span>'; return; }
+  vsPopulateFilters();
+  document.getElementById("badge-vscm").textContent = (data.vendors||[]).length;
+  if(info) info.textContent = `📊 분류 ${(data.categories||[]).length} · 마스터 ${(data.vendors||[]).length}`;
+  vsRenderAll();
+}
+
+function vsSelView(v, btn) {
+  window._vsState.view = v;
+  document.querySelectorAll("#tab-vendor-scm .pps .pp").forEach(b=>b.classList.remove("on"));
+  if(btn) btn.classList.add("on");
+  // 카드/차트 토글
+  document.getElementById("vs-cat-charts").style.display = (v==="cat") ? "" : "none";
+  document.getElementById("vs-mst-charts").style.display = (v==="mst") ? "" : "none";
+  document.getElementById("vs-cat-card").style.display = (v==="cat") ? "" : "none";
+  document.getElementById("vs-mst-card").style.display = (v==="mst") ? "" : "none";
+  vsRenderAll();
+}
+
+function vsPopulateFilters() {
+  const d = window._scmData;
+  if(!d) return;
+  // 카테고리 필터
+  const cats = [...new Set((d.categories||[]).map(r=>r["카테고리"]).filter(Boolean))].sort();
+  const catSel = document.getElementById("vs-cat-filter");
+  if(catSel) catSel.innerHTML = '<option value="">전체 카테고리</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join("");
+  // 거래처 종류
+  const types = [...new Set((d.vendors||[]).map(r=>r["거래처종류"]).filter(Boolean))].sort();
+  const tSel = document.getElementById("vs-mst-type");
+  if(tSel) tSel.innerHTML = '<option value="">전체 종류</option>' + types.map(t=>`<option value="${t}">${t}</option>`).join("");
+  // 관리부서
+  const depts = [...new Set((d.vendors||[]).map(r=>r["관리부서"]).filter(Boolean))].sort();
+  const dSel = document.getElementById("vs-mst-dept");
+  if(dSel) dSel.innerHTML = '<option value="">전체 관리부서</option>' + depts.map(t=>`<option value="${t}">${t}</option>`).join("");
+}
+
+function vsSafeNum(v) { if(v==null||v==="") return 0; const n = Number(v); return isNaN(n)?0:n; }
+
+function vsRenderAll() {
+  vsRenderKPI();
+  vsRenderCharts();
+  if(window._vsState.view==="cat") vsRenderCat();
+  else vsRenderMst();
+}
+
+function vsRenderKPI() {
+  const d = window._scmData; if(!d) return;
+  const tot = (d.vendors||[]).length;
+  const catCnt = (d.categories||[]).length;
+  const sumAmt = (d.categories||[]).reduce((s,r)=>s+vsSafeNum(r["누적발주금액"]),0);
+  const sumUnp = (d.categories||[]).reduce((s,r)=>s+vsSafeNum(r["미납금액"]),0);
+  document.getElementById("vs-tot").textContent = tot.toLocaleString();
+  document.getElementById("vs-cat-cnt").textContent = catCnt.toLocaleString();
+  document.getElementById("vs-amt").textContent = (sumAmt/1e8).toFixed(2);
+  document.getElementById("vs-unp").textContent = (sumUnp/1e8).toFixed(2);
+}
+
+function vsRenderCharts() {
+  const d = window._scmData; if(!d) return;
+  // 카테고리별 발주금액
+  const catSum = (d.catSummary||[]);
+  if(catSum.length > 0) {
+    const labels = catSum.map(r=>String(r["카테고리"]||""));
+    const data = catSum.map(r=>Math.round(vsSafeNum(r["누적발주금액"])/1e6));
+    const colors = ['#1D4ED8','#059669','#D97706','#7C3AED','#DB2777','#0891B2','#65A30D','#DC2626','#9333EA','#EA580C','#06B6D4','#16A34A','#9CA3AF'];
+    if(window._vsCharts.cat) window._vsCharts.cat.destroy();
+    const ctx = document.getElementById("vsCatC");
+    if(ctx && typeof Chart !== "undefined") {
+      window._vsCharts.cat = new Chart(ctx, {
+        type:"bar",
+        data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length),borderWidth:0,borderRadius:4}]},
+        options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.x.toLocaleString()}M`}}},scales:{x:{ticks:{font:{size:10},callback:v=>(v/1000).toFixed(1)+"B"}},y:{ticks:{font:{size:10}}}}}
+      });
+    }
+  }
+  // 거래처 종류별
+  const venSum = (d.venSummary||[]);
+  if(venSum.length > 0) {
+    const labels = venSum.map(r=>String(r["거래처종류"]||""));
+    const data = venSum.map(r=>vsSafeNum(r["거래처 수"]));
+    const colors = ['#1D4ED8','#059669','#D97706','#7C3AED','#DB2777'];
+    if(window._vsCharts.ven) window._vsCharts.ven.destroy();
+    const ctx2 = document.getElementById("vsVenC");
+    if(ctx2 && typeof Chart !== "undefined") {
+      window._vsCharts.ven = new Chart(ctx2, {
+        type:"doughnut",
+        data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:0}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"right",labels:{font:{size:11}}}}}
+      });
+    }
+  }
+  // 관리부서별
+  const deptMap = {};
+  for(const v of (d.vendors||[])) {
+    const k = v["관리부서"] || "(미지정)";
+    deptMap[k] = (deptMap[k]||0) + 1;
+  }
+  const dLabels = Object.keys(deptMap);
+  const dData = dLabels.map(k=>deptMap[k]);
+  if(window._vsCharts.dept) window._vsCharts.dept.destroy();
+  const ctx3 = document.getElementById("vsDeptC");
+  if(ctx3 && typeof Chart !== "undefined") {
+    window._vsCharts.dept = new Chart(ctx3, {
+      type:"bar",
+      data:{labels:dLabels,datasets:[{data:dData,backgroundColor:'#7C3AED',borderWidth:0,borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{font:{size:11}}},x:{ticks:{font:{size:11}}}}}
+    });
+  }
+
+  // TOP10 거래처 (분류 기준)
+  const cont = document.getElementById("vsTopVen");
+  if(cont) {
+    const top = [...(d.categories||[])].sort((a,b)=>vsSafeNum(b["누적발주금액"])-vsSafeNum(a["누적발주금액"])).slice(0,10);
+    if(top.length === 0) cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3)">데이터 없음</div>';
+    else {
+      const max = vsSafeNum(top[0]["누적발주금액"]);
+      cont.innerHTML = '<div style="padding:8px 12px">' + top.map((r,i)=>{
+        const amt = vsSafeNum(r["누적발주금액"]);
+        const pct = (amt/max*100).toFixed(0);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #F3F4F6">
+          <div style="width:24px;font-weight:700;color:#6B7280;font-size:12px">${i+1}</div>
+          <div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#1F2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r["거래처"]||""}">${r["거래처"]||""}</div>
+          <div style="flex:0 0 90px"><div style="height:6px;background:#F3F4F6;border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#3B82F6,#1D4ED8);"></div></div></div>
+          <div style="flex:0 0 90px;text-align:right;font-weight:700;color:#1D4ED8;font-size:12px">${(amt/1e8).toFixed(2)}억</div>
+        </div>`;
+      }).join("") + '</div>';
+    }
+  }
+}
+
+function vsRenderCat() {
+  const tb = document.getElementById("vsCatTb");
+  if(!tb) return;
+  const d = window._scmData; if(!d) return;
+  let arr = [...(d.categories||[])];
+  const srch = (document.getElementById("vs-cat-srch")?.value||"").trim().toLowerCase();
+  const cat = document.getElementById("vs-cat-filter")?.value || "";
+  const sort = document.getElementById("vs-cat-sort")?.value || "amt-desc";
+  if(srch) arr = arr.filter(r => 
+    String(r["거래처"]||"").toLowerCase().includes(srch) ||
+    String(r["주력품명"]||"").toLowerCase().includes(srch) ||
+    String(r["주력품목소분류"]||"").toLowerCase().includes(srch));
+  if(cat) arr = arr.filter(r => r["카테고리"]===cat);
+  if(sort==="amt-desc") arr.sort((a,b)=>vsSafeNum(b["누적발주금액"])-vsSafeNum(a["누적발주금액"]));
+  else if(sort==="unpaid-desc") arr.sort((a,b)=>vsSafeNum(b["미납금액"])-vsSafeNum(a["미납금액"]));
+  else if(sort==="recent") arr.sort((a,b)=>new Date(b["마지막거래"]||0)-new Date(a["마지막거래"]||0));
+  else if(sort==="name") arr.sort((a,b)=>String(a["거래처"]||"").localeCompare(String(b["거래처"]||"")));
+  document.getElementById("vs-cat-tbl-l").textContent = `(${arr.length}개)`;
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  tb.innerHTML = arr.slice(0,500).map(r => {
+    const lastD = r["마지막거래"]; let lStr = "";
+    if(lastD) { const dt = new Date(lastD); if(!isNaN(dt)) lStr = dt.toISOString().slice(0,10); }
+    const unp = vsSafeNum(r["미납금액"]);
+    return `<tr>
+      <td style="font-weight:700;color:#1E40AF">${r["거래처"]||""}</td>
+      <td><span style="padding:2px 6px;border-radius:4px;background:#EFF6FF;color:#1E40AF;font-size:11px;font-weight:700">${r["카테고리"]||""}</span></td>
+      <td style="font-size:12px">${String(r["주력품명"]||"").substring(0,40)}</td>
+      <td class="r" style="font-size:12px">${vsSafeNum(r["발주건수"]).toLocaleString()}</td>
+      <td class="r" style="font-weight:700">${vsSafeNum(r["누적발주금액"]).toLocaleString()}</td>
+      <td class="r" style="font-size:12px">${vsSafeNum(r["누적납품금액"]).toLocaleString()}</td>
+      <td class="r" style="${unp>0?'color:#B91C1C;font-weight:700':'color:#6B7280'}">${unp.toLocaleString()}</td>
+      <td style="font-size:12px;text-align:center">${lStr}</td>
+    </tr>`;
+  }).join("");
+}
+
+function vsRenderMst() {
+  const tb = document.getElementById("vsMstTb");
+  if(!tb) return;
+  const d = window._scmData; if(!d) return;
+  let arr = [...(d.vendors||[])];
+  const srch = (document.getElementById("vs-mst-srch")?.value||"").trim().toLowerCase();
+  const type = document.getElementById("vs-mst-type")?.value || "";
+  const status = document.getElementById("vs-mst-status")?.value || "";
+  const dept = document.getElementById("vs-mst-dept")?.value || "";
+  if(srch) arr = arr.filter(r =>
+    String(r["거래처"]||"").toLowerCase().includes(srch) ||
+    String(r["상호"]||"").toLowerCase().includes(srch) ||
+    String(r["사업자번호"]||"").toLowerCase().includes(srch));
+  if(type) arr = arr.filter(r => String(r["거래처종류"]||"").includes(type));
+  if(status) arr = arr.filter(r => r["거래처상태"]===status);
+  if(dept) arr = arr.filter(r => r["관리부서"]===dept);
+  document.getElementById("vs-mst-tbl-l").textContent = `(${arr.length.toLocaleString()}개)`;
+  if(arr.length===0) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>'; return; }
+  tb.innerHTML = arr.slice(0,500).map(r => `<tr>
+    <td style="font-weight:700;color:#1F2937">${r["거래처"]||""}</td>
+    <td style="font-size:12px">${r["거래처종류"]||""}</td>
+    <td style="text-align:center;font-size:12px"><span style="color:${r["거래처상태"]==="정상"?"#059669":"#B91C1C"};font-weight:700">${r["거래처상태"]||""}</span></td>
+    <td style="text-align:center;font-size:12px;font-weight:700">${r["신용등급"]||"-"}</td>
+    <td style="font-size:12px">${r["사업자번호"]||""}</td>
+    <td style="font-size:12px">${r["대표자성명"]||""}</td>
+    <td style="font-size:12px">${r["관리부서"]||""}</td>
+    <td style="font-size:12px">${r["관리자"]||""}</td>
+    <td style="font-size:12px">${r["거래처 대표담당자"]||r["담당자 이메일"]||r["담당자 핸드폰번호"]||""}</td>
+  </tr>`).join("");
 }
 
 function imPopulateFilters(catSet, vendorSet) {
@@ -24504,7 +25293,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황",cashflow:"💰 현금흐름",receipt:"📦 입고완료","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -27549,15 +28338,17 @@ function go(id, el) {
       else clearInterval(window._slSyncInterval);
     },3*60*1000);
   }
-  // 📦 입고완료 탭 진입 시 - SP ENJET_입고완료.xlsx 자동 로드
+  // 📋 프로젝트현황 탭 진입 시 - PMS 자동 로드
+  if(id==="project-status") {
+    if(typeof psInit === "function") psInit();
+  }
+  // ✅ 매입완료 탭 진입 시 - PMS 자동 로드
   if(id==="receipt") {
-    if(typeof loadReceipt === "function") {
-      if(!window._rcLoaded) {
-        loadReceipt().catch(e => console.warn("입고완료 로드 실패:", e.message));
-      } else {
-        if(typeof rcRenderAll === "function") rcRenderAll();
-      }
-    }
+    if(typeof rcInit === "function") rcInit();
+  }
+  // 🏪 거래처 SCM 탭 진입 시 - SCM 자동 로드
+  if(id==="vendor-scm") {
+    if(typeof vsInit === "function") vsInit();
   }
   // 구매요청서 DB / BOM DB / 회계전표 DB는 위 분기에서 처리됨
 }
