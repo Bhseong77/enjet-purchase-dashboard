@@ -946,25 +946,40 @@
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto"><table class="tbl" style="min-width:1280px">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:1280px;table-layout:fixed">
+            <colgroup>
+              <col style="width:130px">
+              <col style="width:55px">
+              <col style="width:115px">
+              <col style="width:220px">
+              <col style="width:50px">
+              <col style="width:75px">
+              <col style="width:75px">
+              <col style="width:55px">
+              <col style="width:40px">
+              <col style="width:55px">
+              <col style="width:75px">
+              <col style="width:80px">
+              <col style="width:125px">
+              <col style="width:125px">
+            </colgroup>
             <thead><tr>
-              <th style="min-width:180px">거래처</th>
-              <th style="min-width:60px">Local</th>
-              <th style="min-width:130px">프로젝트코드 🔗</th>
-              <th style="min-width:240px">품목</th>
-              <th class="r" style="min-width:50px">수량</th>
-              <th style="min-width:80px">매출구분1</th>
-              <th style="min-width:80px">매출구분2</th>
-              <th style="min-width:55px">연도</th>
-              <th style="min-width:40px">월</th>
-              <th style="min-width:55px">구분</th>
-              <th class="r" style="min-width:70px">1Set 수량</th>
-              <th class="r" style="min-width:75px">부품총수</th>
-              <th class="r" style="min-width:120px">합계</th>
-              <th class="r" style="min-width:120px">원가(VAT포)</th>
-              <th style="min-width:120px">분류</th>
+              <th>거래처</th>
+              <th>LOCAL</th>
+              <th>프로젝트코드 🔗</th>
+              <th>품목</th>
+              <th class="r">수량</th>
+              <th>매출구분1</th>
+              <th>매출구분2</th>
+              <th>연도</th>
+              <th>월</th>
+              <th>구분</th>
+              <th class="r">1SET 수량</th>
+              <th class="r">부품총수</th>
+              <th class="r">합계</th>
+              <th class="r">원가(VAT포)</th>
             </tr></thead>
-            <tbody id="mcTb"><tr><td colspan="15"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+            <tbody id="mcTb"><tr><td colspan="14"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
           <div style="font-size:12.5px;color:var(--t3);margin-top:8px;padding:8px 12px;background:#F9FAFB;border-radius:6px;line-height:1.6">
             💡 <strong>프로젝트코드 클릭</strong> → 해당 프로젝트의 구매 부품 상세 모달 (ERP 발주 / 입고정산 / PMS 매입)
@@ -6964,11 +6979,11 @@ function mcRenderKPI() {
   const internal = all.filter(r => String(r["Local구분"]||"").trim() === "내수").length;
   const exp = all.filter(r => String(r["Local구분"]||"").trim() === "수출").length;
   
-  // 총 부품 + 매입원가 (부품총수/원가(VAT포) 컬럼 합산)
+  // 총 부품 + 매입원가 합산
   let totalParts = 0, totalCost = 0;
   for(const r of all) {
-    totalParts += Number(r["부품총수"])||0;
-    totalCost += Number(r["원가(VAT포)"])||0;
+    totalParts += Number(r["총수량"])||0;
+    totalCost += Number(r["총금액(부가세포함)"])||0;
   }
   const avgParts = all.length > 0 ? Math.round(totalParts / all.length) : 0;
   
@@ -7009,8 +7024,8 @@ function mcRenderTable() {
     return (yb*100+mb) - (ya*100+ma);
   });
   else if(sort==="code") arr.sort((a,b) => String(a["프로젝트코드"]||"").localeCompare(String(b["프로젝트코드"]||"")));
-  else if(sort==="parts-desc") arr.sort((a,b) => (Number(b["부품총수"])||0) - (Number(a["부품총수"])||0));
-  else if(sort==="cost-desc") arr.sort((a,b) => (Number(b["원가(VAT포)"])||0) - (Number(a["원가(VAT포)"])||0));
+  else if(sort==="parts-desc") arr.sort((a,b) => (Number(b["총수량"])||0) - (Number(a["총수량"])||0));
+  else if(sort==="cost-desc") arr.sort((a,b) => (Number(b["총금액(부가세포함)"])||0) - (Number(a["총금액(부가세포함)"])||0));
   
   document.getElementById("mc-tbl-l").textContent = `(${arr.length}건)`;
   
@@ -7027,19 +7042,21 @@ function mcRenderTable() {
     const code = String(r["프로젝트코드"]||"").trim();
     const safeCode = code.replace(/'/g,"\\'");
     const 합계 = Number(r["합계"])||0;
-    const 원가 = Number(r["원가(VAT포)"])||0;
-    const 부품총수 = Number(r["부품총수"])||0;
+    const 원가 = Number(r["총금액(부가세포함)"])||0;
+    const 부품총수 = Number(r["총수량"])||0;
     const oneSet = r["1Set 수량"];
     const 매출색 = 합계 >= 1e9 ? "#C00000" : (합계 >= 5e8 ? "#0070C0" : "#374151");
     const 원가색 = 원가 >= 5e8 ? "#C00000" : (원가 >= 1e8 ? "#0070C0" : "#374151");
     const gubun = r["구분"] || "";
     const gubunColor = gubun === "국내" ? "#15803D" : (gubun === "해외" ? "#7C3AED" : "#6B7280");
+    const 거래처 = r["거래처"] || "";
+    const 품목 = r["품목"] || "";
     
     return `<tr>
-      <td style="font-weight:600;font-size:12.5px">${r["거래처"]||""}</td>
+      <td style="font-weight:600;font-size:12.5px;white-space:nowrap" title="${거래처}">${거래처}</td>
       <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${locColor[r["Local구분"]]||"#9CA3AF"}22;color:${locColor[r["Local구분"]]||"#6B7280"};font-size:11px;font-weight:700">${r["Local구분"]||""}</span></td>
       <td><a href="#" onclick="event.preventDefault();mcOpenSub('${safeCode}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline;cursor:pointer">${code}</a></td>
-      <td style="font-size:12px">${String(r["품목"]||"").substring(0,55)}</td>
+      <td style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${품목}">${품목}</td>
       <td class="r" style="font-size:12px;font-weight:700">${Number(r["수량"])||1}</td>
       <td style="text-align:center;color:${cat1Color[r["매출구분1"]]||"#6B7280"};font-weight:700;font-size:12px">${r["매출구분1"]||""}</td>
       <td style="text-align:center;color:${cat2Color[r["매출구분2"]]||"#6B7280"};font-weight:700;font-size:12px">${r["매출구분2"]||""}</td>
@@ -7050,7 +7067,6 @@ function mcRenderTable() {
       <td class="r" style="font-weight:700;color:#7C3AED">${부품총수.toLocaleString()}</td>
       <td class="r" style="font-weight:700;color:${매출색}">${합계.toLocaleString()}</td>
       <td class="r" style="font-weight:700;color:${원가색}">${원가.toLocaleString()}</td>
-      <td style="font-size:11px;color:#6B7280">${r["분류"]||""}</td>
     </tr>`;
   }).join("");
 }
@@ -7102,7 +7118,7 @@ function mcOpenSub(projectCode) {
     const 거래처 = salesInfo["거래처"] || "";
     const 품목 = salesInfo["품목"] || "";
     const 매출 = Number(salesInfo["합계"])||0;
-    const 원가 = Number(salesInfo["원가(VAT포)"])||0;
+    const 원가 = Number(salesInfo["총금액(부가세포함)"])||0;
     const 분류 = salesInfo["분류"] || "";
     subTxt = `<b>${거래처}</b> · ${String(품목).substring(0,40)} · 매출 ${(매출/1e8).toFixed(2)}억 · 원가 ${(원가/1e8).toFixed(2)}억 · <span style="color:#1D4ED8">${분류}</span>`;
   } else {
