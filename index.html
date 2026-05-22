@@ -25,6 +25,28 @@
 .dot.live{background:var(--g);animation:pulse 2s infinite}.dot.spin{background:var(--y)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes rcPulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.6),0 2px 6px rgba(5,150,105,0.4)}50%{box-shadow:0 0 0 8px rgba(16,185,129,0),0 2px 12px rgba(5,150,105,0.6)}}
+
+/* ═════ ERP 엑셀-스타일 시트 ═════ */
+.erp-sheet-wrapper{outline:none;overflow:auto;max-height:calc(100vh - 240px);background:#fff}
+.erp-sheet{border-collapse:collapse;font-family:var(--m);font-size:12px;table-layout:fixed;min-width:1600px}
+.erp-sheet th,.erp-sheet td{border:1px solid #D1D5DB;padding:0;min-width:90px;height:24px;position:relative;background:#fff}
+.erp-sheet thead th{background:#F3F4F6;color:#374151;font-weight:700;text-align:center;padding:4px 6px;height:30px;position:sticky;top:0;z-index:10;font-size:11.5px}
+.erp-sheet .erp-row-sel{background:#F3F4F6;color:#6B7280;font-weight:700;text-align:center;width:42px;min-width:42px;padding:2px;cursor:pointer;position:sticky;left:0;z-index:5}
+.erp-sheet .erp-row-sel:hover{background:#E5E7EB}
+.erp-sheet tr.erp-row-selected .erp-row-sel{background:#3B82F6;color:#fff}
+.erp-sheet tr.erp-row-selected td:not(.erp-row-sel){background:#EFF6FF}
+.erp-sheet td.erp-cell{cursor:cell;user-select:none;padding:3px 6px;font-size:12px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.erp-sheet td.erp-cell.erp-selected{background:#DBEAFE;outline:2px solid #2563EB;outline-offset:-2px;z-index:3}
+.erp-sheet td.erp-cell.erp-range-selected{background:#DBEAFE}
+.erp-sheet td.erp-cell.erp-editing{padding:0;background:#fff;outline:2px solid #1D4ED8;outline-offset:-2px;z-index:4}
+.erp-sheet td.erp-cell input.erp-cell-input{width:100%;height:100%;border:none;outline:none;padding:3px 6px;font-family:var(--m);font-size:12px;background:#fff;color:#111827}
+.erp-sheet td.erp-num{text-align:right;font-variant-numeric:tabular-nums}
+.erp-sheet td.erp-readonly{background:#FAFAFA;color:#6B7280;font-style:italic}
+.erp-sheet td.erp-cell:focus{outline:2px solid #2563EB;outline-offset:-2px}
+/* 행 인덱스 컬럼은 sticky로 항상 왼쪽 고정 */
+.erp-sheet .erp-row-num{position:sticky;left:0;background:#F3F4F6;font-weight:700;text-align:center;color:#6B7280;z-index:2;width:42px;min-width:42px;font-size:11px;cursor:pointer}
+.erp-sheet .erp-row-num:hover{background:#E5E7EB}
+.erp-sheet tr.erp-row-selected .erp-row-num{background:#3B82F6;color:#fff}
 .sb-nav{padding:8px;flex:1;overflow-y:auto}
 .sb-sec{font-size:16px;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);padding:10px 8px 3px;font-weight:700}
 .ni{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:18px;color:var(--t2);cursor:pointer;font-weight:500;margin-bottom:1px;transition:all .15s}
@@ -419,6 +441,11 @@
       <div class="ni" onclick="go('bom-db',this)">🧩 품목마스터 <span class="nb nbg" id="badge-bom">0</span></div>
       <div class="ni" onclick="go('mc-bom',this)">🔩 MC BOM <span class="nb nbg" id="badge-mc">-</span></div>
       <div class="ni" onclick="go('vendor-scm',this)">🏪 거래처 SCM <span class="nb nbg" id="badge-vscm">-</span></div>
+      
+      <!-- 📤 ERP 그룹 (영림원 양식 입력) -->
+      <div style="margin-top:8px;padding:6px 12px 4px;font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;border-top:1px solid var(--border);margin-top:10px;padding-top:10px">📤 ERP 업로드</div>
+      <div class="ni" onclick="go('erp-purchase-order',this)" style="background:linear-gradient(90deg,#FEF3C7,transparent)">📦 프로젝트구매발주입력 <span class="nb nbg" id="badge-erp-po">-</span></div>
+      <div class="ni" onclick="go('erp-purchase-receipt',this)" style="background:linear-gradient(90deg,#DBEAFE,transparent)">🚚 프로젝트구매납품입력 <span class="nb nbg" id="badge-erp-dlv">-</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -1044,6 +1071,116 @@
         </div>
         <div style="flex:1;overflow-y:auto;padding:0" id="mcSubBody">
           <div class="sw"><div class="spr"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <!-- 📦 ERP 프로젝트구매발주입력 탭 -->
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <div class="page" id="tab-erp-purchase-order">
+      <div class="pbar">
+        <div class="pl">📦 프로젝트구매발주입력 <span style="font-size:13px;color:var(--t3);font-weight:400;margin-left:8px">영림원 ERP 업로드 양식</span></div>
+        <div class="pps">
+          <button onclick="erpAutoFill('order')" style="padding:6px 13px;border-radius:7px;border:1px solid #1D4ED8;background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🔄 구매활동에서 자동 채우기</button>
+          <button onclick="erpAddRow('order')" style="padding:6px 13px;border-radius:7px;border:1px solid var(--g);background:var(--gd);color:var(--g);font-size:13px;font-weight:800;cursor:pointer;margin-left:6px">+ 행 추가</button>
+          <button onclick="erpClearAll('order')" style="padding:6px 13px;border-radius:7px;border:1px solid var(--r);background:var(--rd);color:var(--r);font-size:13px;font-weight:800;cursor:pointer;margin-left:6px">🗑️ 전체 삭제</button>
+          <button onclick="erpUpload('order')" style="padding:7px 16px;border-radius:7px;border:none;background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-size:13px;font-weight:800;cursor:pointer;margin-left:10px;box-shadow:0 2px 6px rgba(5,150,105,0.3)">📤 SP 업로드</button>
+        </div>
+        <div class="pr" id="erp-order-info">데이터 없음</div>
+      </div>
+      
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">📋</div>발주 입력 시트 <span style="font-size:13px;color:var(--t3);font-weight:400;margin-left:4px" id="erp-order-cnt">0행</span></div>
+          <div style="font-size:12px;color:var(--t3)">💡 셀 클릭 → 편집 · 행 헤더 클릭 → 행 선택 · Ctrl+C/V · 양식과 동일</div>
+        </div>
+        <div class="cb" style="padding:0;overflow-x:auto">
+          <div class="erp-sheet-wrapper" id="erp-order-sheet" tabindex="0">
+            <table class="erp-sheet" id="erp-order-table">
+              <thead>
+                <tr class="erp-col-header">
+                  <th class="erp-row-sel"></th>
+                  <th>프로젝트명</th>
+                  <th>프로젝트번호</th>
+                  <th>품명</th>
+                  <th>품번</th>
+                  <th>규격</th>
+                  <th>단위</th>
+                  <th>제조사</th>
+                  <th>납품예정일</th>
+                  <th>발주수량</th>
+                  <th>현재고</th>
+                  <th>단가</th>
+                  <th>금액</th>
+                  <th>부가세포함여부</th>
+                  <th>부가세율</th>
+                  <th>부가세</th>
+                  <th>금액계</th>
+                  <th>창고</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody id="erp-order-tbody">
+                <!-- JS로 채워짐 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <!-- 🚚 ERP 프로젝트구매납품입력 탭 -->
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <div class="page" id="tab-erp-purchase-receipt">
+      <div class="pbar">
+        <div class="pl">🚚 프로젝트구매납품입력 <span style="font-size:13px;color:var(--t3);font-weight:400;margin-left:8px">영림원 ERP 업로드 양식</span></div>
+        <div class="pps">
+          <button onclick="erpAutoFill('receipt')" style="padding:6px 13px;border-radius:7px;border:1px solid #1D4ED8;background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;font-size:13px;font-weight:800;cursor:pointer">🔄 구매활동에서 자동 채우기</button>
+          <button onclick="erpAddRow('receipt')" style="padding:6px 13px;border-radius:7px;border:1px solid var(--g);background:var(--gd);color:var(--g);font-size:13px;font-weight:800;cursor:pointer;margin-left:6px">+ 행 추가</button>
+          <button onclick="erpClearAll('receipt')" style="padding:6px 13px;border-radius:7px;border:1px solid var(--r);background:var(--rd);color:var(--r);font-size:13px;font-weight:800;cursor:pointer;margin-left:6px">🗑️ 전체 삭제</button>
+          <button onclick="erpUpload('receipt')" style="padding:7px 16px;border-radius:7px;border:none;background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-size:13px;font-weight:800;cursor:pointer;margin-left:10px;box-shadow:0 2px 6px rgba(5,150,105,0.3)">📤 SP 업로드</button>
+        </div>
+        <div class="pr" id="erp-receipt-info">데이터 없음</div>
+      </div>
+      
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><div class="ci c2">📋</div>납품 입력 시트 <span style="font-size:13px;color:var(--t3);font-weight:400;margin-left:4px" id="erp-receipt-cnt">0행</span></div>
+          <div style="font-size:12px;color:var(--t3)">💡 셀 클릭 → 편집 · 행 헤더 클릭 → 행 선택 · Ctrl+C/V · 양식과 동일</div>
+        </div>
+        <div class="cb" style="padding:0;overflow-x:auto">
+          <div class="erp-sheet-wrapper" id="erp-receipt-sheet" tabindex="0">
+            <table class="erp-sheet" id="erp-receipt-table">
+              <thead>
+                <tr class="erp-col-header">
+                  <th class="erp-row-sel"></th>
+                  <th>프로젝트명</th>
+                  <th>프로젝트번호</th>
+                  <th>품명</th>
+                  <th>품번</th>
+                  <th>규격</th>
+                  <th>단위</th>
+                  <th>제조사</th>
+                  <th>납품수량</th>
+                  <th>단가</th>
+                  <th>금액</th>
+                  <th>부가세포함여부</th>
+                  <th>부가세율</th>
+                  <th>부가세</th>
+                  <th>금액계</th>
+                  <th>창고</th>
+                  <th>LotNo</th>
+                  <th>증빙</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody id="erp-receipt-tbody">
+                <!-- JS로 채워짐 -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -11805,6 +11942,14 @@ function advancePRStatusByDoc(docType, matchKey) {
 
 // 사이드바 배지 통합 갱신 (모든 DB 데이터 로드 후 호출)
 function updateAllBadges() {
+  // ERP 배지 갱신
+  if(typeof window._erpData !== "undefined") {
+    if(typeof erpUpdateBadge === "function") {
+      erpUpdateBadge("order");
+      erpUpdateBadge("receipt");
+    }
+  }
+  
   const map = {
     "badge-pa":  (typeof slData!=="undefined" && Array.isArray(slData)) ? slData.length : 0,
     "badge-qdb": (_pqdbData||[]).length,
@@ -12124,6 +12269,601 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }, 2000);  // 인증 완료 후
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📤 ERP 양식 업로드 모듈 (프로젝트구매발주입력 / 프로젝트구매납품입력)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const ERP_SP_FOLDER = "💰 재무·회계/100.ERP";
+
+// 양식별 컬럼 정의 (엑셀 양식과 1:1 매칭)
+const ERP_COLS = {
+  order: [
+    { key:"프로젝트명", w:160, type:"text" },
+    { key:"프로젝트번호", w:110, type:"text" },
+    { key:"품명", w:180, type:"text" },
+    { key:"품번", w:130, type:"text" },
+    { key:"규격", w:130, type:"text" },
+    { key:"단위", w:60, type:"text" },
+    { key:"제조사", w:120, type:"text" },
+    { key:"납품예정일", w:100, type:"date" },
+    { key:"발주수량", w:80, type:"num" },
+    { key:"현재고", w:80, type:"num" },
+    { key:"단가", w:100, type:"num" },
+    { key:"금액", w:110, type:"num" },
+    { key:"부가세포함여부", w:90, type:"text" },
+    { key:"부가세율", w:70, type:"num" },
+    { key:"부가세", w:100, type:"num" },
+    { key:"금액계", w:110, type:"num" },
+    { key:"창고", w:90, type:"text" },
+    { key:"비고", w:140, type:"text" },
+  ],
+  receipt: [
+    { key:"프로젝트명", w:160, type:"text" },
+    { key:"프로젝트번호", w:110, type:"text" },
+    { key:"품명", w:180, type:"text" },
+    { key:"품번", w:130, type:"text" },
+    { key:"규격", w:130, type:"text" },
+    { key:"단위", w:60, type:"text" },
+    { key:"제조사", w:120, type:"text" },
+    { key:"납품수량", w:80, type:"num" },
+    { key:"단가", w:100, type:"num" },
+    { key:"금액", w:110, type:"num" },
+    { key:"부가세포함여부", w:90, type:"text" },
+    { key:"부가세율", w:70, type:"num" },
+    { key:"부가세", w:100, type:"num" },
+    { key:"금액계", w:110, type:"num" },
+    { key:"창고", w:90, type:"text" },
+    { key:"LotNo", w:110, type:"text" },
+    { key:"증빙", w:100, type:"text" },
+    { key:"비고", w:140, type:"text" },
+  ],
+};
+
+// 메모리 데이터 (자동저장은 localStorage에)
+window._erpData = { order: [], receipt: [] };
+window._erpSelection = { kind: null, rows: new Set(), cells: new Set() };
+
+// 초기화: localStorage에서 복원 + 빈 시트 표시
+function erpInit(kind) {
+  try {
+    const saved = localStorage.getItem("erp_" + kind);
+    if(saved) {
+      window._erpData[kind] = JSON.parse(saved);
+    }
+  } catch(e) {}
+  
+  // 빈 데이터면 5행 기본 생성
+  if(window._erpData[kind].length === 0) {
+    for(let i = 0; i < 5; i++) erpEmptyRow(kind);
+  }
+  erpRender(kind);
+}
+
+function erpEmptyRow(kind) {
+  const row = {};
+  for(const c of ERP_COLS[kind]) row[c.key] = "";
+  window._erpData[kind].push(row);
+  return row;
+}
+
+function erpAddRow(kind) {
+  erpEmptyRow(kind);
+  erpSaveLocal(kind);
+  erpRender(kind);
+}
+
+function erpClearAll(kind) {
+  if(!confirm("⚠️ 모든 행을 삭제하시겠습니까?\n복구 불가")) return;
+  window._erpData[kind] = [];
+  for(let i = 0; i < 5; i++) erpEmptyRow(kind);
+  erpSaveLocal(kind);
+  erpRender(kind);
+}
+
+function erpSaveLocal(kind) {
+  try {
+    localStorage.setItem("erp_" + kind, JSON.stringify(window._erpData[kind]));
+  } catch(e) {
+    console.warn("ERP 로컬 저장 실패:", e.message);
+  }
+}
+
+// 시트 렌더링
+function erpRender(kind) {
+  const tbody = document.getElementById(`erp-${kind}-tbody`);
+  if(!tbody) return;
+  const cols = ERP_COLS[kind];
+  const data = window._erpData[kind];
+  
+  tbody.innerHTML = data.map((row, ri) => {
+    const tds = cols.map((c, ci) => {
+      const val = row[c.key] !== undefined ? row[c.key] : "";
+      const isNum = c.type === "num";
+      const displayVal = isNum && val !== "" && !isNaN(Number(val))
+        ? Number(val).toLocaleString()
+        : escapeHtml(String(val));
+      return `<td class="erp-cell ${isNum?'erp-num':''}" data-r="${ri}" data-c="${ci}" data-key="${c.key}" data-type="${c.type}" tabindex="-1">${displayVal}</td>`;
+    }).join("");
+    return `<tr data-r="${ri}"><td class="erp-row-num" onclick="erpSelectRow('${kind}',${ri},event)">${ri+1}</td>${tds}</tr>`;
+  }).join("");
+  
+  // 컬럼 너비
+  const table = document.getElementById(`erp-${kind}-table`);
+  if(table && !table.querySelector("colgroup")) {
+    const colgroup = document.createElement("colgroup");
+    colgroup.innerHTML = `<col style="width:42px">` + cols.map(c => `<col style="width:${c.w}px">`).join("");
+    table.insertBefore(colgroup, table.firstChild);
+  }
+  
+  // 카운트
+  const cntEl = document.getElementById(`erp-${kind}-cnt`);
+  if(cntEl) cntEl.textContent = `${data.length}행`;
+  const infoEl = document.getElementById(`erp-${kind}-info`);
+  if(infoEl) {
+    const empty = data.filter(r => !Object.values(r).some(v => v && String(v).trim())).length;
+    const filled = data.length - empty;
+    infoEl.innerHTML = `<b style="color:#1D4ED8">${filled}건</b> 입력됨 · 빈행 ${empty}`;
+  }
+  
+  // 이벤트 바인딩
+  erpAttachCellEvents(kind);
+}
+
+// 셀 이벤트 (편집 / 선택 / 키보드)
+function erpAttachCellEvents(kind) {
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  
+  // 이전 이벤트 제거
+  const newWrapper = wrapper.cloneNode(true);
+  wrapper.parentNode.replaceChild(newWrapper, wrapper);
+  
+  const cells = newWrapper.querySelectorAll(".erp-cell");
+  
+  let lastClick = { r: null, c: null };
+  
+  cells.forEach(cell => {
+    // 단일 클릭 = 선택
+    cell.addEventListener("click", (e) => {
+      const r = +cell.dataset.r, c = +cell.dataset.c;
+      
+      if(e.shiftKey && lastClick.r !== null) {
+        // 범위 선택
+        erpSelectRange(kind, lastClick.r, lastClick.c, r, c);
+      } else {
+        // 단일 셀
+        erpClearSelection(kind);
+        cell.classList.add("erp-selected");
+        cell.focus();
+        lastClick = { r, c };
+      }
+    });
+    
+    // 더블 클릭 = 편집 모드
+    cell.addEventListener("dblclick", (e) => {
+      erpStartEdit(cell, kind);
+    });
+    
+    // 키보드 이벤트
+    cell.addEventListener("keydown", (e) => {
+      const r = +cell.dataset.r, c = +cell.dataset.c;
+      
+      if(e.key === "F2" || (e.key.length === 1 && !e.ctrlKey && !e.metaKey)) {
+        // 편집 시작
+        e.preventDefault();
+        erpStartEdit(cell, kind, e.key.length === 1 ? e.key : null);
+      } else if(e.key === "Enter") {
+        e.preventDefault();
+        erpStartEdit(cell, kind);
+      } else if(e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        erpDeleteSelected(kind);
+      } else if(e.key === "ArrowRight") {
+        e.preventDefault();
+        erpMoveSelection(kind, r, c+1);
+      } else if(e.key === "ArrowLeft") {
+        e.preventDefault();
+        erpMoveSelection(kind, r, c-1);
+      } else if(e.key === "ArrowDown") {
+        e.preventDefault();
+        erpMoveSelection(kind, r+1, c);
+      } else if(e.key === "ArrowUp") {
+        e.preventDefault();
+        erpMoveSelection(kind, r-1, c);
+      } else if((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        erpCopy(kind);
+      } else if((e.ctrlKey || e.metaKey) && e.key === "v") {
+        // 기본 paste 허용 (paste 이벤트가 처리)
+      } else if((e.ctrlKey || e.metaKey) && e.key === "x") {
+        e.preventDefault();
+        erpCopy(kind);
+        erpDeleteSelected(kind);
+      }
+    });
+    
+    // Paste 이벤트
+    cell.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData("text");
+      erpPaste(kind, +cell.dataset.r, +cell.dataset.c, text);
+    });
+  });
+}
+
+function erpClearSelection(kind) {
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  wrapper.querySelectorAll(".erp-cell").forEach(c => c.classList.remove("erp-selected","erp-range-selected"));
+  wrapper.querySelectorAll("tr").forEach(tr => tr.classList.remove("erp-row-selected"));
+}
+
+function erpSelectRow(kind, ri, event) {
+  if(!event?.ctrlKey && !event?.metaKey) erpClearSelection(kind);
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  const tr = wrapper.querySelector(`tr[data-r="${ri}"]`);
+  if(tr) tr.classList.add("erp-row-selected");
+  // 해당 행의 모든 셀 선택
+  wrapper.querySelectorAll(`.erp-cell[data-r="${ri}"]`).forEach(c => c.classList.add("erp-range-selected"));
+}
+
+function erpSelectRange(kind, r1, c1, r2, c2) {
+  erpClearSelection(kind);
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  const minR = Math.min(r1,r2), maxR = Math.max(r1,r2);
+  const minC = Math.min(c1,c2), maxC = Math.max(c1,c2);
+  for(let r = minR; r <= maxR; r++) {
+    for(let c = minC; c <= maxC; c++) {
+      const cell = wrapper.querySelector(`.erp-cell[data-r="${r}"][data-c="${c}"]`);
+      if(cell) cell.classList.add("erp-range-selected");
+    }
+  }
+}
+
+function erpMoveSelection(kind, r, c) {
+  const cols = ERP_COLS[kind];
+  const data = window._erpData[kind];
+  if(r < 0 || r >= data.length || c < 0 || c >= cols.length) return;
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  erpClearSelection(kind);
+  const cell = wrapper.querySelector(`.erp-cell[data-r="${r}"][data-c="${c}"]`);
+  if(cell) {
+    cell.classList.add("erp-selected");
+    cell.focus();
+    cell.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+}
+
+function erpStartEdit(cell, kind, initialChar) {
+  const r = +cell.dataset.r, c = +cell.dataset.c, key = cell.dataset.key;
+  const data = window._erpData[kind];
+  const cur = data[r]?.[key] || "";
+  
+  cell.classList.add("erp-editing");
+  const input = document.createElement("input");
+  input.className = "erp-cell-input";
+  input.type = "text";
+  input.value = initialChar !== null && initialChar !== undefined ? initialChar : String(cur);
+  cell.innerHTML = "";
+  cell.appendChild(input);
+  input.focus();
+  if(initialChar === null || initialChar === undefined) input.select();
+  
+  const finish = (commit) => {
+    if(commit) {
+      let v = input.value;
+      if(cell.dataset.type === "num") {
+        v = v.replace(/,/g, "");
+        const n = Number(v);
+        if(!isNaN(n) && v.trim() !== "") {
+          data[r][key] = n;
+          // 자동 계산 (금액=수량*단가, 부가세=금액*0.1, 금액계=금액+부가세)
+          erpAutoCalc(kind, r);
+        } else {
+          data[r][key] = v;
+        }
+      } else {
+        data[r][key] = v;
+      }
+      erpSaveLocal(kind);
+    }
+    cell.classList.remove("erp-editing");
+    erpRender(kind);
+    setTimeout(() => {
+      const newCell = document.querySelector(`#erp-${kind}-sheet .erp-cell[data-r="${r}"][data-c="${c}"]`);
+      if(newCell) { newCell.classList.add("erp-selected"); newCell.focus(); }
+    }, 10);
+  };
+  
+  input.addEventListener("blur", () => finish(true));
+  input.addEventListener("keydown", (e) => {
+    if(e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+      erpMoveSelection(kind, r+1, c);
+    } else if(e.key === "Tab") {
+      e.preventDefault();
+      finish(true);
+      erpMoveSelection(kind, r, c+1);
+    } else if(e.key === "Escape") {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+}
+
+function erpAutoCalc(kind, r) {
+  const row = window._erpData[kind][r];
+  if(!row) return;
+  
+  const qtyKey = kind === "order" ? "발주수량" : "납품수량";
+  const qty = Number(row[qtyKey]) || 0;
+  const price = Number(row["단가"]) || 0;
+  const vatRate = Number(row["부가세율"]) || 10;
+  const includeVat = String(row["부가세포함여부"]||"").trim().toUpperCase();
+  
+  if(qty && price) {
+    const amt = qty * price;
+    row["금액"] = amt;
+    
+    if(includeVat === "Y" || includeVat === "예") {
+      row["부가세"] = Math.round(amt * vatRate / (100 + vatRate));
+      row["금액계"] = amt;
+    } else {
+      row["부가세"] = Math.round(amt * vatRate / 100);
+      row["금액계"] = amt + row["부가세"];
+    }
+  }
+}
+
+// 클립보드 복사 (TSV - 엑셀 호환)
+function erpCopy(kind) {
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  const selected = wrapper.querySelectorAll(".erp-cell.erp-range-selected, .erp-cell.erp-selected");
+  if(selected.length === 0) return;
+  
+  // 좌표 그룹화
+  const coords = [...selected].map(c => ({ r:+c.dataset.r, c:+c.dataset.c, key:c.dataset.key }));
+  const minR = Math.min(...coords.map(x=>x.r));
+  const maxR = Math.max(...coords.map(x=>x.r));
+  const minC = Math.min(...coords.map(x=>x.c));
+  const maxC = Math.max(...coords.map(x=>x.c));
+  
+  const data = window._erpData[kind];
+  const cols = ERP_COLS[kind];
+  
+  const lines = [];
+  for(let r = minR; r <= maxR; r++) {
+    const cells = [];
+    for(let c = minC; c <= maxC; c++) {
+      const val = data[r]?.[cols[c].key];
+      cells.push(val !== undefined && val !== null ? String(val) : "");
+    }
+    lines.push(cells.join("\t"));
+  }
+  const text = lines.join("\n");
+  
+  navigator.clipboard.writeText(text).then(() => {
+    console.log(`📋 복사 완료: ${lines.length}행 × ${(maxC-minC+1)}열`);
+  }).catch(e => console.warn("복사 실패:", e));
+}
+
+// 클립보드 붙여넣기 (TSV)
+function erpPaste(kind, startR, startC, text) {
+  if(!text) return;
+  const data = window._erpData[kind];
+  const cols = ERP_COLS[kind];
+  
+  const lines = text.split(/\r?\n/).filter(l => l !== "" || true);
+  // 마지막 빈 줄 제거 (엑셀 복사 시 끝에 \n 있음)
+  while(lines.length > 0 && lines[lines.length-1] === "") lines.pop();
+  
+  for(let i = 0; i < lines.length; i++) {
+    const r = startR + i;
+    // 부족하면 행 추가
+    while(r >= data.length) erpEmptyRow(kind);
+    
+    const cells = lines[i].split("\t");
+    for(let j = 0; j < cells.length; j++) {
+      const c = startC + j;
+      if(c >= cols.length) break;
+      const key = cols[c].key;
+      let val = cells[j];
+      if(cols[c].type === "num") {
+        const clean = val.replace(/,/g, "");
+        const n = Number(clean);
+        val = !isNaN(n) && clean.trim() !== "" ? n : val;
+      }
+      data[r][key] = val;
+    }
+    erpAutoCalc(kind, r);
+  }
+  
+  erpSaveLocal(kind);
+  erpRender(kind);
+  console.log(`📋 붙여넣기 완료: ${lines.length}행`);
+}
+
+function erpDeleteSelected(kind) {
+  const wrapper = document.getElementById(`erp-${kind}-sheet`);
+  if(!wrapper) return;
+  const selected = wrapper.querySelectorAll(".erp-cell.erp-range-selected, .erp-cell.erp-selected");
+  if(selected.length === 0) return;
+  
+  for(const cell of selected) {
+    const r = +cell.dataset.r, key = cell.dataset.key;
+    if(window._erpData[kind][r]) window._erpData[kind][r][key] = "";
+  }
+  erpSaveLocal(kind);
+  erpRender(kind);
+}
+
+// 🔄 구매활동에서 자동 채우기
+function erpAutoFill(kind) {
+  if(!Array.isArray(slData) || slData.length === 0) {
+    alert("구매활동 데이터가 없습니다.\n구매활동 탭에서 먼저 활동을 등록해주세요.");
+    return;
+  }
+  
+  // 발주: _pordData / 납품: _pdlvData에서 가져옴
+  const dataSource = kind === "order" 
+    ? (typeof _pordData !== "undefined" ? _pordData : [])
+    : (typeof _pdlvData !== "undefined" ? _pdlvData : []);
+  
+  if(dataSource.length === 0) {
+    alert(`${kind === "order" ? "발주서" : "거래명세서"} 데이터가 없습니다.\n해당 DB를 먼저 입력해주세요.`);
+    return;
+  }
+  
+  // 미전송분만 추출 (이미 ERP 업로드된 건 제외하려면 별도 마크 필요 - 일단 전부)
+  const filtered = dataSource.filter(d => Array.isArray(d.itemList) && d.itemList.length > 0);
+  
+  if(filtered.length === 0) {
+    alert("품목이 입력된 데이터가 없습니다.");
+    return;
+  }
+  
+  if(!confirm(`📥 ${filtered.length}건의 ${kind === "order" ? "발주서" : "거래명세서"}에서\n품목을 ERP 양식으로 채울까요?\n\n기존 데이터에 추가됩니다 (덮어쓰기 X)`)) return;
+  
+  let addedRows = 0;
+  for(const d of filtered) {
+    const act = slData.find(s => s.id === d.parentSLId);
+    const pjName = act?.company || "";
+    const pjNo = d.projectCode || act?.pjcode || "";
+    
+    for(const item of d.itemList) {
+      const newRow = {};
+      for(const c of ERP_COLS[kind]) newRow[c.key] = "";
+      
+      newRow["프로젝트명"] = pjName;
+      newRow["프로젝트번호"] = pjNo;
+      newRow["품명"] = item.name || item.품명 || "";
+      newRow["품번"] = item.code || item.품번 || "";
+      newRow["규격"] = item.spec || item.규격 || "";
+      newRow["단위"] = item.unit || item.단위 || "EA";
+      newRow["제조사"] = item.maker || item.제조사 || "";
+      
+      const qty = Number(item.qty || item.수량 || 0);
+      const price = Number(item.unitPrice || item.단가 || 0);
+      
+      if(kind === "order") {
+        newRow["발주수량"] = qty;
+        newRow["납품예정일"] = d.deliveryDate || d.expectedDate || "";
+      } else {
+        newRow["납품수량"] = qty;
+        newRow["LotNo"] = item.lotNo || "";
+        newRow["증빙"] = d.dlvNo || "";
+      }
+      newRow["단가"] = price;
+      newRow["부가세포함여부"] = item.vatIncluded ? "Y" : "N";
+      newRow["부가세율"] = 10;
+      
+      // 자동 계산
+      if(qty && price) {
+        const amt = qty * price;
+        newRow["금액"] = amt;
+        newRow["부가세"] = Math.round(amt * 10 / 100);
+        newRow["금액계"] = amt + newRow["부가세"];
+      }
+      
+      newRow["창고"] = item.warehouse || "";
+      newRow["비고"] = item.note || "";
+      
+      window._erpData[kind].push(newRow);
+      addedRows++;
+    }
+  }
+  
+  erpSaveLocal(kind);
+  erpRender(kind);
+  alert(`✅ ${addedRows}개 행이 추가되었습니다.`);
+}
+
+// 📤 SharePoint 업로드 (그날 날짜로 새 엑셀 파일 생성)
+async function erpUpload(kind) {
+  const data = window._erpData[kind];
+  const filled = data.filter(r => Object.values(r).some(v => v !== "" && v !== null && v !== undefined));
+  
+  if(filled.length === 0) {
+    alert("업로드할 데이터가 없습니다. 행을 먼저 입력해주세요.");
+    return;
+  }
+  
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0,10);  // 2026-05-22
+  const timeStr = today.toTimeString().slice(0,5).replace(":", "");  // 1430
+  
+  const formName = kind === "order" ? "프로젝트구매발주입력" : "프로젝트구매납품입력";
+  const fileName = `${formName}_${dateStr.replace(/-/g,"")}_${timeStr}.xlsx`;
+  
+  if(!confirm(`📤 SharePoint에 업로드하시겠어요?\n\n• 파일명: ${fileName}\n• 경로: ${ERP_SP_FOLDER}/\n• 데이터: ${filled.length}건\n\n양식 그대로 저장됩니다 (영림원 ERP 호환)`)) return;
+  
+  try {
+    const t = await getToken();
+    if(!t) { alert("Graph 인증 실패"); return; }
+    
+    // 엑셀 생성 (양식과 동일: 1행=제목, 2행=헤더, 3행~=데이터)
+    if(typeof XLSX === "undefined") { alert("SheetJS 없음"); return; }
+    
+    const cols = ERP_COLS[kind];
+    const aoa = [
+      [formName, ...Array(cols.length-1).fill("")],   // 1행: 제목
+      cols.map(c => c.key),                           // 2행: 헤더
+      ...filled.map(row => cols.map(c => row[c.key] !== undefined ? row[c.key] : ""))  // 3행~
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    
+    // SP 업로드
+    const fullPath = `${ERP_SP_FOLDER}/${fileName}`;
+    const encPath = fullPath.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      {
+        method: "PUT",
+        headers: {
+          "Authorization": "Bearer " + t,
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        body: buf
+      }
+    );
+    
+    if(!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    
+    const meta = await resp.json();
+    console.log(`✅ ERP 업로드 완료: ${fileName}`);
+    
+    const url = meta.webUrl;
+    if(confirm(`✅ 업로드 완료!\n\n파일명: ${fileName}\n${filled.length}건 저장\n\nSharePoint에서 파일 열기?`)) {
+      window.open(url, "_blank");
+    }
+  } catch(e) {
+    console.error("ERP 업로드 오류:", e);
+    alert("⚠️ 업로드 실패: " + e.message);
+  }
+}
+
+// 사이드바 배지 갱신
+function erpUpdateBadge(kind) {
+  const id = kind === "order" ? "badge-erp-po" : "badge-erp-dlv";
+  const badge = document.getElementById(id);
+  if(badge) {
+    const filled = window._erpData[kind].filter(r => Object.values(r).some(v => v !== "" && v !== null)).length;
+    badge.textContent = filled > 0 ? filled : "-";
+  }
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🌱 테스트 데이터 시드 (콘솔에서 호출: seedPurchaseTestData())
@@ -27450,7 +28190,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -30506,6 +31246,13 @@ function go(id, el) {
   // ✅ 매입완료 탭 진입 시 - PMS 자동 로드
   if(id==="receipt") {
     if(typeof rcInit === "function") rcInit();
+  }
+  // 📤 ERP 양식 탭 진입 시 - 시트 초기화
+  if(id==="erp-purchase-order") {
+    if(typeof erpInit === "function") erpInit("order");
+  }
+  if(id==="erp-purchase-receipt") {
+    if(typeof erpInit === "function") erpInit("receipt");
   }
   // 🏪 거래처 SCM 탭 진입 시 - SCM 자동 로드
   if(id==="vendor-scm") {
