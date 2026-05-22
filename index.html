@@ -55,23 +55,23 @@
 .l-foot{margin-top:14px;font-size:14px;color:var(--t3);line-height:1.6}
 /* KPI */
 .kr{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
-.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;position:relative;overflow:hidden}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}
 .kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:3px}
 .kpi.c1::before{background:var(--p)}.kpi.c2::before{background:var(--g)}.kpi.c3::before{background:var(--r)}.kpi.c4::before{background:var(--a)}.kpi.c5::before{background:var(--pu)}
-.kl{font-size:17px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:6px}
-.kv{font-size:26px;font-weight:900;font-family:var(--m);line-height:1;margin-bottom:4px}
+.kl{font-size:14px;color:#374151;text-transform:none;letter-spacing:0;font-weight:800;margin-bottom:7px}
+.kv{font-size:30px;font-weight:900;font-family:var(--m);line-height:1;margin-bottom:5px}
 .kpi.c1 .kv{color:var(--p)}.kpi.c2 .kv{color:var(--g)}.kpi.c3 .kv{color:var(--r)}.kpi.c4 .kv{color:var(--a)}.kpi.c5 .kv{color:var(--pu)}
-.ks{font-size:15px;color:var(--t3)}
+.ks{font-size:13px;color:#4B5563;font-weight:500}
 .badge{font-size:14px;padding:2px 5px;border-radius:4px;font-weight:800;font-family:var(--m);display:inline-block}
 .badge.up{background:var(--gd);color:var(--g)}.badge.dn{background:var(--rd);color:var(--r)}.badge.warn{background:var(--yd);color:var(--y)}.badge.info{background:var(--pd);color:var(--p)}.badge.gray{background:var(--bg3);color:var(--t2)}
 /* LAYOUT */
 .g2{display:grid;grid-template-columns:1.5fr 1fr;gap:9px;margin-bottom:9px}.g2b{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:9px}
-.ch{padding:10px 15px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
-.ct{font-size:20px;font-weight:800;color:var(--t);display:flex;align-items:center;gap:6px}
-.ci{width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ch{padding:11px 16px 9px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.ct{font-size:18px;font-weight:800;color:var(--t);display:flex;align-items:center;gap:7px}
+.ci{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:14px}
 .ci.c1{background:var(--pd);color:var(--p)}.ci.c2{background:var(--gd);color:var(--g)}.ci.c3{background:var(--rd);color:var(--r)}.ci.c4{background:var(--ad);color:var(--a)}
-.cb{padding:11px 15px}.cn{font-size:15px;color:var(--t3);padding:5px 15px;border-top:1px solid var(--border);background:var(--bg3)}
+.cb{padding:12px 16px}.cn{font-size:13px;color:#4B5563;padding:6px 16px;border-top:1px solid var(--border);background:var(--bg3)}
 /* PERIOD */
 .pbar{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:11px;flex-wrap:wrap}
 .pl{font-size:15px;font-weight:700;color:var(--t2)}.pps{display:flex;gap:4px;flex-wrap:wrap}.pw{position:relative}
@@ -933,6 +933,7 @@
           <div class="pp on" id="mc-all" onclick="mcSelFilter('all',this)">전체</div>
           <div class="pp" id="mc-internal" onclick="mcSelFilter('internal',this)">🏠 내수</div>
           <div class="pp" id="mc-export" onclick="mcSelFilter('export',this)">🌐 수출</div>
+          <button onclick="mcForceRebuild()" style="margin-left:8px;padding:5px 12px;border-radius:6px;border:1px solid #F59E0B;background:#FEF3C7;color:#92400E;font-size:12px;font-weight:700;cursor:pointer" title="엑셀 → JSON 강제 재빌드">🔄 엑셀 재빌드</button>
         </div>
         <div class="pr" id="mc-info">로딩중...</div>
       </div>
@@ -977,22 +978,21 @@
           </div>
         </div>
         <div class="cb" style="padding:10px 14px">
-          <div style="overflow-x:auto"><table class="tbl" style="min-width:1280px;table-layout:fixed">
+          <div style="overflow-x:auto"><table class="tbl" style="min-width:1180px;table-layout:fixed">
             <colgroup>
-              <col style="width:130px">
-              <col style="width:55px">
-              <col style="width:115px">
-              <col style="width:220px">
-              <col style="width:50px">
-              <col style="width:75px">
-              <col style="width:75px">
-              <col style="width:55px">
-              <col style="width:40px">
-              <col style="width:55px">
-              <col style="width:75px">
-              <col style="width:80px">
+              <col style="width:140px">
+              <col style="width:60px">
               <col style="width:125px">
-              <col style="width:125px">
+              <col style="width:260px">
+              <col style="width:55px">
+              <col style="width:85px">
+              <col style="width:85px">
+              <col style="width:60px">
+              <col style="width:45px">
+              <col style="width:60px">
+              <col style="width:90px">
+              <col style="width:95px">
+              <col style="width:140px">
             </colgroup>
             <thead><tr>
               <th>거래처</th>
@@ -1007,10 +1007,9 @@
               <th>구분</th>
               <th class="r">1SET 수량</th>
               <th class="r">부품총수</th>
-              <th class="r">합계</th>
               <th class="r">원가(VAT포)</th>
             </tr></thead>
-            <tbody id="mcTb"><tr><td colspan="14"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
+            <tbody id="mcTb"><tr><td colspan="13"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
           <div style="font-size:12.5px;color:var(--t3);margin-top:8px;padding:8px 12px;background:#F9FAFB;border-radius:6px;line-height:1.6">
             💡 <strong>프로젝트코드 클릭</strong> → 해당 프로젝트의 구매 부품 상세 모달 (ERP 발주 / 입고정산 / PMS 매입)
@@ -5798,43 +5797,194 @@ window._pmsLoading = false;
 window._scmData = null;          // {categories, catSummary, vendors, venSummary}
 window._scmLoading = false;
 
+// ════════════════════════════════════════════════════════════════════
+// 🚀 공통 JSON 캐시 헬퍼 (모든 SP 엑셀 → JSON 캐시 전환용)
+// ════════════════════════════════════════════════════════════════════
+// 사용법:
+//   const data = await spCacheLoad({
+//     name: "PMS",                          // 캐시 키 이름
+//     excelPath: PMS_SP_PATH,               // SP 엑셀 경로
+//     jsonPath: "🏭 구매/99.Dashboard(real-time)/pms-cache.json",  // 캐시 JSON 경로
+//     parseExcel: (workbook) => { ... }     // 엑셀 → JSON 파싱 함수
+//   });
+
+async function spCacheLoad(opts) {
+  const { name, excelPath, jsonPath, parseExcel } = opts;
+  
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) return null;
+    
+    // 1) JSON 캐시 시도
+    const encJsonPath = jsonPath.split("/").map(encodeURIComponent).join("/");
+    const jsonResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encJsonPath}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    
+    if(jsonResp.ok) {
+      const cache = await jsonResp.json();
+      if(cache && cache.data) {
+        console.log(`⚡ ${name} JSON 캐시 로드 (${cache._cache_count}건)`);
+        // 백그라운드: 엑셀 최신성 확인
+        spCacheCheckFreshness(t, name, excelPath, jsonPath, parseExcel, cache._source_excel_version)
+          .catch(e => console.warn(`${name} 신선도 확인:`, e.message));
+        return cache.data;
+      }
+    }
+    
+    // 2) JSON 없음 → 엑셀에서 빌드
+    console.log(`📦 ${name} JSON 없음 - 엑셀에서 빌드`);
+    return await spCacheBuildFromExcel(t, name, excelPath, jsonPath, parseExcel);
+  } catch(e) {
+    console.error(`${name} 로드 오류:`, e);
+    return null;
+  }
+}
+
+async function spCacheCheckFreshness(token, name, excelPath, jsonPath, parseExcel, cacheVer) {
+  try {
+    const encExcel = excelPath.split("/").map(encodeURIComponent).join("/");
+    const metaResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encExcel}`,
+      { headers: { "Authorization": "Bearer " + token } }
+    );
+    if(!metaResp.ok) return;
+    const meta = await metaResp.json();
+    const excelVer = meta.lastModifiedDateTime;
+    
+    if(!cacheVer || excelVer > cacheVer) {
+      console.log(`🔄 ${name} 엑셀이 더 최신 - 백그라운드 재빌드`);
+      const data = await spCacheBuildFromExcel(token, name, excelPath, jsonPath, parseExcel);
+      // 메모리 변수도 갱신 (각 캐시 함수가 알아서 해야 함)
+      if(name === "PMS") window._pmsData = data;
+      else if(name === "SCM") window._scmData = data;
+    }
+  } catch(e) {
+    console.warn(`${name} 신선도 확인 실패:`, e.message);
+  }
+}
+
+async function spCacheBuildFromExcel(token, name, excelPath, jsonPath, parseExcel) {
+  const encExcel = excelPath.split("/").map(encodeURIComponent).join("/");
+  const resp = await fetch(
+    `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encExcel}:/content`,
+    { headers: { "Authorization": "Bearer " + token } }
+  );
+  if(!resp.ok) { console.warn(`${name} 엑셀 HTTP ${resp.status}`); return null; }
+  
+  const arrBuf = await resp.arrayBuffer();
+  if(typeof XLSX === "undefined") return null;
+  const wb = XLSX.read(arrBuf, { type: "array", cellDates: true });
+  
+  // 사용자 정의 파싱
+  const data = parseExcel(wb);
+  if(!data) return null;
+  
+  // 엑셀 버전 메타
+  let excelVer = null;
+  try {
+    const metaResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encExcel}`,
+      { headers: { "Authorization": "Bearer " + token } }
+    );
+    if(metaResp.ok) {
+      const m = await metaResp.json();
+      excelVer = m.lastModifiedDateTime;
+    }
+  } catch(e) {}
+  
+  // JSON 캐시 저장
+  const cache = {
+    data,
+    _source_excel_version: excelVer,
+    _cached_at: new Date().toISOString(),
+    _cache_count: Array.isArray(data) ? data.length : Object.keys(data).length,
+  };
+  
+  const encJson = jsonPath.split("/").map(encodeURIComponent).join("/");
+  fetch(
+    `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encJson}:/content`,
+    {
+      method: "PUT",
+      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify(cache)
+    }
+  ).then(r => {
+    if(r.ok) console.log(`✅ ${name} JSON 캐시 저장 완료`);
+  }).catch(e => console.warn(`${name} 저장:`, e.message));
+  
+  return data;
+}
+
+// 🆕 강제 재빌드 (사용자가 클릭) - 메모리 변수까지 갱신
+async function spCacheForceRebuild(name) {
+  const configs = {
+    "PMS": { excelPath: PMS_SP_PATH, jsonPath: PMS_JSON_PATH, varName: "_pmsData" },
+    "SCM": { excelPath: SCM_CAT_SP_PATH, jsonPath: SCM_JSON_PATH, varName: "_scmData" },
+    "ItemMaster": { excelPath: IM_SP_PATH, jsonPath: IM_JSON_PATH, varName: "_imData" },
+  };
+  const cfg = configs[name];
+  if(!cfg) { alert(`알 수 없는 캐시: ${name}`); return; }
+  
+  if(!confirm(`🔄 ${name} JSON 캐시를 강제 재빌드?\n\n• 엑셀 다시 다운로드\n• JSON 캐시 덮어쓰기`)) return;
+  
+  try {
+    const t = await getToken();
+    if(!t) { alert("Graph 인증 실패"); return; }
+    
+    // 메모리 변수 초기화
+    window[cfg.varName] = null;
+    
+    // 재로드
+    if(name === "PMS" && typeof loadPMSData === "function") await loadPMSData();
+    else if(name === "SCM" && typeof loadSCMData === "function") await loadSCMData();
+    else if(name === "ItemMaster" && typeof loadItemMaster === "function") await loadItemMaster();
+    
+    alert(`✅ ${name} 재빌드 완료`);
+  } catch(e) {
+    alert("재빌드 실패: " + e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// JSON 캐시 경로 (각 엑셀별)
+// ════════════════════════════════════════════════════════════════════
+const PMS_JSON_PATH = "🏭 구매/99.Dashboard(real-time)/pms-cache.json";
+const SCM_JSON_PATH = "🏭 구매/99.Dashboard(real-time)/scm-cache.json";
+const IM_JSON_PATH = "🏭 구매/99.Dashboard(real-time)/item-master-cache.json";
+
 async function loadPMSData() {
   if(window._pmsLoading) { console.log("PMS 로딩 중"); return null; }
   if(window._pmsData) return window._pmsData;
   window._pmsLoading = true;
   try {
-    if(typeof getIds === "function") await getIds();
-    const t = await getToken();
-    if(!t || !spDrive) { window._pmsLoading = false; return null; }
-    const encPath = PMS_SP_PATH.split("/").map(encodeURIComponent).join("/");
-    const resp = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
-      { headers: { "Authorization": "Bearer " + t } }
-    );
-    if(!resp.ok) { console.warn(`PMS HTTP ${resp.status}`); window._pmsLoading = false; return null; }
-    const arrBuf = await resp.arrayBuffer();
-    console.log(`📦 PMS 다운로드: ${(arrBuf.byteLength/1024/1024).toFixed(2)}MB`);
-    if(typeof XLSX === "undefined") { window._pmsLoading = false; return null; }
-    const wb = XLSX.read(arrBuf, { type: "array", cellDates: true });
-    console.log(`📦 PMS 시트: ${wb.SheetNames.join(", ")}`);
-
-    const parse = (name) => {
-      const sh = wb.Sheets[name];
-      if(!sh) return [];
-      return XLSX.utils.sheet_to_json(sh, { defval: "", raw: true });
-    };
-    const projects      = parse("📋 프로젝트현황");
-    const subDetail     = parse("📑 프로젝트현황(상세)");
-    const salesAll      = parse("💼 영업매출현황(전체)");
-    const purchaseSales = parse("🛒 구매매입현황(매출)");
-    const govt          = parse("🏛️ 국책과제");
-    const internal      = parse("🔧 내부개발");
-    const matched       = parse("📊 프로젝트별 손익요약");
-
-    window._pmsData = { projects, subDetail, salesAll, purchaseSales, govt, internal, matched };
-    console.log(`📦 PMS 로드 완료: 프로젝트 ${projects.length} | 매출 ${salesAll.length} | 매출구매 ${purchaseSales.length} | 국책 ${govt.length} | 내부 ${internal.length}`);
+    const data = await spCacheLoad({
+      name: "PMS",
+      excelPath: PMS_SP_PATH,
+      jsonPath: PMS_JSON_PATH,
+      parseExcel: (wb) => {
+        const parse = (n) => {
+          const sh = wb.Sheets[n];
+          if(!sh) return [];
+          return XLSX.utils.sheet_to_json(sh, { defval: "", raw: true });
+        };
+        return {
+          projects: parse("📋 프로젝트현황"),
+          subDetail: parse("📑 프로젝트현황(상세)"),
+          salesAll: parse("💼 영업매출현황(전체)"),
+          purchaseSales: parse("🛒 구매매입현황(매출)"),
+          govt: parse("🏛️ 국책과제"),
+          internal: parse("🔧 내부개발"),
+          matched: parse("📊 프로젝트별 손익요약"),
+        };
+      }
+    });
+    window._pmsData = data;
+    if(data) console.log(`📦 PMS 로드 완료: 프로젝트 ${data.projects?.length||0} | 매출 ${data.salesAll?.length||0}`);
     window._pmsLoading = false;
-    return window._pmsData;
+    return data;
   } catch(e) {
     console.error("PMS 로드 실패:", e);
     window._pmsLoading = false;
@@ -5847,43 +5997,44 @@ async function loadSCMData() {
   if(window._scmData) return window._scmData;
   window._scmLoading = true;
   try {
-    if(typeof getIds === "function") await getIds();
-    const t = await getToken();
-    if(!t || !spDrive) { window._scmLoading = false; return null; }
-    const result = { categories: [], catSummary: [], vendors: [], venSummary: [], creditSummary: [] };
-
+    // SCM은 2개 엑셀 → 둘 다 캐시
     // 1) 거래처분류
-    const encCat = SCM_CAT_SP_PATH.split("/").map(encodeURIComponent).join("/");
-    const r1 = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encCat}:/content`,
-      { headers: { "Authorization": "Bearer " + t } }
-    );
-    if(r1.ok) {
-      const buf = await r1.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
-      result.categories = XLSX.utils.sheet_to_json(wb.Sheets["거래처분류"] || wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
-      const sumSh = wb.Sheets["카테고리_요약"];
-      if(sumSh) result.catSummary = XLSX.utils.sheet_to_json(sumSh, { defval: "", raw: true });
-      console.log(`📦 SCM 거래처분류: ${result.categories.length}`);
-    }
-
+    const cat = await spCacheLoad({
+      name: "SCM-Cat",
+      excelPath: SCM_CAT_SP_PATH,
+      jsonPath: "🏭 구매/99.Dashboard(real-time)/scm-cat-cache.json",
+      parseExcel: (wb) => {
+        const cats = XLSX.utils.sheet_to_json(wb.Sheets["거래처분류"] || wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+        const sumSh = wb.Sheets["카테고리_요약"];
+        const summary = sumSh ? XLSX.utils.sheet_to_json(sumSh, { defval: "", raw: true }) : [];
+        return { categories: cats, catSummary: summary };
+      }
+    });
+    
     // 2) 거래처마스터
-    const encVen = SCM_VEN_SP_PATH.split("/").map(encodeURIComponent).join("/");
-    const r2 = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encVen}:/content`,
-      { headers: { "Authorization": "Bearer " + t } }
-    );
-    if(r2.ok) {
-      const buf = await r2.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
-      result.vendors = XLSX.utils.sheet_to_json(wb.Sheets["거래처마스터"] || wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
-      const sumSh = wb.Sheets["거래처종류_요약"];
-      if(sumSh) result.venSummary = XLSX.utils.sheet_to_json(sumSh, { defval: "", raw: true });
-      const cSh = wb.Sheets["신용등급_관리부서"];
-      if(cSh) result.creditSummary = XLSX.utils.sheet_to_json(cSh, { defval: "", raw: true });
-      console.log(`📦 SCM 거래처마스터: ${result.vendors.length}`);
-    }
-
+    const ven = await spCacheLoad({
+      name: "SCM-Ven",
+      excelPath: SCM_VEN_SP_PATH,
+      jsonPath: "🏭 구매/99.Dashboard(real-time)/scm-ven-cache.json",
+      parseExcel: (wb) => {
+        const vendors = XLSX.utils.sheet_to_json(wb.Sheets["거래처마스터"] || wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+        const sumSh = wb.Sheets["거래처종류_요약"];
+        const venSummary = sumSh ? XLSX.utils.sheet_to_json(sumSh, { defval: "", raw: true }) : [];
+        const cSh = wb.Sheets["신용등급_관리부서"];
+        const creditSummary = cSh ? XLSX.utils.sheet_to_json(cSh, { defval: "", raw: true }) : [];
+        return { vendors, venSummary, creditSummary };
+      }
+    });
+    
+    const result = {
+      categories: cat?.categories || [],
+      catSummary: cat?.catSummary || [],
+      vendors: ven?.vendors || [],
+      venSummary: ven?.venSummary || [],
+      creditSummary: ven?.creditSummary || []
+    };
+    console.log(`📦 SCM 로드: 분류 ${result.categories.length} / 거래처 ${result.vendors.length}`);
+    
     window._scmData = result;
     window._scmLoading = false;
     return result;
@@ -5894,6 +6045,8 @@ async function loadSCMData() {
   }
 }
 
+async function _loadSCMDataOld_unused() {}
+
 const IM_SP_PATH = "💰 재무·회계/99.Dashboard(real-time)/ENJET_품목마스터_BOM.xlsx";
 
 async function loadItemMaster() {
@@ -5901,55 +6054,32 @@ async function loadItemMaster() {
   window._imLoading = true;
   
   const info = document.getElementById("im-source-info");
-  if(info) info.textContent = "📡 SharePoint 엑셀 로드 중...";
+  if(info) info.textContent = "📡 JSON 캐시 확인 중...";
   
   try {
-    if(typeof getIds === "function") await getIds();
-    const t = await getToken();
-    if(!t || !spDrive) {
-      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ Graph 인증 실패</span>';
+    // 캐시 헬퍼로 raw rows 가져오기
+    const rows = await spCacheLoad({
+      name: "ItemMaster",
+      excelPath: IM_SP_PATH,
+      jsonPath: IM_JSON_PATH,
+      parseExcel: (wb) => {
+        const sheet = wb.Sheets["품목마스터"] || wb.Sheets[wb.SheetNames[0]];
+        if(!sheet) return null;
+        return XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+      }
+    });
+    
+    if(!rows) {
+      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ 품목마스터 로드 실패</span>';
       window._imLoading = false;
       return;
     }
     
-    const encPath = IM_SP_PATH.split("/").map(encodeURIComponent).join("/");
-    const resp = await fetch(
-      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
-      { headers: { "Authorization": "Bearer " + t } }
-    );
-    
-    if(!resp.ok) {
-      if(info) info.innerHTML = `<span style="color:#dc2626">⚠️ 엑셀 못 읽음 (HTTP ${resp.status})</span>`;
-      window._imLoading = false;
-      return;
-    }
-    
-    const arrBuf = await resp.arrayBuffer();
-    console.log(`📦 품목마스터 다운로드: ${(arrBuf.byteLength/1024).toFixed(1)}KB`);
-    
-    if(typeof XLSX === "undefined") {
-      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ SheetJS 없음</span>';
-      window._imLoading = false;
-      return;
-    }
-    
-    const wb = XLSX.read(arrBuf, { type: "array", cellDates: true });
-    console.log(`📦 시트: ${wb.SheetNames.join(", ")}`);
-    
-    const sheet = wb.Sheets["품목마스터"] || wb.Sheets[wb.SheetNames[0]];
-    if(!sheet) {
-      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ 품목마스터 시트 없음</span>';
-      window._imLoading = false;
-      return;
-    }
-    
-    // raw:true → 숫자 그대로 받음
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
     console.log(`📦 품목마스터: ${rows.length}개`);
     if(rows.length > 0) {
       console.log("📦 컬럼:", Object.keys(rows[0]));
-      console.log("📦 샘플:", rows[0]);
     }
+    
     
     const _safeNum = (v) => {
       if(v === null || v === undefined || v === "") return 0;
@@ -6910,11 +7040,330 @@ function vsRenderMst() {
   </tr>`).join("");
 }
 
-// 🔩 MC BOM 모듈 - ENJET_MC_BOM_Master.xlsx 기반 (매출 1억이상 + 프로젝트별 부품 시트)
+// 🔩 MC BOM 모듈 - JSON 캐시 우선 + 엑셀 fallback (양방향 동기화)
 // ════════════════════════════════════════════════════════════════════
 window._mcState = { filter: "all", data: null };
 
+const MC_BOM_JSON_PATH = "🏭 구매/99.Dashboard(real-time)/mc-bom-cache.json";
+
 async function mcInit() {
+  const info = document.getElementById("mc-info");
+  if(info) info.textContent = "📡 JSON 캐시 확인 중...";
+  
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) {
+      if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ Graph 인증 실패</span>';
+      return;
+    }
+    
+    // ─── 1단계: JSON 캐시 시도 ───
+    const jsonLoaded = await mcLoadFromJSON(t);
+    if(jsonLoaded) {
+      // 🆕 컬럼 구조 검증: 메인의 첫 행이 합계/총수량 옛 구조면 강제 재빌드
+      const main = window._mcState.data?.main;
+      if(main && main.length > 0) {
+        const first = main[0];
+        const keys = Object.keys(first);
+        console.log("🔩 캐시 첫 행 키:", keys);
+        // 새 구조에 필요한 키가 없으면 (예전 캐시) 재빌드
+        const hasPartsCol = keys.some(k => ["부품총수","총수량"].includes(k));
+        const hasCostCol = keys.some(k => ["원가(VAT포)","원가(VAT포함)","총금액(부가세포함)"].includes(k));
+        if(!hasPartsCol || !hasCostCol) {
+          console.warn("⚠️ 옛 캐시 구조 감지 - 강제 재빌드");
+          if(info) info.innerHTML = '🔄 옛 캐시 감지 → 엑셀 재빌드 중...';
+          await mcBuildFromExcel(t);
+          return;
+        }
+      }
+      // 백그라운드에서 엑셀 변경 여부 확인 (논블로킹)
+      mcCheckExcelFreshness(t).catch(e => console.warn("엑셀 신선도 확인:", e.message));
+      return;
+    }
+    
+    // ─── 2단계: JSON 없음/오래됨 → 엑셀에서 빌드 ───
+    if(info) info.textContent = "📡 엑셀에서 빌드 중... (최초 1회)";
+    await mcBuildFromExcel(t);
+  } catch(e) {
+    console.error("🔩 MC BOM 로드 오류:", e);
+    if(info) info.innerHTML = `<span style="color:#dc2626">⚠️ ${e.message}</span>`;
+  }
+}
+
+// ─── JSON 캐시에서 로드 ───
+async function mcLoadFromJSON(token) {
+  try {
+    const encPath = MC_BOM_JSON_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      { headers: { "Authorization": "Bearer " + token } }
+    );
+    
+    if(resp.status === 404) {
+      console.log("📂 mc-bom-cache.json 없음 - 엑셀에서 빌드");
+      return false;
+    }
+    if(!resp.ok) return false;
+    
+    const cache = await resp.json();
+    if(!cache.main || !cache.projectSheets) return false;
+    
+    window._mcState.data = { main: cache.main, projectSheets: cache.projectSheets };
+    window._mcState.cacheVersion = cache._source_excel_version || null;
+    window._mcState.cacheTime = cache._cached_at || null;
+    
+    const info = document.getElementById("mc-info");
+    if(info) {
+      const now = new Date().toLocaleTimeString("ko-KR");
+      info.innerHTML = `⚡ JSON 캐시 · <b>${cache.main.length}</b>개 프로젝트 · ${Object.keys(cache.projectSheets).length}개 시트 · ${now}`;
+    }
+    
+    const badge = document.getElementById("badge-mc");
+    if(badge) badge.textContent = cache.main.length.toLocaleString();
+    
+    console.log(`⚡ MC BOM JSON 캐시 로드: ${cache.main.length}건 (${cache._cached_at || "?"})`);
+    mcRenderKPI();
+    mcRenderTable();
+    return true;
+  } catch(e) {
+    console.warn("JSON 캐시 로드 실패:", e.message);
+    return false;
+  }
+}
+
+// ─── 엑셀 신선도 확인 (백그라운드) ───
+async function mcCheckExcelFreshness(token) {
+  try {
+    const encPath = MC_BOM_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}`,
+      { headers: { "Authorization": "Bearer " + token } }
+    );
+    if(!resp.ok) return;
+    const meta = await resp.json();
+    const excelVer = meta.lastModifiedDateTime;
+    const cacheVer = window._mcState.cacheVersion;
+    
+    if(!cacheVer || excelVer > cacheVer) {
+      console.log(`🔄 엑셀이 더 최신 (캐시: ${cacheVer} / 엑셀: ${excelVer}) - 백그라운드 재빌드`);
+      const info = document.getElementById("mc-info");
+      if(info) info.innerHTML += ' <span style="color:#F59E0B">🔄 갱신 중...</span>';
+      await mcBuildFromExcel(token);
+    } else {
+      console.log("✅ JSON 캐시가 최신 상태");
+    }
+  } catch(e) {
+    console.warn("엑셀 신선도 확인 실패:", e.message);
+  }
+}
+
+// ─── 엑셀에서 빌드 후 JSON 저장 ───
+async function mcBuildFromExcel(token) {
+  const info = document.getElementById("mc-info");
+  
+  // 엑셀 다운로드
+  const encPath = MC_BOM_SP_PATH.split("/").map(encodeURIComponent).join("/");
+  const resp = await fetch(
+    `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+    { headers: { "Authorization": "Bearer " + token } }
+  );
+  if(!resp.ok) {
+    if(info) info.innerHTML = `<span style="color:#dc2626">⚠️ 엑셀 못 읽음 (HTTP ${resp.status})</span>`;
+    return;
+  }
+  const arrBuf = await resp.arrayBuffer();
+  console.log(`🔩 MC BOM Master 다운로드: ${(arrBuf.byteLength/1024).toFixed(1)}KB`);
+  
+  if(typeof XLSX === "undefined") {
+    if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ SheetJS 없음</span>';
+    return;
+  }
+  
+  const wb = XLSX.read(arrBuf, { type: "array", cellDates: true });
+  
+  // 메인 시트: 매출_1억이상
+  const mainSheet = wb.Sheets["매출_1억이상"];
+  if(!mainSheet) {
+    if(info) info.innerHTML = '<span style="color:#dc2626">⚠️ "매출_1억이상" 시트 없음</span>';
+    return;
+  }
+  const main = XLSX.utils.sheet_to_json(mainSheet, { defval: "", raw: true });
+  
+  // 프로젝트별 시트
+  const projectSheets = {};
+  for(const sn of wb.SheetNames) {
+    if(sn === "매출_1억이상") continue;
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: "", raw: true });
+    const cleanRows = rows.filter(r => {
+      const vals = Object.values(r);
+      return !vals.some(v => String(v||"").includes("합계"));
+    });
+    projectSheets[sn] = cleanRows;
+  }
+  
+  // 엑셀 메타 (lastModifiedDateTime)
+  let excelVer = null;
+  try {
+    const metaResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}`,
+      { headers: { "Authorization": "Bearer " + token } }
+    );
+    if(metaResp.ok) {
+      const m = await metaResp.json();
+      excelVer = m.lastModifiedDateTime;
+    }
+  } catch(e) {}
+  
+  window._mcState.data = { main, projectSheets };
+  window._mcState.cacheVersion = excelVer;
+  
+  if(info) {
+    const now = new Date().toLocaleTimeString("ko-KR");
+    info.innerHTML = `✅ 엑셀 빌드 · <b>${main.length}</b>개 프로젝트 · ${Object.keys(projectSheets).length}개 시트 · ${now}`;
+  }
+  
+  const badge = document.getElementById("badge-mc");
+  if(badge) badge.textContent = main.length.toLocaleString();
+  
+  mcRenderKPI();
+  mcRenderTable();
+  
+  // JSON 캐시 저장 (백그라운드)
+  mcSaveToJSON(token, main, projectSheets, excelVer).catch(e => console.warn("JSON 저장:", e.message));
+}
+
+// ─── JSON 캐시 저장 ───
+async function mcSaveToJSON(token, main, projectSheets, excelVer) {
+  try {
+    const data = {
+      main,
+      projectSheets,
+      _source_excel_version: excelVer,
+      _cached_at: new Date().toISOString(),
+      _cache_count: main.length,
+    };
+    const encPath = MC_BOM_JSON_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      {
+        method: "PUT",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      }
+    );
+    if(resp.ok) {
+      console.log(`✅ JSON 캐시 저장 완료 (${main.length}건)`);
+    }
+  } catch(e) {
+    console.warn("JSON 저장 오류:", e.message);
+  }
+}
+
+// ─── 새 데이터 추가 시 JSON + 엑셀 동시 저장 ───
+async function mcSaveNewData(sheetName, newRow) {
+  if(!window._mcState.data) {
+    alert("MC BOM 데이터가 로드되지 않았습니다.");
+    return false;
+  }
+  
+  try {
+    const t = await getToken();
+    if(!t) return false;
+    
+    // 1) 메모리 업데이트
+    if(sheetName === "매출_1억이상") {
+      window._mcState.data.main.push(newRow);
+    } else {
+      if(!window._mcState.data.projectSheets[sheetName]) {
+        window._mcState.data.projectSheets[sheetName] = [];
+      }
+      window._mcState.data.projectSheets[sheetName].push(newRow);
+    }
+    
+    // 2) JSON 즉시 저장 (빠른 반영)
+    await mcSaveToJSON(t, window._mcState.data.main, window._mcState.data.projectSheets, window._mcState.cacheVersion);
+    
+    // 3) 엑셀 비동기 업데이트 (시간 걸려도 사용자는 이미 결과 봄)
+    mcSyncToExcel(t).catch(e => console.warn("엑셀 동기화:", e.message));
+    
+    // 4) UI 갱신
+    mcRenderKPI();
+    mcRenderTable();
+    return true;
+  } catch(e) {
+    console.error("새 데이터 저장 오류:", e);
+    return false;
+  }
+}
+
+// ─── 메모리 → 엑셀 동기화 (백그라운드) ───
+async function mcSyncToExcel(token) {
+  if(typeof XLSX === "undefined" || !window._mcState.data) return;
+  
+  try {
+    const { main, projectSheets } = window._mcState.data;
+    const wb = XLSX.utils.book_new();
+    
+    // 메인 시트
+    const mainWS = XLSX.utils.json_to_sheet(main);
+    XLSX.utils.book_append_sheet(wb, mainWS, "매출_1억이상");
+    
+    // 프로젝트 시트들
+    for(const [sn, rows] of Object.entries(projectSheets)) {
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, sn);
+    }
+    
+    const arrBuf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    
+    // SP에 업로드
+    const encPath = MC_BOM_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      {
+        method: "PUT",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        body: arrBuf
+      }
+    );
+    if(resp.ok) {
+      console.log("✅ 엑셀 동기화 완료");
+      // 엑셀 버전 갱신
+      const m = await resp.json();
+      window._mcState.cacheVersion = m.lastModifiedDateTime;
+    }
+  } catch(e) {
+    console.warn("엑셀 동기화 오류:", e.message);
+  }
+}
+
+// ─── 사용자가 직접 강제 재빌드 (엑셀 → JSON) ───
+async function mcForceRebuild() {
+  if(!confirm("🔄 엑셀에서 JSON 캐시를 강제 재빌드하시겠어요?\n\n• 엑셀 다시 다운로드 (1-3초 소요)\n• JSON 캐시 덮어쓰기\n\n엑셀에서 데이터를 직접 수정한 경우 사용하세요.")) return;
+  
+  try {
+    const t = await getToken();
+    if(!t) { alert("Graph 인증 실패"); return; }
+    
+    const info = document.getElementById("mc-info");
+    if(info) info.innerHTML = '🔄 강제 재빌드 중...';
+    
+    await mcBuildFromExcel(t);
+    alert("✅ 엑셀에서 재빌드 완료");
+  } catch(e) {
+    alert("⚠️ 재빌드 실패: " + e.message);
+  }
+}
+
+// 옛 mcInit 함수 끝 마커
+async function _mcInitOld_unused() {
   const info = document.getElementById("mc-info");
   if(info) info.textContent = "📡 SharePoint 로드 중...";
   
@@ -7010,9 +7459,27 @@ function mcRenderKPI() {
   const internal = all.filter(r => String(r["Local구분"]||"").trim() === "내수").length;
   const exp = all.filter(r => String(r["Local구분"]||"").trim() === "수출").length;
   
-  // 총 부품 + 매입원가 합산 (옛 키/새 키 모두 지원)
-  const getQty = r => Number(r["부품총수"] || r["총수량"] || 0);
-  const getCost = r => Number(r["원가(VAT포)"] || r["원가(VAT포함)"] || r["총금액(부가세포함)"] || 0);
+  // 총 부품 + 매입원가 합산 (다양한 키 변형 지원)
+  const getQty = r => {
+    for(const k of ["부품총수","총수량","총 수량","부품 총수"]) {
+      const v = r[k];
+      if(v !== undefined && v !== null && v !== "") {
+        const n = Number(v);
+        if(!isNaN(n) && n > 0) return n;
+      }
+    }
+    return 0;
+  };
+  const getCost = r => {
+    for(const k of ["원가(VAT포)","원가(VAT포함)","총금액(부가세포함)","원가","원가(VAT)"]) {
+      const v = r[k];
+      if(v !== undefined && v !== null && v !== "") {
+        const n = Number(v);
+        if(!isNaN(n) && n > 0) return n;
+      }
+    }
+    return 0;
+  };
   let totalParts = 0, totalCost = 0;
   for(const r of all) {
     totalParts += getQty(r);
@@ -7081,11 +7548,30 @@ function mcRenderTable() {
   tb.innerHTML = arr.map(r => {
     const code = String(r["프로젝트코드"]||"").trim();
     const safeCode = code.replace(/'/g,"\\'");
-    const 합계 = Number(r["합계"])||0;
-    const 원가 = Number(r["원가(VAT포)"] || r["원가(VAT포함)"] || r["총금액(부가세포함)"])||0;
-    const 부품총수 = Number(r["부품총수"] || r["총수량"])||0;
-    const oneSet = r["1Set 수량"] || r["1SET 수량"];
-    const 매출색 = 합계 >= 1e9 ? "#C00000" : (합계 >= 5e8 ? "#0070C0" : "#374151");
+    
+    // 부품총수: 옛/새 키 + 영문 변형 모두 시도
+    let 부품총수 = 0;
+    const partKeys = ["부품총수","총수량","총 수량","부품 총수","부품총 수","Parts","PartCount"];
+    for(const k of partKeys) {
+      const v = r[k];
+      if(v !== undefined && v !== null && v !== "") {
+        const n = Number(v);
+        if(!isNaN(n) && n > 0) { 부품총수 = n; break; }
+      }
+    }
+    
+    // 원가: 옛/새 키 모두 시도
+    let 원가 = 0;
+    const costKeys = ["원가(VAT포)","원가(VAT포함)","총금액(부가세포함)","원가","원가(VAT)"];
+    for(const k of costKeys) {
+      const v = r[k];
+      if(v !== undefined && v !== null && v !== "") {
+        const n = Number(v);
+        if(!isNaN(n) && n > 0) { 원가 = n; break; }
+      }
+    }
+    
+    const oneSet = r["1Set 수량"] || r["1SET 수량"] || r["1set 수량"];
     const 원가색 = 원가 >= 5e8 ? "#C00000" : (원가 >= 1e8 ? "#0070C0" : "#374151");
     const gubun = r["구분"] || "";
     const gubunColor = gubun === "국내" ? "#15803D" : (gubun === "해외" ? "#7C3AED" : "#6B7280");
@@ -7093,20 +7579,19 @@ function mcRenderTable() {
     const 품목 = r["품목"] || "";
     
     return `<tr>
-      <td style="font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${거래처}">${거래처}</td>
-      <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${locColor[r["Local구분"]]||"#9CA3AF"}22;color:${locColor[r["Local구분"]]||"#6B7280"};font-size:11px;font-weight:700">${r["Local구분"]||""}</span></td>
-      <td><a href="#" onclick="event.preventDefault();mcOpenSub('${safeCode}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline;cursor:pointer">${code}</a></td>
-      <td style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${품목}">${품목}</td>
-      <td class="r" style="font-size:12px;font-weight:700">${Number(r["수량"])||1}</td>
-      <td style="text-align:center;color:${cat1Color[r["매출구분1"]]||"#6B7280"};font-weight:700;font-size:12px">${r["매출구분1"]||""}</td>
-      <td style="text-align:center;color:${cat2Color[r["매출구분2"]]||"#6B7280"};font-weight:700;font-size:12px">${r["매출구분2"]||""}</td>
-      <td style="text-align:center;font-size:12px">${r["연도"]||""}</td>
-      <td style="text-align:center;font-size:12px">${r["월"]||""}</td>
-      <td style="text-align:center;font-size:12px;color:${gubunColor};font-weight:700">${gubun}</td>
-      <td class="r" style="font-size:12px;color:#059669;font-weight:700">${oneSet!==""&&oneSet!=null?Number(oneSet).toFixed(1):"-"}</td>
-      <td class="r" style="font-weight:700;color:#7C3AED">${부품총수.toLocaleString()}</td>
-      <td class="r" style="font-weight:700;color:${매출색}">${합계.toLocaleString()}</td>
-      <td class="r" style="font-weight:700;color:${원가색}">${원가.toLocaleString()}</td>
+      <td style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#111827" title="${거래처}">${거래처}</td>
+      <td style="text-align:center"><span style="padding:3px 8px;border-radius:5px;background:${locColor[r["Local구분"]]||"#9CA3AF"}22;color:${locColor[r["Local구분"]]||"#6B7280"};font-size:12px;font-weight:800">${r["Local구분"]||""}</span></td>
+      <td><a href="#" onclick="event.preventDefault();mcOpenSub('${safeCode}')" style="font-weight:800;color:#1D4ED8;text-decoration:underline;cursor:pointer;font-size:13px">${code}</a></td>
+      <td style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#374151" title="${품목}">${품목}</td>
+      <td class="r" style="font-size:13px;font-weight:800;color:#111827">${Number(r["수량"])||1}</td>
+      <td style="text-align:center;color:${cat1Color[r["매출구분1"]]||"#6B7280"};font-weight:800;font-size:13px">${r["매출구분1"]||""}</td>
+      <td style="text-align:center;color:${cat2Color[r["매출구분2"]]||"#6B7280"};font-weight:800;font-size:13px">${r["매출구분2"]||""}</td>
+      <td style="text-align:center;font-size:13px;color:#374151">${r["연도"]||""}</td>
+      <td style="text-align:center;font-size:13px;color:#374151">${r["월"]||""}</td>
+      <td style="text-align:center;font-size:13px;color:${gubunColor};font-weight:800">${gubun}</td>
+      <td class="r" style="font-size:13px;color:#059669;font-weight:800">${oneSet!==""&&oneSet!=null?Number(oneSet).toFixed(1):"-"}</td>
+      <td class="r" style="font-weight:800;color:#7C3AED;font-size:13px">${부품총수.toLocaleString()}</td>
+      <td class="r" style="font-weight:800;color:${원가색};font-size:13px">${원가.toLocaleString()}</td>
     </tr>`;
   }).join("");
 }
