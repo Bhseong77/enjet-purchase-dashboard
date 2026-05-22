@@ -431,6 +431,7 @@
       <div class="tb-t" id="ptitle">📊 구매 현황</div><div class="tbs"></div>
       <button class="bsm p" id="btnRefresh" onclick="syncAll()">🔄 새로고침</button>
       <button class="bsm" id="btnUpdate" onclick="updateData()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:6px 14px;border-radius:7px;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)">📥 업데이트</button>
+      <button class="bsm" id="btnAISettings" onclick="openAISettingsModal()" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;border:none;padding:6px 14px;border-radius:7px;font-size:13px;cursor:pointer;font-weight:700;font-family:var(--s)" title="AI 파싱 키 관리">⚙️ AI 설정</button>
       <!-- 모바일: 아이콘만 -->
       <button onclick="syncAll()" style="display:none" id="btnRefreshMob"
         class="mob-topbtn">🔄</button>
@@ -480,6 +481,51 @@
         <div class="kpi c4"><div class="kl">⏳ 매입 미정산 (지급대기)</div><div class="kv"><span id="pkpi-unpaid">-</span><span style="font-size:15px;color:var(--t2)">건</span></div><div class="ks"><span id="pkpi-unpaid-amt" style="color:var(--a)">-</span>원 · 세금계산서 미결제</div></div>
       </div>
 
+      <!-- 💎 MC BOM 원가율 (장비 매출 vs 매입원가) -->
+      <div class="card" style="margin-bottom:9px;background:linear-gradient(135deg,#FAFAFA,#fff)">
+        <div class="ch">
+          <div class="ct"><div class="ci c4">💎</div>MC BOM 원가율 <span style="font-size:13px;color:var(--t3);font-weight:400;margin-left:4px">매출 1억↑ 프로젝트 기준</span></div>
+          <button onclick="go('mc-bom', document.querySelector('[onclick*=&quot;mc-bom&quot;]'))" style="padding:5px 12px;border-radius:6px;border:1px solid #8B5CF6;background:#F5F3FF;color:#6D28D9;font-size:12px;font-weight:700;cursor:pointer">상세 보기 →</button>
+        </div>
+        <div class="cb" style="padding:14px">
+          <div class="kr" style="grid-template-columns:1.3fr repeat(4,1fr);gap:10px">
+            <!-- 전체 평균 (강조) -->
+            <div class="kpi" style="background:linear-gradient(135deg,#FEF3C7,#FDE68A);border:2px solid #F59E0B;text-align:center;padding:14px 8px">
+              <div style="font-size:12px;color:#92400E;margin-bottom:4px;font-weight:700">🎯 전체 평균 원가율</div>
+              <div style="font-size:30px;font-weight:900;color:#92400E" id="cr-total">-</div>
+              <div style="font-size:11.5px;color:#92400E;margin-top:3px" id="cr-total-sub">매출 - / 원가 -</div>
+            </div>
+            <!-- 장비 -->
+            <div class="kpi" style="text-align:center;padding:10px 6px;border-left:3px solid #1D4ED8">
+              <div style="font-size:12px;color:var(--t3);margin-bottom:3px">⚙️ 장비</div>
+              <div style="font-size:22px;font-weight:900;color:#1D4ED8" id="cr-equip">-</div>
+              <div style="font-size:10.5px;color:var(--t3);margin-top:2px" id="cr-equip-sub">- 건</div>
+            </div>
+            <!-- 부품 -->
+            <div class="kpi" style="text-align:center;padding:10px 6px;border-left:3px solid #4338CA">
+              <div style="font-size:12px;color:var(--t3);margin-bottom:3px">🔧 부품</div>
+              <div style="font-size:22px;font-weight:900;color:#4338CA" id="cr-parts">-</div>
+              <div style="font-size:10.5px;color:var(--t3);margin-top:2px" id="cr-parts-sub">- 건</div>
+            </div>
+            <!-- 용역 -->
+            <div class="kpi" style="text-align:center;padding:10px 6px;border-left:3px solid #374151">
+              <div style="font-size:12px;color:var(--t3);margin-bottom:3px">🛠️ 용역</div>
+              <div style="font-size:22px;font-weight:900;color:#374151" id="cr-service">-</div>
+              <div style="font-size:10.5px;color:var(--t3);margin-top:2px" id="cr-service-sub">- 건</div>
+            </div>
+            <!-- 소모품 -->
+            <div class="kpi" style="text-align:center;padding:10px 6px;border-left:3px solid #7C2D12">
+              <div style="font-size:12px;color:var(--t3);margin-bottom:3px">📦 소모품</div>
+              <div style="font-size:22px;font-weight:900;color:#7C2D12" id="cr-supply">-</div>
+              <div style="font-size:10.5px;color:var(--t3);margin-top:2px" id="cr-supply-sub">- 건</div>
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:var(--t3);margin-top:10px;padding:8px 12px;background:#F9FAFB;border-radius:6px;line-height:1.6">
+            💡 <b>원가율 = 매입원가(VAT포함) / 매출 × 100%</b> · 낮을수록 이익률 높음 · <span style="color:#15803D;font-weight:700">20% 미만</span> 양호 · <span style="color:#F59E0B;font-weight:700">20-40%</span> 보통 · <span style="color:#DC2626;font-weight:700">40% 이상</span> 검토 필요
+          </div>
+        </div>
+      </div>
+
       <!-- 6단계 PR 상태 KPI -->
       <div class="card" style="margin-bottom:9px">
         <div class="ch"><div class="ct"><div class="ci c1">📊</div>구매 진행단계별 현황</div></div>
@@ -519,81 +565,66 @@
         </div>
       </div>
 
-      <!-- 🚀 빠른 시작 가이드 + AI 설정 -->
-      <div class="g2b" style="margin-top:9px">
-        <div class="card">
-          <div class="ch"><div class="ct"><div class="ci c1">🚀</div>빠른 시작 가이드</div></div>
-          <div class="cb" style="padding:14px;font-size:13px;line-height:1.7">
-            <div style="background:var(--pd);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid var(--p)">
-              <b style="color:var(--p)">1. 구매활동 추가</b><br>
-              📋 구매활동 → <code>+ 신규</code> → 영업 SL/SP 코드 선택 → 구매요청서 PDF 업로드
-            </div>
-            <div style="background:var(--ad);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid var(--a)">
-              <b style="color:var(--a)">2. 구매요청서 PR 등록</b><br>
-              📝 구매요청서 DB → <code>+ 구매요청서 추가</code> → 자동채번 PR-YYMMDD-NN → BOM 자동매칭
-            </div>
-            <div style="background:var(--gd);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid var(--g)">
-              <b style="color:var(--g)">3. 거래처 견적 → 발주 → 입고 → 세금계산서 → 정산</b><br>
-              각 단계마다 [+ 추가] 버튼으로 입력 (PO/ST 코드 자동채번)
-            </div>
-            <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;border-left:3px solid #f59e0b">
-              <b style="color:#92400e">🤖 AI 자동 입력</b><br>
-              모달의 <code>🤖 AI 파싱</code> 버튼 → PDF → Copilot/OpenAI가 자동 추출
-            </div>
-            <div style="text-align:right;margin-top:10px;font-size:12px;color:var(--t3)">
-              💡 콘솔에서 <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">seedPurchaseTestData()</code> 입력 → 샘플 데이터 자동 시드
-            </div>
+      <!-- 🔗 다른 탭 빠른 진입 (탭 간 연동) -->
+      <div class="card" style="margin-top:9px">
+        <div class="ch">
+          <div class="ct"><div class="ci c1">🔗</div>빠른 이동</div>
+          <span style="font-size:13px;color:var(--t3)">자주 쓰는 탭 바로가기</span>
+        </div>
+        <div class="cb" style="padding:14px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+            <button onclick="go('purchase-log', document.querySelector('[onclick*=\\\"purchase-log\\\"]'))" style="padding:14px 12px;border-radius:10px;border:1.5px solid #C7D2FE;background:linear-gradient(135deg,#EEF2FF,#fff);cursor:pointer;text-align:left;transition:all .2s">
+              <div style="font-size:24px;margin-bottom:6px">📋</div>
+              <div style="font-size:14px;font-weight:800;color:#3730A3;margin-bottom:3px">구매활동</div>
+              <div style="font-size:11.5px;color:var(--t3)">신규 등록 / 파일 업로드</div>
+            </button>
+            <button onclick="go('project-status', document.querySelector('[onclick*=\\\"project-status\\\"]'))" style="padding:14px 12px;border-radius:10px;border:1.5px solid #BAE6FD;background:linear-gradient(135deg,#F0F9FF,#fff);cursor:pointer;text-align:left;transition:all .2s">
+              <div style="font-size:24px;margin-bottom:6px">📋</div>
+              <div style="font-size:14px;font-weight:800;color:#075985;margin-bottom:3px">프로젝트현황</div>
+              <div style="font-size:11.5px;color:var(--t3)">전체 프로젝트 진행상태</div>
+            </button>
+            <button onclick="go('receipt', document.querySelector('[onclick*=\\\"receipt\\\"]'))" style="padding:14px 12px;border-radius:10px;border:1.5px solid #BBF7D0;background:linear-gradient(135deg,#F0FDF4,#fff);cursor:pointer;text-align:left;transition:all .2s">
+              <div style="font-size:24px;margin-bottom:6px">✅</div>
+              <div style="font-size:14px;font-weight:800;color:#15803D;margin-bottom:3px">매입완료</div>
+              <div style="font-size:11.5px;color:var(--t3)">정산 완료 내역 조회</div>
+            </button>
+            <button onclick="go('mc-bom', document.querySelector('[onclick*=\\\"mc-bom\\\"]'))" style="padding:14px 12px;border-radius:10px;border:1.5px solid #DDD6FE;background:linear-gradient(135deg,#F5F3FF,#fff);cursor:pointer;text-align:left;transition:all .2s">
+              <div style="font-size:24px;margin-bottom:6px">🔩</div>
+              <div style="font-size:14px;font-weight:800;color:#6D28D9;margin-bottom:3px">MC BOM</div>
+              <div style="font-size:11.5px;color:var(--t3)">장비 BOM Master</div>
+            </button>
+            <button onclick="go('vendor-scm', document.querySelector('[onclick*=\\\"vendor-scm\\\"]'))" style="padding:14px 12px;border-radius:10px;border:1.5px solid #FED7AA;background:linear-gradient(135deg,#FFF7ED,#fff);cursor:pointer;text-align:left;transition:all .2s">
+              <div style="font-size:24px;margin-bottom:6px">🏪</div>
+              <div style="font-size:14px;font-weight:800;color:#9A3412;margin-bottom:3px">거래처 SCM</div>
+              <div style="font-size:11.5px;color:var(--t3)">거래처 관리</div>
+            </button>
+            <button onclick="go('bom-db', document.querySelector('[onclick*=\\\"bom-db\\\"]'))" style="padding:14px 12px;border-radius:10px;border:1.5px solid #FBCFE8;background:linear-gradient(135deg,#FDF2F8,#fff);cursor:pointer;text-align:left;transition:all .2s">
+              <div style="font-size:24px;margin-bottom:6px">🧩</div>
+              <div style="font-size:14px;font-weight:800;color:#9D174D;margin-bottom:3px">품목마스터</div>
+              <div style="font-size:11.5px;color:var(--t3)">품목 DB 조회</div>
+            </button>
           </div>
         </div>
+      </div>
 
+      <!-- 🔥 최근 구매활동 + ⚠️ 진행중 위험 알림 (연동) -->
+      <div class="g2b" style="margin-top:9px">
         <div class="card">
-          <div class="ch"><div class="ct"><div class="ci c2">🤖</div>AI 파싱 설정 (속도 우선순위)</div></div>
-          <div class="cb" style="padding:14px">
-            <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.7">
-              <b>⚡ 추천 우선순위 (위에서부터 자동 시도):</b><br>
-              🥇 <b>Gemini 1.5 Flash</b> — 무료, 3-5초 ⚡ <span style="color:var(--g);font-weight:700">최고 추천</span><br>
-              🥈 <b>OpenAI gpt-4o-mini</b> — 매우 저렴 ($0.15/M), 2-5초<br>
-              🥉 <b>M365 Copilot</b> — 회사 라이선스, 30-60초 (느림)
-            </div>
-            
-            <!-- 🥇 Gemini 키 등록 -->
-            <div style="background:#f0fdf4;border:1.5px solid var(--g);border-radius:8px;padding:12px;margin-bottom:8px">
-              <label style="font-size:13px;font-weight:700;color:var(--g);display:block;margin-bottom:6px">🥇 Gemini API Key <span style="font-weight:400;color:var(--t3)">(무료, 강력 추천)</span></label>
-              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                <input class="si" type="password" id="purchase-gemini-key" placeholder="AIzaSy..." style="flex:1;min-width:200px;font-family:var(--m);font-size:12px;background:#fff">
-                <button onclick="savePurchaseGeminiKey()" style="padding:7px 14px;border-radius:6px;border:none;background:var(--g);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--s);white-space:nowrap">저장</button>
-                <button onclick="clearPurchaseGeminiKey()" style="padding:7px 12px;border-radius:6px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-family:var(--s);white-space:nowrap">삭제</button>
-              </div>
-              <div id="purchase-gemini-status" style="font-size:11px;margin-top:6px;color:var(--t3)">키 미등록</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.5">
-                📌 <b>발급방법</b>: <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--g);text-decoration:underline;font-weight:700">aistudio.google.com/apikey</a> 접속 → Google 계정 로그인 → [API key 만들기] → 복사하여 위에 붙여넣기<br>
-                💡 무료 한도: 15 RPM / 1500 RPD (구매요청서 분석 충분)
-              </div>
-            </div>
-            
-            <!-- 🥈 OpenAI 키 등록 (백업) -->
-            <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:8px">
-              <label style="font-size:13px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px">🥈 OpenAI API Key <span style="font-weight:400;color:var(--t3)">(선택 - Gemini 백업용)</span></label>
-              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                <input class="si" type="password" id="purchase-oai-key" placeholder="sk-..." style="flex:1;min-width:200px;font-family:var(--m);font-size:12px">
-                <button onclick="savePurchaseOAIKey()" style="padding:7px 14px;border-radius:6px;border:none;background:var(--p);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--s);white-space:nowrap">저장</button>
-                <button onclick="clearPurchaseOAIKey()" style="padding:7px 12px;border-radius:6px;border:1px solid var(--border2);background:transparent;font-size:13px;cursor:pointer;font-family:var(--s);white-space:nowrap">삭제</button>
-              </div>
-              <div id="purchase-oai-status" style="font-size:11px;margin-top:6px;color:var(--t3)">키 미등록</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:5px">📌 platform.openai.com/api-keys · 모델: gpt-4o-mini (저렴 + 빠름)</div>
-            </div>
-            
-            <details style="font-size:12px;color:var(--t3);margin-top:8px">
-              <summary style="cursor:pointer;font-weight:700;color:var(--t2);padding:4px 0">📖 AI 파싱 동작 원리</summary>
-              <div style="padding:8px 4px;line-height:1.7">
-                1. PDF 첨부 → 🤖 AI 파싱 버튼 클릭<br>
-                2. <b>로컬 PDF 텍스트 파싱 시도 (즉시, 0초)</b> — ENJET 양식 자동 인식<br>
-                3. 실패 시 → <b>Gemini Flash (3-5초, 무료)</b><br>
-                4. Gemini 실패 시 → <b>OpenAI gpt-4o-mini (2-5초, 저렴)</b><br>
-                5. 모두 실패 시 → <b>Copilot (30초, 느림)</b><br>
-                6. JSON 결과 → 검토 모달 자동 표시 (좌:PDF / 우:33품목 편집)
-              </div>
-            </details>
+          <div class="ch">
+            <div class="ct"><div class="ci c2">🔥</div>최근 구매활동 <span style="font-size:13px;color:var(--t3);font-weight:400">(상위 5건)</span></div>
+            <button onclick="go('purchase-log', document.querySelector('[onclick*=\\\"purchase-log\\\"]'))" style="padding:5px 12px;border-radius:6px;border:1px solid var(--p);background:var(--pd);color:var(--p);font-size:12px;font-weight:700;cursor:pointer">전체 보기 →</button>
+          </div>
+          <div class="cb" style="padding:8px 14px" id="pRecentSL">
+            <div class="sw"><div class="spr"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch">
+            <div class="ct"><div class="ci c3">⚠️ </div>완료 가능 활동 <span style="font-size:13px;color:var(--t3);font-weight:400">(매입완료 이동 준비됨)</span></div>
+            <span id="pReadyCount" style="font-size:13px;color:var(--g);font-weight:700">-</span>
+          </div>
+          <div class="cb" style="padding:8px 14px" id="pReadyList">
+            <div class="sw"><div class="spr"></div></div>
           </div>
         </div>
       </div>
@@ -6979,11 +7010,13 @@ function mcRenderKPI() {
   const internal = all.filter(r => String(r["Local구분"]||"").trim() === "내수").length;
   const exp = all.filter(r => String(r["Local구분"]||"").trim() === "수출").length;
   
-  // 총 부품 + 매입원가 합산
+  // 총 부품 + 매입원가 합산 (옛 키/새 키 모두 지원)
+  const getQty = r => Number(r["부품총수"] || r["총수량"] || 0);
+  const getCost = r => Number(r["원가(VAT포)"] || r["원가(VAT포함)"] || r["총금액(부가세포함)"] || 0);
   let totalParts = 0, totalCost = 0;
   for(const r of all) {
-    totalParts += Number(r["총수량"])||0;
-    totalCost += Number(r["총금액(부가세포함)"])||0;
+    totalParts += getQty(r);
+    totalCost += getCost(r);
   }
   const avgParts = all.length > 0 ? Math.round(totalParts / all.length) : 0;
   
@@ -7024,8 +7057,8 @@ function mcRenderTable() {
     return (yb*100+mb) - (ya*100+ma);
   });
   else if(sort==="code") arr.sort((a,b) => String(a["프로젝트코드"]||"").localeCompare(String(b["프로젝트코드"]||"")));
-  else if(sort==="parts-desc") arr.sort((a,b) => (Number(b["총수량"])||0) - (Number(a["총수량"])||0));
-  else if(sort==="cost-desc") arr.sort((a,b) => (Number(b["총금액(부가세포함)"])||0) - (Number(a["총금액(부가세포함)"])||0));
+  else if(sort==="parts-desc") arr.sort((a,b) => (Number(b["부품총수"]||b["총수량"])||0) - (Number(a["부품총수"]||a["총수량"])||0));
+  else if(sort==="cost-desc") arr.sort((a,b) => (Number(b["원가(VAT포)"]||b["원가(VAT포함)"]||b["총금액(부가세포함)"])||0) - (Number(a["원가(VAT포)"]||a["원가(VAT포함)"]||a["총금액(부가세포함)"])||0));
   
   document.getElementById("mc-tbl-l").textContent = `(${arr.length}건)`;
   
@@ -7038,13 +7071,20 @@ function mcRenderTable() {
   const cat2Color = {'프린터':'#1D4ED8','코터':'#059669'};
   const locColor = {'내수':'#15803D','수출':'#7C3AED'};
   
+  // 진단용: 첫 행의 모든 키 출력 (한 번만)
+  if(arr.length > 0 && !window._mcKeyLogged) {
+    console.log("🔩 MC BOM 첫 행 키:", Object.keys(arr[0]));
+    console.log("🔩 첫 행 데이터:", arr[0]);
+    window._mcKeyLogged = true;
+  }
+  
   tb.innerHTML = arr.map(r => {
     const code = String(r["프로젝트코드"]||"").trim();
     const safeCode = code.replace(/'/g,"\\'");
     const 합계 = Number(r["합계"])||0;
-    const 원가 = Number(r["총금액(부가세포함)"])||0;
-    const 부품총수 = Number(r["총수량"])||0;
-    const oneSet = r["1Set 수량"];
+    const 원가 = Number(r["원가(VAT포)"] || r["원가(VAT포함)"] || r["총금액(부가세포함)"])||0;
+    const 부품총수 = Number(r["부품총수"] || r["총수량"])||0;
+    const oneSet = r["1Set 수량"] || r["1SET 수량"];
     const 매출색 = 합계 >= 1e9 ? "#C00000" : (합계 >= 5e8 ? "#0070C0" : "#374151");
     const 원가색 = 원가 >= 5e8 ? "#C00000" : (원가 >= 1e8 ? "#0070C0" : "#374151");
     const gubun = r["구분"] || "";
@@ -7053,7 +7093,7 @@ function mcRenderTable() {
     const 품목 = r["품목"] || "";
     
     return `<tr>
-      <td style="font-weight:600;font-size:12.5px;white-space:nowrap" title="${거래처}">${거래처}</td>
+      <td style="font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${거래처}">${거래처}</td>
       <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${locColor[r["Local구분"]]||"#9CA3AF"}22;color:${locColor[r["Local구분"]]||"#6B7280"};font-size:11px;font-weight:700">${r["Local구분"]||""}</span></td>
       <td><a href="#" onclick="event.preventDefault();mcOpenSub('${safeCode}')" style="font-weight:700;color:#1D4ED8;text-decoration:underline;cursor:pointer">${code}</a></td>
       <td style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${품목}">${품목}</td>
@@ -7118,7 +7158,7 @@ function mcOpenSub(projectCode) {
     const 거래처 = salesInfo["거래처"] || "";
     const 품목 = salesInfo["품목"] || "";
     const 매출 = Number(salesInfo["합계"])||0;
-    const 원가 = Number(salesInfo["총금액(부가세포함)"])||0;
+    const 원가 = Number(salesInfo["원가(VAT포)"] || salesInfo["원가(VAT포함)"] || salesInfo["총금액(부가세포함)"])||0;
     const 분류 = salesInfo["분류"] || "";
     subTxt = `<b>${거래처}</b> · ${String(품목).substring(0,40)} · 매출 ${(매출/1e8).toFixed(2)}억 · 원가 ${(원가/1e8).toFixed(2)}억 · <span style="color:#1D4ED8">${분류}</span>`;
   } else {
@@ -7207,59 +7247,82 @@ function mcRenderPartModal() {
   let html = '';
   if(sheetType === "erp24") {
     // 24컬럼 ERP 발주
-    html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:1100px;margin:0">
+    html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:1100px;table-layout:fixed;margin:0">
+      <colgroup>
+        <col style="width:110px">
+        <col style="width:75px">
+        <col style="width:115px">
+        <col style="width:280px">
+        <col style="width:55px">
+        <col style="width:95px">
+        <col style="width:115px">
+        <col style="width:155px">
+      </colgroup>
       <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr>
-        <th style="min-width:110px">일자-No.</th>
-        <th style="min-width:80px">요청자</th>
-        <th style="min-width:100px">품목코드</th>
-        <th style="min-width:140px">제품명</th>
-        <th style="min-width:200px">품목명(규격)</th>
-        <th class="r" style="min-width:60px">수량</th>
-        <th class="r" style="min-width:100px">단가</th>
-        <th class="r" style="min-width:120px">합계</th>
-        <th style="min-width:160px">거래처</th>
+        <th>일자-No.</th>
+        <th>요청자</th>
+        <th>품목코드</th>
+        <th>품목명(규격)</th>
+        <th class="r">수량</th>
+        <th class="r">단가</th>
+        <th class="r">합계</th>
+        <th>거래처</th>
       </tr></thead><tbody>` + arr.map(r => {
       const dt = r["일자-No."]; let dStr = "";
       if(dt) { if(dt instanceof Date) dStr = dt.toISOString().slice(0,10); else dStr = String(dt); }
       const amt = Number(r["합계"])||0;
+      const 품목명 = String(r["품목명(규격)"]||"");
+      const 거래처 = String(r["거래처명"]||"");
       return `<tr>
-        <td style="font-size:11.5px;color:#374151">${dStr.substring(0,16)}</td>
+        <td style="font-size:11.5px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dStr.substring(0,16)}</td>
         <td style="text-align:center;font-size:12px">${r["요청자"]||""}</td>
-        <td style="font-size:11.5px;color:#6B7280;font-family:var(--m)">${r["품목코드"]||""}</td>
-        <td style="font-size:12px">${String(r["제품명"]||"").substring(0,30)}</td>
-        <td style="font-size:12px">${String(r["품목명(규격)"]||"").substring(0,50)}</td>
+        <td style="font-size:11.5px;color:#6B7280;font-family:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r["품목코드"]||""}">${r["품목코드"]||""}</td>
+        <td style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${품목명}">${품목명}</td>
         <td class="r" style="font-size:12px">${(Number(r["수량"])||0).toLocaleString()}</td>
         <td class="r" style="font-size:12px">${(Number(r["단가"])||0).toLocaleString()}</td>
         <td class="r" style="font-weight:700;color:${amt>=1e7?'#C00000':'#374151'}">${amt.toLocaleString()}</td>
-        <td style="font-size:12px">${r["거래처명"]||""}</td>
+        <td style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${거래처}">${거래처}</td>
       </tr>`;
     }).join("") + '</tbody></table></div>';
   } else if(sheetType === "rcv17") {
     // 17컬럼 입고/정산
-    html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:1100px;margin:0">
+    html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:1100px;table-layout:fixed;margin:0">
+      <colgroup>
+        <col style="width:100px">
+        <col style="width:135px">
+        <col style="width:180px">
+        <col style="width:95px">
+        <col style="width:100px">
+        <col style="width:200px">
+        <col style="width:120px">
+        <col style="width:95px">
+        <col style="width:125px">
+      </colgroup>
       <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr>
-        <th style="min-width:100px">입고일</th>
-        <th style="min-width:130px">입고번호</th>
-        <th style="min-width:180px">구매거래처</th>
-        <th style="min-width:100px">담당자</th>
-        <th style="min-width:100px">기표일</th>
-        <th style="min-width:180px">전표행번호</th>
-        <th class="r" style="min-width:120px">금액</th>
-        <th class="r" style="min-width:90px">부가세</th>
-        <th class="r" style="min-width:120px">합계</th>
+        <th>입고일</th>
+        <th>입고번호</th>
+        <th>구매거래처</th>
+        <th>담당자</th>
+        <th>기표일</th>
+        <th>전표행번호</th>
+        <th class="r">금액</th>
+        <th class="r">부가세</th>
+        <th class="r">합계</th>
       </tr></thead><tbody>` + arr.map(r => {
       const dt = r["입고일"]; let dStr = "";
       if(dt) { if(dt instanceof Date) dStr = dt.toISOString().slice(0,10); else dStr = String(dt).substring(0,10); }
       const ds = r["기표일"]; let dsStr = "";
       if(ds) { if(ds instanceof Date) dsStr = ds.toISOString().slice(0,10); else dsStr = String(ds).substring(0,10); }
       const amt = Number(r["입고원화금액합계"])||0;
+      const 거래처 = String(r["구매거래처"]||"");
+      const 전표 = String(r["전표행번호"]||"");
       return `<tr>
         <td style="font-size:11.5px;text-align:center">${dStr}</td>
-        <td style="font-size:11.5px;color:#6B7280;font-family:var(--m)">${r["입고번호"]||""}</td>
-        <td style="font-size:12px;font-weight:600">${r["구매거래처"]||""}</td>
+        <td style="font-size:11.5px;color:#6B7280;font-family:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r["입고번호"]||""}">${r["입고번호"]||""}</td>
+        <td style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${거래처}">${거래처}</td>
         <td style="text-align:center;font-size:12px">${r["입고확인담당자"]||""}</td>
         <td style="font-size:11.5px;text-align:center">${dsStr}</td>
-        <td style="font-size:11px;color:#9CA3AF;font-family:var(--m)">${r["전표행번호"]||""}</td>
+        <td style="font-size:11px;color:#9CA3AF;font-family:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${전표}">${전표}</td>
         <td class="r" style="font-size:12px">${(Number(r["입고원화금액"])||0).toLocaleString()}</td>
         <td class="r" style="font-size:12px;color:#6B7280">${(Number(r["입고원화부가세"])||0).toLocaleString()}</td>
         <td class="r" style="font-weight:700;color:${amt>=1e7?'#C00000':'#374151'}">${amt.toLocaleString()}</td>
@@ -7268,29 +7331,43 @@ function mcRenderPartModal() {
   } else if(sheetType === "pms35") {
     // 35컬럼 PMS 매입
     const catColor = {'가공품':'#7C3AED','구매품(공용)':'#1D4ED8','연구비':'#F59E0B','상품':'#059669','재발주':'#DC2626'};
-    html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:1200px;margin:0">
+    html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:1200px;table-layout:fixed;margin:0">
+      <colgroup>
+        <col style="width:100px">
+        <col style="width:170px">
+        <col style="width:115px">
+        <col style="width:250px">
+        <col style="width:170px">
+        <col style="width:60px">
+        <col style="width:105px">
+        <col style="width:115px">
+        <col style="width:115px">
+      </colgroup>
       <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr>
-        <th style="min-width:100px">입고일</th>
-        <th style="min-width:160px">구매거래처</th>
-        <th style="min-width:110px">분류</th>
-        <th style="min-width:220px">품명</th>
-        <th style="min-width:160px">품번</th>
-        <th class="r" style="min-width:70px">수량</th>
-        <th class="r" style="min-width:100px">입고단가</th>
-        <th class="r" style="min-width:110px">입고금액</th>
-        <th class="r" style="min-width:110px">금액계</th>
+        <th>입고일</th>
+        <th>구매거래처</th>
+        <th>분류</th>
+        <th>품명</th>
+        <th>품번</th>
+        <th class="r">수량</th>
+        <th class="r">입고단가</th>
+        <th class="r">입고금액</th>
+        <th class="r">금액계</th>
       </tr></thead><tbody>` + arr.map(r => {
       const dt = r["입고일"]; let dStr = "";
       if(dt) { if(dt instanceof Date) dStr = dt.toISOString().slice(0,10); else dStr = String(dt).substring(0,10); }
       const cat = r["품목대분류"] || "—";
       const col = catColor[cat] || "#6B7280";
       const amt = Number(r["금액계"])||0;
+      const 거래처 = String(r["구매거래처"]||"");
+      const 품명 = String(r["품명"]||"");
+      const 품번 = String(r["품번"]||"");
       return `<tr>
         <td style="font-size:11.5px;text-align:center">${dStr}</td>
-        <td style="font-size:12px;font-weight:600">${r["구매거래처"]||""}</td>
+        <td style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${거래처}">${거래처}</td>
         <td style="text-align:center"><span style="padding:2px 6px;border-radius:4px;background:${col}22;color:${col};font-size:11px;font-weight:700">${cat}</span></td>
-        <td style="font-size:12px">${String(r["품명"]||"").substring(0,50)}</td>
-        <td style="font-size:11px;color:#6B7280;font-family:var(--m)">${String(r["품번"]||"").substring(0,30)}</td>
+        <td style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${품명}">${품명}</td>
+        <td style="font-size:11px;color:#6B7280;font-family:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${품번}">${품번}</td>
         <td class="r" style="font-size:12px">${(Number(r["입고수량"])||0).toLocaleString()}</td>
         <td class="r" style="font-size:12px">${(Number(r["입고단가"])||0).toLocaleString()}</td>
         <td class="r" style="font-size:12px">${(Number(r["입고금액"])||0).toLocaleString()}</td>
@@ -8053,6 +8130,7 @@ async function loadAllPurchaseDB() {
   // 사이드바 배지 + 구매현황 KPI 자동 갱신
   if(typeof updateAllBadges === "function") updateAllBadges();
   if(typeof renderPurchaseOverview === "function") renderPurchaseOverview();
+  if(typeof renderPurchaseHomePanels === "function") renderPurchaseHomePanels();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -11369,6 +11447,193 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // 데이터 변경 후 자동 호출 (loadAllPurchaseDB 끝에 연결)
 // 그리고 구매현황 탭 진입 시도 호출
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ⚙️ AI 설정 모달 (통합 키 관리 + SP JSON 저장)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const AI_KEYS_SP_PATH = "🏭 구매/99.Dashboard(real-time)/ai-keys.json";
+
+async function openAISettingsModal() {
+  const modal = document.getElementById("aiSettingsModal");
+  if(!modal) return;
+  modal.style.display = "flex";
+  
+  // SP에서 키 로드 (있으면 localStorage 갱신)
+  await loadAIKeysFromSP();
+  
+  // 입력란은 항상 비워두고 상태만 표시
+  document.getElementById("ai-gemini-key").value = "";
+  document.getElementById("ai-openai-key").value = "";
+  updateAIKeyStatus();
+}
+
+function closeAISettingsModal() {
+  const modal = document.getElementById("aiSettingsModal");
+  if(modal) modal.style.display = "none";
+}
+
+function updateAIKeyStatus() {
+  const gKey = localStorage.getItem("gemini_key") || "";
+  const gStatus = document.getElementById("ai-gemini-status");
+  if(gStatus) {
+    if(gKey) {
+      gStatus.innerHTML = `✅ 등록됨 <span style="color:var(--t3);font-weight:400">(마지막 4자리: ...${gKey.slice(-4)})</span>`;
+      gStatus.style.color = "#15803D";
+    } else {
+      gStatus.textContent = "🔑 키 미등록";
+      gStatus.style.color = "var(--t3)";
+    }
+  }
+  
+  const oKey = localStorage.getItem("oai_key") || "";
+  const oStatus = document.getElementById("ai-openai-status");
+  if(oStatus) {
+    if(oKey) {
+      oStatus.innerHTML = `✅ 등록됨 <span style="color:var(--t3);font-weight:400">(마지막 4자리: ...${oKey.slice(-4)})</span>`;
+      oStatus.style.color = "#15803D";
+    } else {
+      oStatus.textContent = "🔑 키 미등록";
+      oStatus.style.color = "var(--t3)";
+    }
+  }
+}
+
+async function saveAIKey(provider) {
+  const inputId = provider === "gemini" ? "ai-gemini-key" : "ai-openai-key";
+  const storageKey = provider === "gemini" ? "gemini_key" : "oai_key";
+  const key = (document.getElementById(inputId)?.value || "").trim();
+  
+  if(!key) {
+    alert(`${provider === "gemini" ? "Gemini" : "OpenAI"} API Key를 입력해주세요.`);
+    return;
+  }
+  
+  const prefix = provider === "gemini" ? "AIzaSy" : "sk-";
+  if(!key.startsWith(prefix)) {
+    if(!confirm(`⚠️ ${provider === "gemini" ? "Gemini" : "OpenAI"} 키는 보통 '${prefix}'로 시작합니다.\n그래도 저장하시겠어요?`)) return;
+  }
+  
+  try {
+    // 1) localStorage에 즉시 저장 (빠른 로드용 캐시)
+    localStorage.setItem(storageKey, key);
+    
+    // 2) SP JSON에 동기화 (팀 공유)
+    const ok = await saveAIKeysToSP();
+    
+    document.getElementById(inputId).value = "";  // 보안: 입력란 초기화
+    updateAIKeyStatus();
+    
+    if(ok) {
+      alert(`✅ ${provider === "gemini" ? "Gemini" : "OpenAI"} 키 저장 완료.\n\n• 로컬 캐시 ✅\n• SharePoint 동기화 ✅\n\n팀 전체가 같은 키를 공유합니다.`);
+    } else {
+      alert(`✅ ${provider === "gemini" ? "Gemini" : "OpenAI"} 키 저장 완료 (로컬만).\n\nSP 동기화는 실패했지만 이 브라우저에서는 사용 가능합니다.`);
+    }
+  } catch(e) {
+    alert("⚠️ 저장 실패: " + e.message);
+  }
+}
+
+async function clearAIKey(provider) {
+  const name = provider === "gemini" ? "Gemini" : "OpenAI";
+  if(!confirm(`🗑️ ${name} API 키를 삭제하시겠어요?\n\n• 로컬 캐시 + SharePoint 동시 삭제`)) return;
+  
+  const storageKey = provider === "gemini" ? "gemini_key" : "oai_key";
+  try {
+    localStorage.removeItem(storageKey);
+    await saveAIKeysToSP();  // 삭제 상태 반영
+    updateAIKeyStatus();
+    alert(`✅ ${name} 키가 삭제되었습니다.`);
+  } catch(e) {
+    alert("⚠️ 삭제 실패: " + e.message);
+  }
+}
+
+// SP에서 AI 키 로드 → localStorage 갱신
+async function loadAIKeysFromSP() {
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) return false;
+    
+    const encPath = AI_KEYS_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    
+    if(resp.status === 404) {
+      console.log("📂 ai-keys.json 없음 (최초 생성 대기)");
+      return true;
+    }
+    if(!resp.ok) return false;
+    
+    const data = await resp.json();
+    if(data.gemini_key) localStorage.setItem("gemini_key", data.gemini_key);
+    if(data.oai_key) localStorage.setItem("oai_key", data.oai_key);
+    
+    // 빈 키도 처리 (의도적 삭제)
+    if(data.gemini_key === "") localStorage.removeItem("gemini_key");
+    if(data.oai_key === "") localStorage.removeItem("oai_key");
+    
+    console.log("✅ AI 키 SP에서 로드 완료");
+    return true;
+  } catch(e) {
+    console.warn("⚠️ AI 키 SP 로드 실패:", e.message);
+    return false;
+  }
+}
+
+// localStorage 키 → SP JSON 저장
+async function saveAIKeysToSP() {
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) {
+      console.warn("⚠️ Graph 인증 없음 - SP 저장 스킵");
+      return false;
+    }
+    
+    const data = {
+      gemini_key: localStorage.getItem("gemini_key") || "",
+      oai_key: localStorage.getItem("oai_key") || "",
+      updated_at: new Date().toISOString(),
+      updated_by: (typeof window._currentUser !== "undefined" ? window._currentUser : "unknown")
+    };
+    
+    const encPath = AI_KEYS_SP_PATH.split("/").map(encodeURIComponent).join("/");
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encPath}:/content`,
+      {
+        method: "PUT",
+        headers: {
+          "Authorization": "Bearer " + t,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data, null, 2)
+      }
+    );
+    
+    if(!resp.ok) {
+      console.warn("⚠️ AI 키 SP 저장 실패:", resp.status);
+      return false;
+    }
+    console.log("✅ AI 키 SP 저장 완료");
+    return true;
+  } catch(e) {
+    console.warn("⚠️ AI 키 SP 저장 오류:", e.message);
+    return false;
+  }
+}
+
+// 앱 시작 시 SP에서 AI 키 자동 로드
+window.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    if(typeof loadAIKeysFromSP === "function") {
+      loadAIKeysFromSP().catch(e => console.warn("AI 키 자동 로드 실패:", e.message));
+    }
+  }, 2000);  // 인증 완료 후
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🌱 테스트 데이터 시드 (콘솔에서 호출: seedPurchaseTestData())
@@ -20555,6 +20820,190 @@ function syncSLActivityFromEvent(evt, save) {
 }
 
 
+// ─── 구매현황 페이지: 최근 구매활동 + 완료 가능 활동 (구매현황 페이지 전용) ───
+function renderPurchaseHomePanels() {
+  // 최근 구매활동 (상위 5건)
+  const elRecent = document.getElementById("pRecentSL");
+  if(elRecent) {
+    if(!slData || !slData.length) {
+      elRecent.innerHTML='<div style="text-align:center;color:var(--t3);padding:20px;font-size:13px">구매활동 없음</div>';
+    } else {
+      const recent = [...slData]
+        .sort((a,b)=>(b.lastActivity||b.updatedAt||"").localeCompare(a.lastActivity||a.updatedAt||""))
+        .slice(0,5);
+      const SC={구매요청접수:"#1d4ed8",납기확인중:"#a16207",발주완료:"#0369a1",입고확인:"#92400e",완료예정:"#4338ca",매입완료:"#15803D"};
+      elRecent.innerHTML=recent.map(r=>{
+        const stat = r.status || "-";
+        const col = SC[stat] || "var(--t3)";
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer" onclick="go('purchase-log', document.querySelector('[onclick*=&quot;purchase-log&quot;]'))">
+          <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.company||"-"} <span style="color:var(--t3);font-weight:500;font-size:12px">${r.pjcode||""}</span></div>
+            <div style="font-size:12px;color:var(--t3)">${(r.lastActivity||r.start||"").substring(0,10)}</div>
+          </div>
+          <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${col}22;color:${col};font-weight:700;flex-shrink:0">${stat}</span>
+        </div>`;
+      }).join("");
+    }
+  }
+  
+  // 완료 가능 활동 (매입완료 이동 준비됨 - moveToReceipt 조건 충족)
+  const elReady = document.getElementById("pReadyList");
+  const elCount = document.getElementById("pReadyCount");
+  if(elReady && Array.isArray(slData)) {
+    const ready = [];
+    for(const r of slData) {
+      const prRows = (typeof _prMaster !== "undefined" && Array.isArray(_prMaster))
+        ? _prMaster.filter(p => p.parentSLId === r.id) : [];
+      const poRows = (typeof _pordData !== "undefined" && Array.isArray(_pordData))
+        ? _pordData.filter(p => p.parentSLId === r.id) : [];
+      const dlvRows = (typeof _pdlvData !== "undefined" && Array.isArray(_pdlvData))
+        ? _pdlvData.filter(p => p.parentSLId === r.id) : [];
+      const taxRows = (typeof _ptaxData !== "undefined" && Array.isArray(_ptaxData))
+        ? _ptaxData.filter(p => p.parentSLId === r.id) : [];
+      const stlRows = (typeof _pstlData !== "undefined" && Array.isArray(_pstlData))
+        ? _pstlData.filter(p => p.parentSLId === r.id) : [];
+      const prItems = prRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : (Number(p.itemCount)||0)), 0);
+      const poItems = poRows.reduce((s,p) => s + (Array.isArray(p.itemList) ? p.itemList.length : 0), 0);
+      const ok = prItems > 0 && poItems > 0 && prItems === poItems
+        && dlvRows.length > 0 && taxRows.length > 0 && stlRows.length > 0
+        && r.status !== "매입완료";
+      if(ok) ready.push({...r, _prItems: prItems, _poItems: poItems});
+    }
+    
+    if(elCount) elCount.textContent = `${ready.length}건 완료 가능`;
+    
+    if(ready.length === 0) {
+      elReady.innerHTML = '<div style="text-align:center;color:var(--t3);padding:20px;font-size:13px">완료 가능 활동 없음<br><span style="font-size:11.5px">구매활동에서 PR=PO 일치 + 거래명세서/세금계산서/회계전표 등록 시 표시됩니다</span></div>';
+    } else {
+      elReady.innerHTML = ready.slice(0,5).map(r => {
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
+          <div style="font-size:20px;flex-shrink:0;animation:pulse 1.5s infinite">✅</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.company||"-"} <span style="color:var(--t3);font-weight:500;font-size:12px">${r.pjcode||""}</span></div>
+            <div style="font-size:11.5px;color:var(--t3)">품목 ${r._prItems}/${r._poItems} · 모든 단계 완료</div>
+          </div>
+          <button onclick="moveToReceipt('${r.id}')" style="padding:5px 11px;border-radius:7px;border:none;background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-size:12px;font-weight:800;cursor:pointer;animation:rcPulse 1.5s infinite;flex-shrink:0;white-space:nowrap">매입완료 →</button>
+        </div>`;
+      }).join("");
+      if(ready.length > 5) {
+        elReady.innerHTML += `<div style="text-align:center;font-size:12px;color:var(--t3);padding-top:8px"><a href="#" onclick="event.preventDefault();go('purchase-log', document.querySelector('[onclick*=&quot;purchase-log&quot;]'))" style="color:var(--p);text-decoration:underline">외 ${ready.length-5}건 더 보기 →</a></div>`;
+      }
+    }
+  }
+  
+  // 💎 MC BOM 원가율 패널 렌더
+  if(typeof renderCostRatioPanel === "function") renderCostRatioPanel();
+}
+
+// ─── 💎 MC BOM 원가율 패널 (전체 평균 + 4개 매출구분1별) ───
+function renderCostRatioPanel() {
+  const main = (window._mcState && window._mcState.data) ? window._mcState.data.main : null;
+  
+  // MC BOM 데이터 미로드 시 자동 로드 트리거
+  if(!main || !main.length) {
+    if(typeof mcInit === "function" && !window._mcLoadingForCR) {
+      window._mcLoadingForCR = true;
+      mcInit().then(() => {
+        window._mcLoadingForCR = false;
+        renderCostRatioPanel();  // 로드 완료 후 재호출
+      }).catch(e => {
+        window._mcLoadingForCR = false;
+        console.warn("MC BOM 로드 실패:", e.message);
+      });
+    }
+    // 로딩 중 표시
+    ["cr-total","cr-equip","cr-parts","cr-service","cr-supply"].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.textContent = "...";
+    });
+    return;
+  }
+  
+  // 매출/원가 추출 (옛/새 키 모두 지원)
+  const getAmt = r => Number(r["합계"]) || 0;
+  const getCost = r => Number(r["원가(VAT포)"] || r["원가(VAT포함)"] || r["총금액(부가세포함)"]) || 0;
+  
+  // 그룹별 집계
+  const groups = {
+    total: { sales: 0, cost: 0, count: 0 },
+    "장비":   { sales: 0, cost: 0, count: 0 },
+    "부품":   { sales: 0, cost: 0, count: 0 },
+    "용역":   { sales: 0, cost: 0, count: 0 },
+    "소모품": { sales: 0, cost: 0, count: 0 },
+  };
+  
+  for(const r of main) {
+    const sales = getAmt(r);
+    const cost = getCost(r);
+    if(sales <= 0) continue;
+    
+    groups.total.sales += sales;
+    groups.total.cost += cost;
+    groups.total.count++;
+    
+    const cat = String(r["매출구분1"]||"").trim();
+    if(groups[cat]) {
+      groups[cat].sales += sales;
+      groups[cat].cost += cost;
+      groups[cat].count++;
+    }
+  }
+  
+  // 원가율 색상 결정 (낮을수록 좋음)
+  const colorByRatio = ratio => {
+    if(ratio < 20) return "#15803D";   // 양호 (초록)
+    if(ratio < 40) return "#F59E0B";   // 보통 (주황)
+    return "#DC2626";                   // 검토 필요 (빨강)
+  };
+  
+  const ratio = g => g.sales > 0 ? (g.cost / g.sales * 100) : 0;
+  
+  // 전체 평균 (강조)
+  const totalRatio = ratio(groups.total);
+  const totalEl = document.getElementById("cr-total");
+  const totalSubEl = document.getElementById("cr-total-sub");
+  if(totalEl) {
+    if(groups.total.count === 0) {
+      totalEl.textContent = "-";
+      if(totalSubEl) totalSubEl.textContent = "데이터 없음";
+    } else {
+      totalEl.innerHTML = `${totalRatio.toFixed(1)}<span style="font-size:18px;font-weight:700">%</span>`;
+      if(totalSubEl) {
+        totalSubEl.innerHTML = `매출 <b>${(groups.total.sales/1e8).toFixed(1)}억</b> / 원가 <b>${(groups.total.cost/1e8).toFixed(1)}억</b> · ${groups.total.count}건`;
+      }
+    }
+  }
+  
+  // 구분별 4개
+  const mapping = [
+    { key: "장비", id: "cr-equip" },
+    { key: "부품", id: "cr-parts" },
+    { key: "용역", id: "cr-service" },
+    { key: "소모품", id: "cr-supply" },
+  ];
+  
+  for(const m of mapping) {
+    const g = groups[m.key];
+    const el = document.getElementById(m.id);
+    const subEl = document.getElementById(m.id + "-sub");
+    if(!el) continue;
+    
+    if(g.count === 0) {
+      el.textContent = "-";
+      if(subEl) subEl.textContent = "0건";
+      continue;
+    }
+    
+    const r = ratio(g);
+    const col = colorByRatio(r);
+    el.innerHTML = `<span style="color:${col}">${r.toFixed(1)}<span style="font-size:14px;font-weight:700">%</span></span>`;
+    if(subEl) {
+      subEl.innerHTML = `${g.count}건 · ${(g.sales/1e8).toFixed(1)}억 → ${(g.cost/1e8).toFixed(2)}억`;
+    }
+  }
+}
+
 // ─── 최근 구매활동 카드 ───
 function renderRecentSLCard() {
   const el = document.getElementById("recentSLCard");
@@ -29560,6 +30009,10 @@ function go(id, el) {
   if(id==="project-status") {
     if(typeof psInit === "function") psInit();
   }
+  // 📊 구매현황 탭 진입 시 - 최근 활동/완료 가능 패널 갱신
+  if(id==="purchase") {
+    if(typeof renderPurchaseHomePanels === "function") renderPurchaseHomePanels();
+  }
   // ✅ 매입완료 탭 진입 시 - PMS 자동 로드
   if(id==="receipt") {
     if(typeof rcInit === "function") rcInit();
@@ -29582,7 +30035,7 @@ window.addEventListener("popstate", (e)=>{
   const openModals = [
     "slModal","slHistoryModal","custMgrPickerModal","pjCodePickerModal","pjCodeGenModal",
     "newContactModal","quoteModal","slFileModal","slSubfolderModal",
-    "mcSubModal","rcPartModal"
+    "mcSubModal","rcPartModal","aiSettingsModal"
   ];
   for(const id of openModals) {
     const m = document.getElementById(id);
@@ -33122,6 +33575,61 @@ function deleteTax(id){
 }
 </script>
 
+
+      <!-- ⚙️ AI 설정 모달 -->
+      <div id="aiSettingsModal" onclick="if(event.target===this)closeAISettingsModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:10300;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+        <div class="modal-inner" style="background:#fff;border-radius:16px;padding:24px;width:640px;max-width:96vw;max-height:90vh;overflow-y:auto;position:relative">
+          <button onclick="closeAISettingsModal()" style="position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--t3)">✕</button>
+          <div style="font-size:20px;font-weight:900;color:var(--t);margin-bottom:6px">⚙️ AI 파싱 설정</div>
+          <div style="font-size:13px;color:var(--t3);margin-bottom:16px">PDF 자동 추출용 AI 키 관리 · SharePoint에 안전하게 저장</div>
+          
+          <div style="background:#F0FDF4;border-left:3px solid #15803D;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#15803D;line-height:1.7">
+            <b>⚡ 추천 우선순위 (위에서부터 자동 시도):</b><br>
+            🥇 <b>Gemini 1.5 Flash</b> — 무료, 3-5초 (최고 추천)<br>
+            🥈 <b>OpenAI gpt-4o-mini</b> — $0.15/M, 2-5초 (백업)<br>
+            🥉 <b>M365 Copilot</b> — 회사 라이선스, 30-60초 (자동 폴백)
+          </div>
+          
+          <!-- 🥇 Gemini -->
+          <div style="background:#f0fdf4;border:1.5px solid #15803D;border-radius:10px;padding:14px;margin-bottom:10px">
+            <label style="font-size:14px;font-weight:800;color:#15803D;display:block;margin-bottom:8px">🥇 Gemini API Key <span style="font-weight:400;color:var(--t3);font-size:12px">(무료, 강력 추천)</span></label>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <input class="si" type="password" id="ai-gemini-key" placeholder="AIzaSy..." style="flex:1;min-width:240px;font-family:var(--m);font-size:12px;background:#fff">
+              <button onclick="saveAIKey('gemini')" style="padding:8px 14px;border-radius:6px;border:none;background:#15803D;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--s);white-space:nowrap">💾 저장</button>
+              <button onclick="clearAIKey('gemini')" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-family:var(--s);white-space:nowrap">🗑️ 삭제</button>
+            </div>
+            <div id="ai-gemini-status" style="font-size:11.5px;margin-top:8px;color:var(--t3)">키 미등록</div>
+            <div style="font-size:11.5px;color:var(--t3);margin-top:6px;line-height:1.6">
+              📌 발급: <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#15803D;text-decoration:underline;font-weight:700">aistudio.google.com/apikey</a> → API key 만들기 → 복사<br>
+              💡 무료 한도: 15 RPM / 1500 RPD
+            </div>
+          </div>
+          
+          <!-- 🥈 OpenAI -->
+          <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:10px">
+            <label style="font-size:14px;font-weight:800;color:var(--t2);display:block;margin-bottom:8px">🥈 OpenAI API Key <span style="font-weight:400;color:var(--t3);font-size:12px">(선택 - Gemini 백업)</span></label>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <input class="si" type="password" id="ai-openai-key" placeholder="sk-..." style="flex:1;min-width:240px;font-family:var(--m);font-size:12px">
+              <button onclick="saveAIKey('openai')" style="padding:8px 14px;border-radius:6px;border:none;background:var(--p);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--s);white-space:nowrap">💾 저장</button>
+              <button onclick="clearAIKey('openai')" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border2);background:#fff;font-size:13px;cursor:pointer;font-family:var(--s);white-space:nowrap">🗑️ 삭제</button>
+            </div>
+            <div id="ai-openai-status" style="font-size:11.5px;margin-top:8px;color:var(--t3)">키 미등록</div>
+            <div style="font-size:11.5px;color:var(--t3);margin-top:6px">📌 platform.openai.com/api-keys · 모델: gpt-4o-mini</div>
+          </div>
+          
+          <details style="font-size:12.5px;color:var(--t3);margin-top:14px;padding:10px 14px;background:#F9FAFB;border-radius:8px">
+            <summary style="cursor:pointer;font-weight:700;color:var(--t2);padding:4px 0">📖 저장 방식 및 동작 원리</summary>
+            <div style="padding:8px 4px;line-height:1.7">
+              • 키는 <b>SharePoint JSON 파일</b>(<code>ai-keys.json</code>)에 저장됩니다<br>
+              • 동시에 브라우저 localStorage에도 캐시 (오프라인/빠른 로드)<br>
+              • 모든 사용자가 동일한 키 공유 (팀 공통 설정)<br><br>
+              • PDF 첨부 → AI 파싱 버튼 클릭<br>
+              • 로컬 PDF 텍스트 파싱 → Gemini Flash → OpenAI mini → Copilot 순으로 자동 시도<br>
+              • JSON 결과 → 검토 모달 자동 표시
+            </div>
+          </details>
+        </div>
+      </div>
 
       <!-- 🔼 body 직속으로 이동됨: newContactModal -->
       <div id="newContactModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:10200;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
