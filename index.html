@@ -3293,6 +3293,11 @@ function onOK() {
   document.getElementById("lm").classList.add("hidden"); document.getElementById("ml").style.display="flex";
   document.getElementById("aus").className="aus ok"; {const _e1=document.getElementById("aus");if(_e1) _e1.textContent="● "+(acct.name||acct.username);}
   document.getElementById("btnLogout").style.display="inline-block"; document.getElementById("btnRefresh").style.display="inline-block";
+  // 🆕 AI 설정 + 업데이트 버튼도 표시
+  const btnAI = document.getElementById("btnAISettings");
+  if(btnAI) btnAI.style.display = "inline-block";
+  const btnUpd = document.getElementById("btnUpdate");
+  if(btnUpd) btnUpd.style.display = "inline-block";
   initCharts(); syncAll();
   // 🔄 사이드바 배지 갱신용 - 백그라운드로 회의록 DB 로드
   setTimeout(() => {
