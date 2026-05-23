@@ -7,6 +7,15 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="version" content="v1-20260519-purchase">
+
+<!-- 📱 PWA / Mobile -->
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ENJET 구매">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="36" fill="%230f766e"/%3E%3Ctext x="96" y="135" text-anchor="middle" fill="%23fff" font-size="100" font-weight="900" font-family="sans-serif"%3E구매%3C/text%3E%3C/svg%3E'>
+
 <title>ENJET | 구매 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -3436,6 +3445,12 @@ function onOK() {
   const btnUpd = document.getElementById("btnUpdate");
   if(btnUpd) btnUpd.style.display = "inline-block";
   initCharts(); syncAll();
+  
+  // 🔧 Phase 4: ES 전자결재 + 영업 BOM 폴링 시작
+  if (typeof startES_ApprovalPolling === "function") {
+    try { startES_ApprovalPolling(); } catch(e) { console.warn("ES 결재 폴링 실패:", e); }
+  }
+  
   // 🔄 사이드바 배지 갱신용 - 백그라운드로 회의록 DB 로드
   setTimeout(() => {
     if(typeof loadMtgLogsFromSP === "function") {
@@ -8536,6 +8551,210 @@ async function loadPRMaster() {
   console.log(`📥 PR Master 로드: ${_prMaster.length}건`);
   if(typeof renderPRDB === "function") renderPRDB();
   return _prMaster;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Phase 4: ES 전자결재 → 구매 자동 등록
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const _APPROVAL_MASTER_PATH = "📋 전자결재/99.Dashboard(real-time)/approval-master.json";
+const _BOM_READY_FOR_SALES_PATH = "📦영업/99.Dashboard(real-time)/bom-ready-for-quote.json";
+
+let _esApprovalPollingInterval = null;
+
+function startES_ApprovalPolling() {
+  if (_esApprovalPollingInterval) clearInterval(_esApprovalPollingInterval);
+  setTimeout(pollESApprovals, 5000);  // 5초 후 첫 실행
+  _esApprovalPollingInterval = setInterval(pollESApprovals, 5 * 60 * 1000);  // 5분 주기
+  console.log("[Purchase] ES 결재 폴링 시작 (5분 주기)");
+}
+
+async function pollESApprovals() {
+  try {
+    const t = await getToken();
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(_APPROVAL_MASTER_PATH)}:/content`,
+      { headers: { Authorization: `Bearer ${t}` }});
+    
+    if (!r.ok) return;
+    
+    const data = await r.json();
+    if (!data?.approvals) return;
+    
+    // ES 모듈에서 상신했고 결재 완료된 + 아직 구매에 등록 안 된 것
+    const completedApprovals = data.approvals.filter(a => 
+      a.source === "es_module" && 
+      (a.status === "완료" || a.status === "결재완료" || a.status === "approved") &&
+      !a.purchaseRegistered
+    );
+    
+    if (completedApprovals.length === 0) return;
+    
+    console.log(`[Purchase] ES 결재 완료 ${completedApprovals.length}건 자동 등록 시작`);
+    
+    let newCount = 0;
+    for (const approval of completedApprovals) {
+      try {
+        // pr-master.json에 자동 등록
+        const newPR = {
+          id: `PR-${Date.now()}-${newCount}`,
+          prNo: approval.id.replace("APR", "PR"),
+          date: new Date().toISOString().substring(0,10),
+          company: approval.formData?.customer || "",
+          customer: approval.formData?.customer || "",
+          projectCode: approval.formData?.projectCode || "",
+          projectName: approval.formData?.projectName || "",
+          items: approval.formData?.items || [],
+          totalQty: approval.formData?.totalQty || 0,
+          totalAmount: approval.formData?.totalAmount || 0,
+          specialNote: approval.formData?.specialNote || "",
+          source: "es_module_auto",      // 자동 등록 표시
+          esApprovalId: approval.id,      // 원본 결재 ID
+          esQuoteId: approval.formData?.esQuoteId,  // ES 견적 ID
+          drafter: approval.drafter,
+          status: "신규",
+          autoCreatedAt: new Date().toISOString()
+        };
+        
+        // 중복 체크
+        const existingPR = _prMaster.find(p => p.esApprovalId === approval.id);
+        if (existingPR) {
+          console.log(`[Purchase] 이미 등록됨: ${approval.id}`);
+          continue;
+        }
+        
+        _prMaster.unshift(newPR);
+        newCount++;
+        
+        // 결재에 처리 표시
+        approval.purchaseRegistered = true;
+        approval.purchasePrId = newPR.id;
+        approval.purchaseRegisteredAt = new Date().toISOString();
+        
+      } catch (e) {
+        console.error(`[Purchase] 결재 처리 실패 (${approval.id}):`, e);
+      }
+    }
+    
+    if (newCount > 0) {
+      // PR Master 저장
+      await savePRMaster();
+      
+      // 결재 마스터 업데이트 저장
+      await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(_APPROVAL_MASTER_PATH)}:/content`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      
+      console.log(`[Purchase] ✅ ${newCount}건 자동 등록 완료`);
+      
+      // 알림 (배너 또는 토스트)
+      if (typeof showToast === "function") {
+        showToast(`✅ ES사업부 구매품의서 ${newCount}건이 자동 등록되었습니다`, "success");
+      } else {
+        alert(`✅ ES사업부 구매품의서 ${newCount}건이 자동 등록되었습니다.\n구매요청서 DB에서 확인하세요.`);
+      }
+      
+      // PR DB 재렌더
+      if (typeof renderPRDB === "function") renderPRDB();
+    }
+    
+  } catch (e) {
+    console.warn("[Purchase] ES 결재 폴링 에러:", e);
+  }
+}
+
+// PR 모달에서 호출하는 래퍼 (현재 편집 중인 PR ID 사용)
+async function sendBomToSalesFromModal() {
+  const editId = document.getElementById("pr-f-edit-id")?.value || 
+                 document.getElementById("pr-edit-id")?.value;
+  if (!editId) {
+    alert("저장된 PR에 대해서만 BOM 전달이 가능합니다.\n먼저 [💾 저장]을 클릭하세요.");
+    return;
+  }
+  await sendBomToSales(editId);
+}
+
+// 구매 BOM 완료 → 영업에 전달 (수동 트리거)
+async function sendBomToSales(prId) {
+  const pr = _prMaster.find(p => p.id === prId);
+  if (!pr) { alert("PR을 찾을 수 없습니다."); return; }
+  
+  if (!pr.projectCode) {
+    alert("프로젝트 코드가 없는 PR입니다.");
+    return;
+  }
+  
+  // 단가가 채워져 있는지 체크
+  const items = pr.items || [];
+  const noPriceItems = items.filter(i => !i.unitPrice || parseFloat(i.unitPrice) === 0);
+  if (noPriceItems.length > 0) {
+    if (!confirm(`단가 미입력 품목이 ${noPriceItems.length}건 있습니다.\n그래도 영업에 BOM 전달하시겠습니까?`)) return;
+  }
+  
+  if (!confirm(`이 BOM을 영업 모듈에 전달하시겠습니까?\n\n프로젝트: ${pr.projectCode}\n품목 수: ${items.length}건\n합계: ${(pr.totalAmount || 0).toLocaleString()}원\n\n영업이 견적 작성 시 [구매 BOM 사용] 옵션으로 가져갈 수 있습니다.`)) return;
+  
+  try {
+    const t = await getToken();
+    
+    // 기존 데이터 로드
+    let existing = { items: [] };
+    try {
+      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(_BOM_READY_FOR_SALES_PATH)}:/content`,
+        { headers: { Authorization: `Bearer ${t}` }});
+      if (r.ok) existing = await r.json();
+    } catch (e) {}
+    
+    if (!existing.items) existing.items = [];
+    
+    // 같은 프로젝트의 기존 미사용 BOM 제거
+    existing.items = existing.items.filter(i => 
+      !(i.projectCode === pr.projectCode && !i.consumed)
+    );
+    
+    // 새 BOM 추가
+    existing.items.unshift({
+      id: `BOM-${Date.now()}`,
+      prId: pr.id,
+      projectCode: pr.projectCode,
+      customer: pr.company || pr.customer,
+      bom: items.map(i => ({
+        partNo: i.partNo,
+        name: i.name,
+        spec: i.spec,
+        qty: i.qty,
+        unit: i.unit,
+        unitPrice: i.unitPrice,  // 구매가 (영업이 마진 추가)
+        totalAmount: (parseFloat(i.qty) || 0) * (parseFloat(i.unitPrice) || 0),
+        supplier: i.supplier
+      })),
+      purchaseTotal: pr.totalAmount || 0,
+      preparedBy: acct?.name || "구매팀",
+      preparedAt: new Date().toISOString(),
+      consumed: false
+    });
+    
+    existing.lastUpdate = new Date().toISOString();
+    
+    await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(_BOM_READY_FOR_SALES_PATH)}:/content`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+      body: JSON.stringify(existing)
+    });
+    
+    // PR에 표시
+    pr.bomSentToSales = true;
+    pr.bomSentAt = new Date().toISOString();
+    await savePRMaster();
+    
+    alert(`✅ 영업 모듈에 BOM 전달 완료\n\n프로젝트: ${pr.projectCode}\n품목: ${items.length}건\n\n영업이 견적 작성 시 [구매 BOM 사용] 옵션을 클릭하면 자동으로 가져갑니다.`);
+    
+    if (typeof renderPRDB === "function") renderPRDB();
+    
+  } catch (e) {
+    console.error("BOM 전달 실패:", e);
+    alert("BOM 전달 실패: " + e.message);
+  }
 }
 
 // 2. 매입 견적서
@@ -36619,8 +36838,9 @@ function deleteTax(id){
           <input type="file" id="pr-f-file" accept="application/pdf,.pdf,.docx,.xlsx,.hwp,image/*" style="width:100%;padding:7px;border:1.5px dashed var(--a);border-radius:7px;background:#fff;font-size:13px">
         </div>
 
-        <div style="display:flex;gap:8px;justify-content:flex-end">
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
           <button onclick="closePRModal()" style="padding:9px 22px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:15px;cursor:pointer;font-family:var(--s)">취소</button>
+          <button onclick="sendBomToSalesFromModal()" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;font-size:14px;cursor:pointer;font-weight:700;font-family:var(--s)" title="영업 견적 모달에서 [구매 BOM 사용] 옵션으로 가져갈 수 있게 합니다">📤 영업에 BOM 전달</button>
           <button onclick="savePR()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:15px;cursor:pointer;font-weight:700;font-family:var(--s)">💾 저장 (BOM 자동매칭)</button>
         </div>
       </div>
