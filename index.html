@@ -1071,17 +1071,17 @@
             <colgroup>
               <col style="width:140px">
               <col style="width:60px">
-              <col style="width:125px">
-              <col style="width:260px">
+              <col style="width:115px">
+              <col style="width:180px">
               <col style="width:55px">
-              <col style="width:85px">
-              <col style="width:85px">
+              <col style="width:80px">
+              <col style="width:80px">
+              <col style="width:75px">
               <col style="width:60px">
-              <col style="width:45px">
-              <col style="width:60px">
+              <col style="width:85px">
               <col style="width:90px">
-              <col style="width:95px">
-              <col style="width:140px">
+              <col style="width:130px">
+              <col style="width:75px">
             </colgroup>
             <thead><tr>
               <th>거래처</th>
@@ -1091,12 +1091,12 @@
               <th class="r">수량</th>
               <th>매출구분1</th>
               <th>매출구분2</th>
-              <th>연도</th>
-              <th>월</th>
+              <th>일자</th>
               <th>구분</th>
               <th class="r">1SET 수량</th>
               <th class="r">부품총수</th>
               <th class="r">원가(VAT포)</th>
+              <th class="r">원가율</th>
             </tr></thead>
             <tbody id="mcTb"><tr><td colspan="13"><div class="sw"><div class="spr"></div></div></td></tr></tbody>
           </table></div>
@@ -7740,7 +7740,7 @@ function mcRenderTable() {
   document.getElementById("mc-tbl-l").textContent = `(${arr.length}건)`;
   
   if(arr.length === 0) {
-    tb.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>';
+    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>';
     return;
   }
   
@@ -7788,6 +7788,27 @@ function mcRenderTable() {
     const 거래처 = r["거래처"] || "";
     const 품목 = r["품목"] || "";
     
+    // 일자 통합 (연도.월 형태, 월은 2자리)
+    const yr = r["연도"];
+    const mn = r["월"];
+    let 일자 = "";
+    if(yr && mn) {
+      일자 = `${yr}.${String(mn).padStart(2,"0")}`;
+    } else if(yr) {
+      일자 = String(yr);
+    }
+    
+    // 매출 (합계) 기반 원가율 계산 - 표시는 안 하지만 비교용
+    const 합계 = Number(r["합계"])||0;
+    let 원가율텍스트 = "-", 원가율색 = "#6B7280";
+    if(합계 > 0 && 원가 > 0) {
+      const ratio = (원가 / 합계) * 100;
+      원가율텍스트 = ratio.toFixed(1) + "%";
+      if(ratio < 20) 원가율색 = "#15803D";       // 양호
+      else if(ratio < 40) 원가율색 = "#F59E0B";  // 보통
+      else 원가율색 = "#DC2626";                  // 검토 필요
+    }
+    
     return `<tr>
       <td style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#111827" title="${거래처}">${거래처}</td>
       <td style="text-align:center"><span style="padding:3px 8px;border-radius:5px;background:${locColor[r["Local구분"]]||"#9CA3AF"}22;color:${locColor[r["Local구분"]]||"#6B7280"};font-size:12px;font-weight:800">${r["Local구분"]||""}</span></td>
@@ -7796,12 +7817,12 @@ function mcRenderTable() {
       <td class="r" style="font-size:13px;font-weight:800;color:#111827">${Number(r["수량"])||1}</td>
       <td style="text-align:center;color:${cat1Color[r["매출구분1"]]||"#6B7280"};font-weight:800;font-size:13px">${r["매출구분1"]||""}</td>
       <td style="text-align:center;color:${cat2Color[r["매출구분2"]]||"#6B7280"};font-weight:800;font-size:13px">${r["매출구분2"]||""}</td>
-      <td style="text-align:center;font-size:13px;color:#374151">${r["연도"]||""}</td>
-      <td style="text-align:center;font-size:13px;color:#374151">${r["월"]||""}</td>
+      <td style="text-align:center;font-size:13px;color:#374151;font-family:var(--m);font-weight:700">${일자}</td>
       <td style="text-align:center;font-size:13px;color:${gubunColor};font-weight:800">${gubun}</td>
       <td class="r" style="font-size:13px;color:#059669;font-weight:800">${oneSet!==""&&oneSet!=null?Number(oneSet).toFixed(1):"-"}</td>
       <td class="r" style="font-weight:800;color:#7C3AED;font-size:13px">${부품총수.toLocaleString()}</td>
       <td class="r" style="font-weight:800;color:${원가색};font-size:13px">${원가.toLocaleString()}</td>
+      <td class="r" style="font-weight:900;color:${원가율색};font-size:13px">${원가율텍스트}</td>
     </tr>`;
   }).join("");
 }
