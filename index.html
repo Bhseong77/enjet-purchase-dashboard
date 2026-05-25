@@ -38789,7 +38789,8 @@ async function poqLoadData(forceRefresh, years) {
         <div class="eq-empty-msg">데이터를 로드할 수 없습니다</div>
         <div class="eq-empty-sub">선택한 연도의 데이터가 SharePoint에 없습니다.<br>풀로드를 실행하거나 RPA 첫 실행을 기다려주세요.</div>
       </td></tr>`;
-      document.getElementById("poq-cnt").textContent = "0";
+      const _cntEl = document.getElementById("poq-cnt");
+      if(_cntEl) _cntEl.textContent = "0";
       return;
     }
   }
@@ -38970,8 +38971,12 @@ function poqRender() {
   const tbody = document.getElementById("poq-tbody");
   const tfoot = document.getElementById("poq-tfoot");
   
-  // 카운트 + 통계
-  document.getElementById("poq-cnt").textContent = _poqFiltered.length.toLocaleString();
+  // 카운트 + 통계 (null-safe: 새 디자인에서는 카드로 표시됨)
+  const _setText = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+  };
+  _setText("poq-cnt", _poqFiltered.length.toLocaleString());
   
   let stDone=0, stDraft=0, stStop=0;
   let sumDomAmt=0, sumDomVAT=0, sumTot=0, sumCurAmt=0, sumTotCur=0;
@@ -38987,9 +38992,9 @@ function poqRender() {
     sumTotCur += Number(r.TotCurAmt||0);
   }
   
-  document.getElementById("poq-st-done").textContent = stDone.toLocaleString();
-  document.getElementById("poq-st-draft").textContent = stDraft.toLocaleString();
-  document.getElementById("poq-st-stop").textContent = stStop.toLocaleString();
+  _setText("poq-st-done", stDone.toLocaleString());
+  _setText("poq-st-draft", stDraft.toLocaleString());
+  _setText("poq-st-stop", stStop.toLocaleString());
   
   // 사이드바 배지
   const badge = document.getElementById("badge-erp-po-q");
@@ -39261,7 +39266,8 @@ async function dlvqLoadData(forceRefresh, years) {
       <div class="eq-empty-msg">데이터를 로드할 수 없습니다</div>
       <div class="eq-empty-sub">선택한 연도의 입고 내역이 없거나, RPA가 아직 첫 실행되지 않았습니다</div>
     </td></tr>`;
-    document.getElementById("dlvq-cnt").textContent = "0";
+    const _cntEl = document.getElementById("dlvq-cnt");
+    if(_cntEl) _cntEl.textContent = "0";
     return;
   }
   
@@ -39384,7 +39390,8 @@ function dlvqRender() {
   const tbody = document.getElementById("dlvq-tbody");
   const tfoot = document.getElementById("dlvq-tfoot");
   
-  document.getElementById("dlvq-cnt").textContent = _dlvqFiltered.length.toLocaleString();
+  const _cntEl = document.getElementById("dlvq-cnt");
+  if(_cntEl) _cntEl.textContent = _dlvqFiltered.length.toLocaleString();
   const badge = document.getElementById("badge-erp-dlv-q");
   if(badge) badge.textContent = (_dlvqRawData||[]).length.toLocaleString();
   
