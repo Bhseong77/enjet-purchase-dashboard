@@ -38568,6 +38568,21 @@ async function _erpFetchJson(spPath) {
 /* ═══════════════════════════════════════════════════════════════════
    값 포맷팅
    ═══════════════════════════════════════════════════════════════════ */
+/* 날짜 정규화: "20260102" 또는 "20260102090000" → "2026-01-02" 
+   필터 비교/표시 모두 이걸로 통일해야 함 (영림원은 YYYYMMDD 형식, HTML date input은 YYYY-MM-DD) */
+function _erpDateNorm(val) {
+  if(val == null) return "";
+  const s = String(val).trim();
+  if(!s) return "";
+  // 이미 하이픈 형식이면 앞 10자만
+  if(s.includes("-")) return s.substr(0, 10);
+  // YYYYMMDD 형식 (8자리 숫자) → 하이픈 추가
+  if(/^\d{8}/.test(s)) {
+    return s.substr(0,4) + "-" + s.substr(4,2) + "-" + s.substr(6,2);
+  }
+  return s.substr(0, 10);
+}
+
 function _erpFmt(val, type) {
   if(val == null || val === "") return "";
   
@@ -38575,8 +38590,7 @@ function _erpFmt(val, type) {
     return val === true || val === "true" || val === "TRUE" || val === 1 ? "✓" : "";
   }
   if(type === "date") {
-    if(typeof val === "string" && val.length >= 10) return val.substr(0, 10);
-    return val;
+    return _erpDateNorm(val);
   }
   if(type === "num") {
     const n = Number(val);
@@ -38880,8 +38894,8 @@ function poqApplyFilters() {
   };
   
   _poqFiltered = _poqRawData.filter(r => {
-    if(f.dateFr && r.PODate && r.PODate.substr(0,10) < f.dateFr) return false;
-    if(f.dateTo && r.PODate && r.PODate.substr(0,10) > f.dateTo) return false;
+    if(f.dateFr && r.PODate && _erpDateNorm(r.PODate) < f.dateFr) return false;
+    if(f.dateTo && r.PODate && _erpDateNorm(r.PODate) > f.dateTo) return false;
     if(f.status && r.SMCurrStatusName !== f.status) return false;
     if(f.impType && r.SMImpTypeName !== f.impType) return false;
     if(f.pono && !String(r.PONo||"").toLowerCase().includes(f.pono)) return false;
@@ -38898,8 +38912,8 @@ function poqApplyFilters() {
     }
     if(f.dept && !String(r.DeptName||"").toLowerCase().includes(f.dept)) return false;
     if(f.emp && !String(r.EmpName||"").toLowerCase().includes(f.emp)) return false;
-    if(f.delvFr && r.DelvDate && r.DelvDate.substr(0,10) < f.delvFr) return false;
-    if(f.delvTo && r.DelvDate && r.DelvDate.substr(0,10) > f.delvTo) return false;
+    if(f.delvFr && r.DelvDate && _erpDateNorm(r.DelvDate) < f.delvFr) return false;
+    if(f.delvTo && r.DelvDate && _erpDateNorm(r.DelvDate) > f.delvTo) return false;
     if(f.cls) {
       const inL = String(r.ItemClassLName||"").toLowerCase().includes(f.cls);
       const inM = String(r.ItemClassMName||"").toLowerCase().includes(f.cls);
@@ -39335,7 +39349,7 @@ function dlvqApplyFilters() {
   };
   
   _dlvqFiltered = _dlvqRawData.filter(r => {
-    const d = (r.DelvInDate||"").substr(0,10);
+    const d = _erpDateNorm(r.DelvInDate||"");
     if(f.dateFr && d && d < f.dateFr) return false;
     if(f.dateTo && d && d > f.dateTo) return false;
     if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
@@ -39598,7 +39612,7 @@ function dlvqUpdateCards() {
     amount += Number(r.TotDelvInDomAmt || 0);
     vat += Number(r.DelvInDomVAT || 0);
     if(r.CustName) custSet.add(r.CustName);
-    const d = (r.DelvInDate || "").substr(0, 10);
+    const d = _erpDateNorm(r.DelvInDate || "");
     if(d && d > maxDate) maxDate = d;
   }
   
@@ -39850,7 +39864,7 @@ function recvqApplyFilters() {
   };
   
   _recvqFiltered = _recvqRawData.filter(r => {
-    const d = (r.DelvInDate||"").substr(0,10);
+    const d = _erpDateNorm(r.DelvInDate||"");
     if(f.dateFr && d && d < f.dateFr) return false;
     if(f.dateTo && d && d > f.dateTo) return false;
     if(f.rno && !String(r.DelvInNo||"").toLowerCase().includes(f.rno)) return false;
@@ -40011,7 +40025,7 @@ function recvqUpdateCards() {
     amount += Number(r.TotDelvInDomAmt || 0);
     vat += Number(r.DelvInDomVAT || 0);
     if(r.CustName) custSet.add(r.CustName);
-    const d = (r.DelvInDate || "").substr(0, 10);
+    const d = _erpDateNorm(r.DelvInDate || "");
     if(d && d > maxDate) maxDate = d;
   }
   
