@@ -38548,8 +38548,8 @@ let _recvqSort = [["DelvInDate", "desc"]];
 const REQQ_COLS = [
   ["IsStop",            "중단",       "bool",   55,  "center"],
   ["IsConfirm",         "확정",       "bool",   55,  "center"],
-  ["PReqNo",            "구매요청번호","text",  140, "left"],
-  ["PReqDate",          "요청일",     "date",   100, "center"],
+  ["POReqNo",            "구매요청번호","text",  140, "left"],
+  ["ReqDate",          "요청일",     "date",   100, "center"],
   ["PReqTypeName",      "구매요청구분","text",  100, "left"],
   ["DeptName",          "요청부서",   "text",   100, "left"],
   ["EmpName",           "요청담당자", "text",   95,  "left"],
@@ -38560,7 +38560,7 @@ const REQQ_COLS = [
   ["Spec",              "규격",       "text",   150, "left"],
   ["ItemAssetClassName","품목자산분류","text",  100, "left"],
   ["ItemUnitName",      "단위",       "text",   60,  "center"],
-  ["PReqQty",           "구매요청수량","num",    95,  "right"],
+  ["Qty",           "구매요청수량","num",    95,  "right"],
   ["POProgressQty",     "품의진행수량","num",    95,  "right"],
   ["SMImpTypeName",     "내외자",     "text",   70,  "center"],
   ["DelvDate",          "요청납기일", "date",   100, "center"],
@@ -38577,8 +38577,8 @@ const REQQ_COLS = [
 
 let _reqqRawData = null;
 let _reqqFiltered = [];
-let _reqqSort = [["PReqDate", "desc"]];
-let _reqqSelectedIds = new Set();  // 선택된 (PReqNo+PReqSerl) - 품의 작성용
+let _reqqSort = [["ReqDate", "desc"]];
+let _reqqSelectedIds = new Set();  // 선택된 (POReqNo+POReqSerl) - 품의 작성용
 
 /* ─── BOM 마스터 컬럼 정의 (영림원 38개 + 필수 추가) ─── */
 const BOMQ_COLS = [
@@ -40566,11 +40566,11 @@ async function reqqLoadData(forceRefresh, years) {
   } else {
     const existingKeys = new Set();
     for(const r of _reqqRawData) {
-      const k = `${r.PReqNo}-${r.PReqSerl}`;
+      const k = `${r.POReqNo}-${r.POReqSerl}`;
       existingKeys.add(k);
     }
     for(const r of (result.rows || [])) {
-      const k = `${r.PReqNo}-${r.PReqSerl}`;
+      const k = `${r.POReqNo}-${r.POReqSerl}`;
       if(!existingKeys.has(k)) {
         _reqqRawData.push(r);
         existingKeys.add(k);
@@ -40590,7 +40590,7 @@ async function reqqRefreshCurrentYear() {
   localStorage.removeItem(ERP_CACHE_REQ(ERP_CURRENT_YEAR));
   if(_reqqRawData) {
     _reqqRawData = _reqqRawData.filter(r => {
-      const d = r.PReqDate;
+      const d = r.ReqDate;
       return !(typeof d === "string" && d.startsWith(String(ERP_CURRENT_YEAR)));
     });
   }
@@ -40621,10 +40621,10 @@ function reqqApplyFilters() {
   };
   
   _reqqFiltered = _reqqRawData.filter(r => {
-    const d = _erpDateNorm(r.PReqDate);
+    const d = _erpDateNorm(r.ReqDate);
     if(f.dateFr && d && d < f.dateFr) return false;
     if(f.dateTo && d && d > f.dateTo) return false;
-    if(f.rno && !String(r.PReqNo||"").toLowerCase().includes(f.rno)) return false;
+    if(f.rno && !String(r.POReqNo||"").toLowerCase().includes(f.rno)) return false;
     if(f.status && r.SMCurrStatusName !== f.status) return false;
     if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
     if(f.item) {
@@ -40678,7 +40678,7 @@ function reqqSortBy(field, evt) {
 }
 
 function _reqqRowKey(r) {
-  return `${r.PReqNo}-${r.PReqSerl||0}`;
+  return `${r.POReqNo}-${r.POReqSerl||0}`;
 }
 
 function reqqToggleSelectAll(checked) {
@@ -40746,7 +40746,7 @@ function reqqRender() {
   
   // 합계
   const selectedCount = _reqqFiltered.filter(r => _reqqSelectedIds.has(_reqqRowKey(r))).length;
-  const sumReq = _reqqFiltered.reduce((a,r)=>a+Number(r.PReqQty||0),0);
+  const sumReq = _reqqFiltered.reduce((a,r)=>a+Number(r.Qty||0),0);
   const sumProg = _reqqFiltered.reduce((a,r)=>a+Number(r.POProgressQty||0),0);
   
   tfoot.innerHTML = `<tr>
@@ -40756,7 +40756,7 @@ function reqqRender() {
     const [field, name, type, width, align] = c;
     let val = "";
     if(field === "IsStop") val = `합계 ${_reqqFiltered.length.toLocaleString()}건`;
-    else if(field === "PReqQty") val = sumReq.toLocaleString();
+    else if(field === "Qty") val = sumReq.toLocaleString();
     else if(field === "POProgressQty") val = sumProg.toLocaleString();
     return `<td style="text-align:${align}">${val}</td>`;
   }).join("") + `</tr>`;
@@ -40810,7 +40810,7 @@ function reqqUpdateCards() {
     const status = r.SMCurrStatusName || "";
     if(status === "확정(승인)") approved++;
     if(status === "확정(승인)" || status === "진행" || status === "작성") progress++;
-    const d = _erpDateNorm(r.PReqDate);
+    const d = _erpDateNorm(r.ReqDate);
     if(d && d > maxDate) maxDate = d;
   }
   
@@ -40969,7 +40969,7 @@ function poActRender() {
   
   tbody.innerHTML = _poActBomResults.map((item, idx) => {
     const r = item.request;
-    const qty = Number(r.PReqQty || 0);
+    const qty = Number(r.Qty || 0);
     const amount = item.price * qty;
     
     // BOM 상태 아이콘
@@ -40999,8 +40999,8 @@ function poActRender() {
         <span style="display:inline-block;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;${statusStyle}">${statusIcon}</span>
       </td>
       <td style="padding:8px">
-        <div style="font-weight:600;color:var(--t1)">${r.PReqNo||"-"}</div>
-        <div style="font-size:11px;color:var(--t3)">${r.PReqDate ? _erpDateNorm(r.PReqDate) : ""}</div>
+        <div style="font-weight:600;color:var(--t1)">${r.POReqNo||"-"}</div>
+        <div style="font-size:11px;color:var(--t3)">${r.ReqDate ? _erpDateNorm(r.ReqDate) : ""}</div>
       </td>
       <td style="padding:8px">
         <div style="font-size:12px;color:var(--t2)">${r.PJTName||"-"}</div>
@@ -41027,7 +41027,7 @@ function poActUpdateSummary() {
   
   let totalAmount = 0;
   for(const r of _poActBomResults) {
-    totalAmount += r.price * Number(r.request.PReqQty || 0);
+    totalAmount += r.price * Number(r.request.Qty || 0);
   }
   
   const setTxt = (id, v) => {
@@ -41066,13 +41066,13 @@ async function poActSaveDraft() {
       status: "pending",
       data: {
         requests: _poActSelected.map(r => ({
-          PReqNo: r.PReqNo,
-          PReqSerl: r.PReqSerl,
+          POReqNo: r.POReqNo,
+          POReqSerl: r.POReqSerl,
           ItemNo: r.ItemNo,
           ItemName: r.ItemName,
           PJTNo: r.PJTNo,
           PJTName: r.PJTName,
-          PReqQty: r.PReqQty,
+          Qty: r.Qty,
           SMCurrStatusName: r.SMCurrStatusName
         })),
         bom_validation: _poActBomResults.map(b => ({
@@ -41137,13 +41137,13 @@ async function poActSendToERP() {
       status: "pending",
       data: {
         requests: _poActSelected.map(r => ({
-          PReqNo: r.PReqNo,
-          PReqSerl: r.PReqSerl,
+          POReqNo: r.POReqNo,
+          POReqSerl: r.POReqSerl,
           ItemNo: r.ItemNo,
           ItemName: r.ItemName,
           PJTNo: r.PJTNo,
           PJTName: r.PJTName,
-          PReqQty: r.PReqQty,
+          Qty: r.Qty,
           SMCurrStatusName: r.SMCurrStatusName
         })),
         bom_validation: _poActBomResults.map(b => ({
@@ -41245,13 +41245,15 @@ async function _bomqFetchData(forceRefresh) {
     return null;
   }
   
-  // rowsToObjects 변환
-  const objs = _erpRowsToObjects(data);
+  console.log(`🔩 BOM 원본 받음: rows=${data.rows.length}, columns=${data.columns?.length || 0}`);
+  
+  // rowsToObjects 변환 (배열 반환)
+  const rowsAsObjects = _erpRowsToObjects(data);
   const result = {
-    rows: objs.rows,
+    rows: rowsAsObjects,           // 배열 (객체로 변환된 행들)
     columns: data.columns,
     captured_at: data.captured_at,
-    row_count: data.row_count
+    row_count: data.row_count || rowsAsObjects.length
   };
   
   // 캐시 저장
