@@ -40818,29 +40818,7 @@ function reqqExportExcel() {
 }
 
 // 📝 품의 작성 모달 열기 (다음 Phase에서 구현)
-function reqqOpenWriteModal() {
-  if(_reqqSelectedIds.size === 0) {
-    alert("품의 작성할 요청서를 먼저 선택해주세요 (체크박스)");
-    return;
-  }
-  // 선택된 요청서들 추출
-  const selected = _reqqFiltered.filter(r => _reqqSelectedIds.has(_reqqRowKey(r)));
-  
-  // 확정(승인) 아닌 거 경고
-  const notApproved = selected.filter(r => r.SMCurrStatusName !== "확정(승인)");
-  if(notApproved.length > 0) {
-    if(!confirm(`⚠️ 선택된 ${selected.length}건 중 ${notApproved.length}건은 "확정(승인)" 상태가 아닙니다.\n그래도 계속하시겠습니까?\n\n(확정(승인) 상태가 아닌 건은 영림원에서 품의 입력이 불가능합니다)`)) {
-      return;
-    }
-  }
-  
-  console.log("📝 품의 작성 시작:", selected.length, "건");
-  console.log("선택된 항목:", selected);
-  
-  // TODO: Phase B에서 품의 작성 모달 구현
-  alert(`📝 품의 작성 모달은 다음 단계(Phase B)에서 구현됩니다.\n\n현재 선택된 ${selected.length}건:\n` + 
-    selected.map(r => `- ${r.POReqNo} | ${r.ItemName} | 수량:${r.Qty}`).join("\n"));
-}
+/* placeholder reqqOpenWriteModal removed */
 
 
 console.log("✅ ERP 조회 모듈 로드 완료");
