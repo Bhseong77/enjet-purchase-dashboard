@@ -1023,6 +1023,7 @@
       <div class="ni" onclick="go('erp-po-query',this)" style="background:linear-gradient(90deg,#E0F2FE,transparent)">📥 발주품목조회 <span class="nb nbg" id="badge-erp-po-q">-</span></div>
       <div class="ni" onclick="go('erp-dlv-query',this)" style="background:linear-gradient(90deg,#DCFCE7,transparent)">📥 입고정산조회 <span class="nb nbg" id="badge-erp-dlv-q">-</span></div>
       <div class="ni" onclick="go('erp-recv-query',this)" style="background:linear-gradient(90deg,#FFF7E0,transparent)">📥 입고품목조회 <span class="nb nbg" id="badge-erp-recv-q">-</span></div>
+      <div class="ni" onclick="go('erp-req-query',this)" style="background:linear-gradient(90deg,#F3E8FF,transparent)">📋 구매요청서 <span class="nb nbg" id="badge-erp-req-q">-</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -2116,6 +2117,121 @@
             </div>
           </div>
         </div>
+
+
+    <!-- ════════ 📋 ERP 구매요청서 조회 (v4 NEW, 품의 입력 후보) ════════ -->
+    <div class="page" id="tab-erp-req-query">
+      <div class="eq-wrap">
+        
+        <!-- 헤더 -->
+        <div class="eq-header">
+          <div class="eq-header-title">
+            <h2>📋 ERP 구매요청서 조회</h2>
+            <span class="eq-header-time" id="reqq-last">확인 중...</span>
+          </div>
+          <div class="eq-header-actions">
+            <button class="eq-btn primary" onclick="reqqQuery()" title="입력 조건으로 필터링">🔄 조회</button>
+            <button class="eq-btn warn" onclick="reqqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
+            <button class="eq-btn success" onclick="reqqOpenWriteModal()" title="선택한 요청서로 품의 작성">📝 품의 작성</button>
+            <button class="eq-btn" onclick="reqqExportExcel()">📊 엑셀</button>
+            <button class="eq-btn" onclick="reqqResetFilter()">↺ 초기화</button>
+          </div>
+        </div>
+
+        <!-- KPI 카드 -->
+        <div class="eq-cards" id="reqq-cards">
+          <div class="eq-card">
+            <div class="eq-card-label">📋 총 요청건수</div>
+            <div class="eq-card-value"><span id="reqq-card-total">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">필터 적용 후</div>
+          </div>
+          <div class="eq-card c-pu">
+            <div class="eq-card-label">⏳ 확정(승인) 대기중</div>
+            <div class="eq-card-value"><span id="reqq-card-approved">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">품의 입력 가능</div>
+          </div>
+          <div class="eq-card c-g">
+            <div class="eq-card-label">✅ 진행중</div>
+            <div class="eq-card-value"><span id="reqq-card-progress">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">품의/발주 진행</div>
+          </div>
+          <div class="eq-card c-a">
+            <div class="eq-card-label">📅 최근 요청일</div>
+            <div class="eq-card-value" style="font-size:18px"><span id="reqq-card-recent">-</span></div>
+            <div class="eq-card-sub">가장 최근</div>
+          </div>
+        </div>
+
+        <!-- 조회조건 -->
+        <div class="eq-filter" id="reqq-filter">
+          <div class="eq-filter-head" onclick="reqqToggleFilter()">
+            <div class="eq-filter-head-title">
+              🔍 조회 조건
+              <span class="eq-filter-head-summary" id="reqq-filter-summary"></span>
+            </div>
+            <div class="eq-filter-head-toggle">접기</div>
+          </div>
+          <div class="eq-filter-body">
+            <div class="eq-field">
+              <div class="eq-field-label">📅 요청일</div>
+              <div class="eq-field-input-range">
+                <input type="date" id="reqq-date-fr" class="eq-input date">
+                <span class="eq-input-sep">~</span>
+                <input type="date" id="reqq-date-to" class="eq-input date">
+              </div>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🔢 요청번호</div>
+              <input type="text" id="reqq-rno" class="eq-input" placeholder="20260522-0004">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📊 진행상태</div>
+              <select id="reqq-status" class="eq-input">
+                <option value="확정(승인)">확정(승인) - 품의 가능</option>
+                <option value="">전체</option>
+                <option value="작성">작성</option>
+                <option value="요청">요청</option>
+                <option value="진행">진행</option>
+                <option value="완료">완료</option>
+                <option value="취소">취소</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏢 대표거래처</div>
+              <input type="text" id="reqq-cust" class="eq-input" placeholder="거래처명">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📦 품목</div>
+              <input type="text" id="reqq-item" class="eq-input" placeholder="품명·품번·규격">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🎯 프로젝트</div>
+              <input type="text" id="reqq-pjt" class="eq-input" placeholder="프로젝트명·번호">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏛️ 요청부서</div>
+              <input type="text" id="reqq-dept" class="eq-input" placeholder="부서명">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">👤 요청담당자</div>
+              <input type="text" id="reqq-emp" class="eq-input" placeholder="담당자명">
+            </div>
+          </div>
+        </div>
+
+        <!-- 데이터 그리드 -->
+        <div class="eq-grid-wrap">
+          <div class="eq-grid-scroll">
+            <table class="eq-grid" id="reqq-table">
+              <thead><tr id="reqq-thead"></tr></thead>
+              <tbody id="reqq-tbody"></tbody>
+              <tfoot><tr id="reqq-tfoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        
+      </div>
+    </div>
 
         <!-- 데이터 그리드 -->
         <div class="eq-grid-wrap">
@@ -29375,7 +29491,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -32452,6 +32568,10 @@ function go(id, el) {
   // 📥 ERP 입고품목조회 탭 진입
   if(id === "erp-recv-query") {
     if(typeof recvqInit === "function") recvqInit();
+  }
+  // 📋 ERP 구매요청서 조회 탭 진입
+  if(id === "erp-req-query") {
+    if(typeof reqqInit === "function") reqqInit();
   }
   // 🏪 거래처 SCM 탭 진입 시 - SCM 자동 로드
   if(id==="vendor-scm") {
@@ -38178,11 +38298,13 @@ const ERP_META_JSON = `${ERP_SP_FOLDER}/meta.json`;
 const ERP_PO_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/po-${year}.json`;
 const ERP_DLV_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/delivery-${year}.json`;
 const ERP_RECV_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/recv-${year}.json`;
+const ERP_REQ_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/request-${year}.json`;
 
 /* localStorage 캐시 키 */
 const ERP_CACHE_PO  = (year) => `erp_cache_po_${year}`;
 const ERP_CACHE_DLV = (year) => `erp_cache_dlv_${year}`;
 const ERP_CACHE_RECV = (year) => `erp_cache_recv_${year}`;
+const ERP_CACHE_REQ = (year) => `erp_cache_req_${year}`;
 const ERP_CACHE_META = "erp_cache_meta";
 const ERP_CURRENT_YEAR = new Date().getFullYear();
 
@@ -38304,6 +38426,42 @@ let _dlvqSort = [["DelvInDate", "desc"]];
 let _recvqRawData = null;
 let _recvqFiltered = [];
 let _recvqSort = [["DelvInDate", "desc"]];
+
+/* ─── 구매요청서 조회 컬럼 정의 (영림원 28개 그대로) ─── */
+const REQQ_COLS = [
+  ["IsStop",            "중단",       "bool",   55,  "center"],
+  ["IsConfirm",         "확정",       "bool",   55,  "center"],
+  ["PReqNo",            "구매요청번호","text",  140, "left"],
+  ["PReqDate",          "요청일",     "date",   100, "center"],
+  ["PReqTypeName",      "구매요청구분","text",  100, "left"],
+  ["DeptName",          "요청부서",   "text",   100, "left"],
+  ["EmpName",           "요청담당자", "text",   95,  "left"],
+  ["PJTName",           "프로젝트명", "text",   260, "left"],
+  ["PJTNo",             "프로젝트번호","text",  130, "left"],
+  ["ItemName",          "품명",       "text",   220, "left"],
+  ["ItemNo",            "품번",       "text",   220, "left"],
+  ["Spec",              "규격",       "text",   150, "left"],
+  ["ItemAssetClassName","품목자산분류","text",  100, "left"],
+  ["ItemUnitName",      "단위",       "text",   60,  "center"],
+  ["PReqQty",           "구매요청수량","num",    95,  "right"],
+  ["POProgressQty",     "품의진행수량","num",    95,  "right"],
+  ["SMImpTypeName",     "내외자",     "text",   70,  "center"],
+  ["DelvDate",          "요청납기일", "date",   100, "center"],
+  ["WHName",            "창고",       "text",   100, "left"],
+  ["Remark1",           "특이사항",   "text",   180, "left"],
+  ["SMCurrStatusName",  "진행상태",   "status", 95,  "center"],
+  ["Remark",            "비고",       "text",   180, "left"],
+  ["ItemClassLName",    "품목대분류", "text",   110, "left"],
+  ["ItemClassMName",    "품목중분류", "text",   110, "left"],
+  ["ItemClassSName",    "품목소분류", "text",   110, "left"],
+  ["PJTTypeName",       "프로젝트유형","text",  100, "left"],
+  ["CustName",          "대표거래처", "text",   180, "left"],
+];
+
+let _reqqRawData = null;
+let _reqqFiltered = [];
+let _reqqSort = [["PReqDate", "desc"]];
+let _reqqSelectedIds = new Set();  // 선택된 (PReqNo+PReqSerl) - 품의 작성용
 
 let _erpLastRun = null;     // last-run.json 데이터
 
@@ -38472,6 +38630,7 @@ async function _erpLoadMultiYear(type, years, forceRefresh, onProgress) {
     let cacheKey;
     if(type === "po") cacheKey = ERP_CACHE_PO(year);
     else if(type === "recv") cacheKey = ERP_CACHE_RECV(year);
+    else if(type === "req") cacheKey = ERP_CACHE_REQ(year);
     else cacheKey = ERP_CACHE_DLV(year);
     
     // 캐시 정책:
@@ -38512,6 +38671,7 @@ async function _erpLoadMultiYear(type, years, forceRefresh, onProgress) {
       let spPath;
       if(type === "po") spPath = ERP_PO_JSON_YEAR(year);
       else if(type === "recv") spPath = ERP_RECV_JSON_YEAR(year);
+      else if(type === "req") spPath = ERP_REQ_JSON_YEAR(year);
       else spPath = ERP_DLV_JSON_YEAR(year);
       data = await _erpFetchJson(spPath);
       
@@ -40114,6 +40274,462 @@ function recvqPrint() {
     <script>window.print();<\/script>
   </body></html>`);
   w.document.close();
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════════
+   📋 구매요청서 조회 (reqq) - v4 신규
+   ════════════════════════════════════════════════════════════════════ */
+
+async function reqqInit() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,"0");
+  const d = String(now.getDate()).padStart(2,"0");
+  
+  if(!document.getElementById("reqq-date-fr").value) {
+    document.getElementById("reqq-date-fr").value = `${y}-${m}-01`;
+  }
+  if(!document.getElementById("reqq-date-to").value) {
+    document.getElementById("reqq-date-to").value = `${y}-${m}-${d}`;
+  }
+  
+  reqqRenderHeader();
+  reqqBindKeyboard();
+  _erpLastRun = await _erpFetchJson(ERP_RUN_JSON);
+  reqqUpdateLastTime();
+  
+  if(_reqqRawData === null) {
+    await reqqLoadData(false);
+  } else {
+    reqqApplyFilters();
+  }
+}
+
+function reqqBindKeyboard() {
+  const inputs = document.querySelectorAll("#tab-erp-req-query .eq-filter input, #tab-erp-req-query .eq-filter select");
+  inputs.forEach(el => {
+    if(el.dataset._erpBound) return;
+    el.dataset._erpBound = "1";
+    el.addEventListener("keydown", e => {
+      if(e.key === "Enter") {
+        e.preventDefault();
+        reqqQuery();
+      }
+    });
+  });
+}
+
+function reqqRenderHeader() {
+  const thead = document.getElementById("reqq-thead");
+  if(!thead) return;
+  // 첫 컬럼: 체크박스 (선택)
+  let html = `<th style="min-width:50px;text-align:center;background:var(--bg3);position:sticky;left:0;z-index:5">
+    <input type="checkbox" id="reqq-check-all" onchange="reqqToggleSelectAll(this.checked)" title="전체 선택">
+  </th>`;
+  html += REQQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let sortClass = "";
+    const si = _reqqSort.findIndex(s => s[0] === field);
+    if(si >= 0) sortClass = _reqqSort[si][1] === "asc" ? "sort-asc" : "sort-desc";
+    return `<th class="${sortClass}" style="min-width:${width}px;text-align:${align}" 
+              onclick="reqqSortBy('${field}', event)">${name}</th>`;
+  }).join("");
+  thead.innerHTML = html;
+}
+
+async function reqqQuery() {
+  const dateFr = document.getElementById("reqq-date-fr").value;
+  const dateTo = document.getElementById("reqq-date-to").value;
+  const neededYears = _erpYearsInRange(dateFr, dateTo);
+  
+  if(!window._reqqLoadedYears) window._reqqLoadedYears = new Set();
+  const missing = neededYears.filter(y => !window._reqqLoadedYears.has(y));
+  
+  if(missing.length > 0 || _reqqRawData === null) {
+    await reqqLoadData(false, neededYears);
+  } else {
+    reqqApplyFilters();
+  }
+}
+
+async function reqqLoadData(forceRefresh, years) {
+  const tbody = document.getElementById("reqq-tbody");
+  
+  if(!years) {
+    const dateFr = document.getElementById("reqq-date-fr").value;
+    const dateTo = document.getElementById("reqq-date-to").value;
+    years = _erpYearsInRange(dateFr, dateTo);
+  }
+  
+  tbody.innerHTML = `<tr><td colspan="${REQQ_COLS.length+1}" class="eq-loading">
+    <div class="eq-spinner"></div>
+    <div style="margin-top:10px" id="reqq-load-msg">데이터 로드 중...</div>
+  </td></tr>`;
+  
+  const loadMsg = document.getElementById("reqq-load-msg");
+  
+  const [runInfo, _meta] = await Promise.all([
+    _erpFetchJson(ERP_RUN_JSON),
+    _erpLoadMeta(forceRefresh)
+  ]);
+  if(runInfo) _erpLastRun = runInfo;
+  reqqUpdateLastTime();
+  
+  const result = await _erpLoadMultiYear("req", years, forceRefresh, (year, idx, total, source) => {
+    if(loadMsg) {
+      const srcLabel = {
+        "cache": "캐시", "sp": "SharePoint", "sp_force": "SharePoint(새로)", "sp_newer": "SharePoint(갱신)"
+      }[source] || source;
+      loadMsg.textContent = `${year}년 구매요청 로드 중... (${idx+1}/${total}) — ${srcLabel}`;
+    }
+  });
+  
+  if(!result || (!result.rows && !result.columns)) {
+    tbody.innerHTML = `<tr><td colspan="${REQQ_COLS.length+1}" class="eq-empty">
+      <div class="eq-empty-ic">📭</div>
+      <div class="eq-empty-msg">데이터를 로드할 수 없습니다</div>
+      <div class="eq-empty-sub">선택한 연도의 구매요청 데이터가 없거나, RPA v9이 아직 첫 실행되지 않았습니다.<br>RPA v9으로 교체 후 다시 시도해주세요.</div>
+    </td></tr>`;
+    document.getElementById("reqq-card-total").textContent = "0";
+    return;
+  }
+  
+  if(_reqqRawData === null) {
+    _reqqRawData = result.rows || [];
+  } else if(forceRefresh) {
+    _reqqRawData = result.rows || [];
+    window._reqqLoadedYears = new Set();
+  } else {
+    const existingKeys = new Set();
+    for(const r of _reqqRawData) {
+      const k = `${r.PReqNo}-${r.PReqSerl}`;
+      existingKeys.add(k);
+    }
+    for(const r of (result.rows || [])) {
+      const k = `${r.PReqNo}-${r.PReqSerl}`;
+      if(!existingKeys.has(k)) {
+        _reqqRawData.push(r);
+        existingKeys.add(k);
+      }
+    }
+  }
+  
+  if(!window._reqqLoadedYears) window._reqqLoadedYears = new Set();
+  years.forEach(y => window._reqqLoadedYears.add(y));
+  
+  console.log(`📋 ERP 구매요청: 누적 ${_reqqRawData.length}건 (연도: ${[...window._reqqLoadedYears].sort().join(", ")})`);
+  reqqApplyFilters();
+}
+
+async function reqqRefreshCurrentYear() {
+  console.log(`🔄 구매요청 현재 연도(${ERP_CURRENT_YEAR}) 강제 갱신`);
+  localStorage.removeItem(ERP_CACHE_REQ(ERP_CURRENT_YEAR));
+  if(_reqqRawData) {
+    _reqqRawData = _reqqRawData.filter(r => {
+      const d = r.PReqDate;
+      return !(typeof d === "string" && d.startsWith(String(ERP_CURRENT_YEAR)));
+    });
+  }
+  if(window._reqqLoadedYears) window._reqqLoadedYears.delete(ERP_CURRENT_YEAR);
+  await _erpLoadMeta(true);
+  
+  const dateFr = document.getElementById("reqq-date-fr").value;
+  const dateTo = document.getElementById("reqq-date-to").value;
+  const needed = _erpYearsInRange(dateFr, dateTo);
+  const yearsToLoad = needed.includes(ERP_CURRENT_YEAR) ? needed : [...needed, ERP_CURRENT_YEAR];
+  
+  await reqqLoadData(true, yearsToLoad);
+}
+
+function reqqApplyFilters() {
+  if(!_reqqRawData) return;
+  
+  const f = {
+    dateFr: document.getElementById("reqq-date-fr").value,
+    dateTo: document.getElementById("reqq-date-to").value,
+    rno:    document.getElementById("reqq-rno").value.trim().toLowerCase(),
+    status: document.getElementById("reqq-status").value,
+    cust:   document.getElementById("reqq-cust").value.trim().toLowerCase(),
+    item:   document.getElementById("reqq-item").value.trim().toLowerCase(),
+    pjt:    document.getElementById("reqq-pjt").value.trim().toLowerCase(),
+    dept:   document.getElementById("reqq-dept").value.trim().toLowerCase(),
+    emp:    document.getElementById("reqq-emp").value.trim().toLowerCase(),
+  };
+  
+  _reqqFiltered = _reqqRawData.filter(r => {
+    const d = _erpDateNorm(r.PReqDate);
+    if(f.dateFr && d && d < f.dateFr) return false;
+    if(f.dateTo && d && d > f.dateTo) return false;
+    if(f.rno && !String(r.PReqNo||"").toLowerCase().includes(f.rno)) return false;
+    if(f.status && r.SMCurrStatusName !== f.status) return false;
+    if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
+    if(f.item) {
+      const inN = String(r.ItemName||"").toLowerCase().includes(f.item);
+      const inNo = String(r.ItemNo||"").toLowerCase().includes(f.item);
+      const inSpec = String(r.Spec||"").toLowerCase().includes(f.item);
+      if(!inN && !inNo && !inSpec) return false;
+    }
+    if(f.pjt) {
+      const inN = String(r.PJTName||"").toLowerCase().includes(f.pjt);
+      const inNo = String(r.PJTNo||"").toLowerCase().includes(f.pjt);
+      if(!inN && !inNo) return false;
+    }
+    if(f.dept && !String(r.DeptName||"").toLowerCase().includes(f.dept)) return false;
+    if(f.emp && !String(r.EmpName||"").toLowerCase().includes(f.emp)) return false;
+    return true;
+  });
+  
+  _reqqSortData();
+  reqqRender();
+  reqqUpdateCards();
+  reqqUpdateFilterSummary();
+}
+
+function _reqqSortData() {
+  if(!_reqqSort.length) return;
+  _reqqFiltered.sort((a, b) => {
+    for(const [field, dir] of _reqqSort) {
+      let av = a[field], bv = b[field];
+      if(av == null) av = "";
+      if(bv == null) bv = "";
+      const an = Number(av), bn = Number(bv);
+      let cmp;
+      if(!isNaN(an) && !isNaN(bn) && av !== "" && bv !== "") cmp = an - bn;
+      else cmp = String(av).localeCompare(String(bv), "ko");
+      if(cmp !== 0) return dir === "desc" ? -cmp : cmp;
+    }
+    return 0;
+  });
+}
+
+function reqqSortBy(field, evt) {
+  if(_reqqSort.length === 1 && _reqqSort[0][0] === field) {
+    _reqqSort[0][1] = _reqqSort[0][1] === "asc" ? "desc" : "asc";
+  } else {
+    _reqqSort = [[field, "desc"]];
+  }
+  reqqRenderHeader();
+  _reqqSortData();
+  reqqRender();
+}
+
+function _reqqRowKey(r) {
+  return `${r.PReqNo}-${r.PReqSerl||0}`;
+}
+
+function reqqToggleSelectAll(checked) {
+  if(checked) {
+    _reqqFiltered.forEach(r => _reqqSelectedIds.add(_reqqRowKey(r)));
+  } else {
+    _reqqFiltered.forEach(r => _reqqSelectedIds.delete(_reqqRowKey(r)));
+  }
+  reqqRender();
+}
+
+function reqqToggleRow(key, checked) {
+  if(checked) _reqqSelectedIds.add(key);
+  else _reqqSelectedIds.delete(key);
+  // 전체선택 체크박스 갱신
+  const allChecked = _reqqFiltered.every(r => _reqqSelectedIds.has(_reqqRowKey(r)));
+  const checkAll = document.getElementById("reqq-check-all");
+  if(checkAll) checkAll.checked = allChecked && _reqqFiltered.length > 0;
+}
+
+function reqqRender() {
+  const tbody = document.getElementById("reqq-tbody");
+  const tfoot = document.getElementById("reqq-tfoot");
+  
+  const badge = document.getElementById("badge-erp-req-q");
+  if(badge) badge.textContent = (_reqqRawData||[]).length.toLocaleString();
+  
+  if(_reqqFiltered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${REQQ_COLS.length+1}" class="eq-empty">
+      <div class="eq-empty-ic">🔍</div>
+      <div class="eq-empty-msg">조회 결과가 없습니다</div>
+      <div class="eq-empty-sub">필터를 조정하거나 ↺ 초기화를 눌러보세요</div>
+    </td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+  
+  tbody.innerHTML = _reqqFiltered.map(r => {
+    const key = _reqqRowKey(r);
+    const checked = _reqqSelectedIds.has(key) ? "checked" : "";
+    
+    // 진행상태 색깔
+    const status = r.SMCurrStatusName || "";
+    let statusColor = "";
+    if(status === "확정(승인)") statusColor = "background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-weight:600";
+    else if(status === "취소") statusColor = "background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px";
+    else if(status === "완료") statusColor = "background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px";
+    
+    let row = `<tr data-key="${key}"><td style="text-align:center;background:var(--bg3);position:sticky;left:0;z-index:5">
+      <input type="checkbox" ${checked} onchange="reqqToggleRow('${key}', this.checked)">
+    </td>`;
+    row += REQQ_COLS.map(c => {
+      const [field, name, type, width, align] = c;
+      let v = _erpFmt(r[field], type);
+      let cls = (type === "money" || type === "num") ? "num" : "";
+      let style = `text-align:${align}`;
+      if(type === "status" && statusColor) {
+        return `<td style="${style};text-align:center"><span style="${statusColor}">${v||""}</span></td>`;
+      }
+      return `<td class="${cls}" style="${style}" title="${String(r[field]||"").replace(/"/g,'&quot;')}">${v||""}</td>`;
+    }).join("");
+    row += `</tr>`;
+    return row;
+  }).join("");
+  
+  // 합계
+  const selectedCount = _reqqFiltered.filter(r => _reqqSelectedIds.has(_reqqRowKey(r))).length;
+  const sumReq = _reqqFiltered.reduce((a,r)=>a+Number(r.PReqQty||0),0);
+  const sumProg = _reqqFiltered.reduce((a,r)=>a+Number(r.POProgressQty||0),0);
+  
+  tfoot.innerHTML = `<tr>
+    <td style="text-align:center;background:var(--bg3);position:sticky;left:0">
+      <b style="color:var(--p)">${selectedCount}</b>
+    </td>` + REQQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let val = "";
+    if(field === "IsStop") val = `합계 ${_reqqFiltered.length.toLocaleString()}건`;
+    else if(field === "PReqQty") val = sumReq.toLocaleString();
+    else if(field === "POProgressQty") val = sumProg.toLocaleString();
+    return `<td style="text-align:${align}">${val}</td>`;
+  }).join("") + `</tr>`;
+}
+
+function reqqUpdateLastTime() {
+  const t = document.getElementById("reqq-last");
+  if(!t) return;
+  if(_erpLastRun && _erpLastRun.ended_at) {
+    t.textContent = `${_erpRelativeTime(_erpLastRun.ended_at)}`;
+  } else {
+    t.textContent = `확인 중...`;
+  }
+}
+
+function reqqResetFilter() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,"0");
+  const d = String(now.getDate()).padStart(2,"0");
+  document.getElementById("reqq-date-fr").value = `${y}-${m}-01`;
+  document.getElementById("reqq-date-to").value = `${y}-${m}-${d}`;
+  ["reqq-rno","reqq-cust","reqq-item","reqq-pjt","reqq-dept","reqq-emp"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  document.getElementById("reqq-status").value = "확정(승인)";  // 기본 필터
+  _reqqSelectedIds.clear();
+  reqqApplyFilters();
+}
+
+function reqqToggleFilter() {
+  const filter = document.getElementById("reqq-filter");
+  if(!filter) return;
+  filter.classList.toggle("collapsed");
+  const toggle = filter.querySelector(".eq-filter-head-toggle");
+  if(toggle) {
+    toggle.textContent = filter.classList.contains("collapsed") ? "펼치기" : "접기";
+  }
+}
+
+function reqqUpdateCards() {
+  if(!_reqqFiltered) return;
+  const rows = _reqqFiltered;
+  const total = rows.length;
+  
+  let approved = 0, progress = 0;
+  let maxDate = "";
+  
+  for(const r of rows) {
+    const status = r.SMCurrStatusName || "";
+    if(status === "확정(승인)") approved++;
+    if(status === "확정(승인)" || status === "진행" || status === "작성") progress++;
+    const d = _erpDateNorm(r.PReqDate);
+    if(d && d > maxDate) maxDate = d;
+  }
+  
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+  };
+  
+  setTxt("reqq-card-total", total.toLocaleString());
+  setTxt("reqq-card-approved", approved.toLocaleString());
+  setTxt("reqq-card-progress", progress.toLocaleString());
+  setTxt("reqq-card-recent", maxDate || "-");
+}
+
+function reqqUpdateFilterSummary() {
+  const el = document.getElementById("reqq-filter-summary");
+  if(!el) return;
+  
+  const parts = [];
+  const dateFr = document.getElementById("reqq-date-fr")?.value;
+  const dateTo = document.getElementById("reqq-date-to")?.value;
+  if(dateFr || dateTo) {
+    const f = dateFr ? dateFr.replace(/^\d{4}-/, "") : "처음";
+    const t = dateTo ? dateTo.replace(/^\d{4}-/, "") : "오늘";
+    parts.push(`요청일 ${f}~${t}`);
+  }
+  
+  const status = document.getElementById("reqq-status")?.value;
+  if(status) parts.push(`상태: ${status}`);
+  
+  const pjt = document.getElementById("reqq-pjt")?.value.trim();
+  if(pjt) parts.push(`PJT: ${pjt}`);
+  
+  el.textContent = parts.length > 0 ? "· " + parts.join(" · ") : "";
+}
+
+function reqqExportExcel() {
+  if(!_reqqFiltered || !_reqqFiltered.length) {
+    alert("내보낼 데이터가 없습니다");
+    return;
+  }
+  if(typeof XLSX === "undefined") {
+    alert("SheetJS가 로드되지 않았습니다");
+    return;
+  }
+  const rows = _reqqFiltered.map(r => {
+    const o = {};
+    for(const c of REQQ_COLS) o[c[1]] = r[c[0]];
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "구매요청서");
+  const now = new Date();
+  const fn = `ERP_구매요청서_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}.xlsx`;
+  XLSX.writeFile(wb, fn);
+}
+
+// 📝 품의 작성 모달 열기 (다음 Phase에서 구현)
+function reqqOpenWriteModal() {
+  if(_reqqSelectedIds.size === 0) {
+    alert("품의 작성할 요청서를 먼저 선택해주세요 (체크박스)");
+    return;
+  }
+  // 선택된 요청서들 추출
+  const selected = _reqqFiltered.filter(r => _reqqSelectedIds.has(_reqqRowKey(r)));
+  
+  // 확정(승인) 아닌 거 경고
+  const notApproved = selected.filter(r => r.SMCurrStatusName !== "확정(승인)");
+  if(notApproved.length > 0) {
+    if(!confirm(`⚠️ 선택된 ${selected.length}건 중 ${notApproved.length}건은 "확정(승인)" 상태가 아닙니다.\n그래도 계속하시겠습니까?\n\n(확정(승인) 상태가 아닌 건은 영림원에서 품의 입력이 불가능합니다)`)) {
+      return;
+    }
+  }
+  
+  console.log("📝 품의 작성 시작:", selected.length, "건");
+  console.log("선택된 항목:", selected);
+  
+  // TODO: Phase B에서 품의 작성 모달 구현
+  alert(`📝 품의 작성 모달은 다음 단계(Phase B)에서 구현됩니다.\n\n현재 선택된 ${selected.length}건:\n` + 
+    selected.map(r => `- ${r.PReqNo} | ${r.ItemName} | 수량:${r.PReqQty}`).join("\n"));
 }
 
 
