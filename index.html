@@ -1024,6 +1024,7 @@
       <div class="ni" onclick="go('erp-dlv-query',this)" style="background:linear-gradient(90deg,#DCFCE7,transparent)">📥 입고정산조회 <span class="nb nbg" id="badge-erp-dlv-q">-</span></div>
       <div class="ni" onclick="go('erp-recv-query',this)" style="background:linear-gradient(90deg,#FFF7E0,transparent)">📥 입고품목조회 <span class="nb nbg" id="badge-erp-recv-q">-</span></div>
       <div class="ni" onclick="go('erp-req-query',this)" style="background:linear-gradient(90deg,#F3E8FF,transparent)">📋 구매요청서 <span class="nb nbg" id="badge-erp-req-q">-</span></div>
+      <div class="ni" onclick="go('erp-bom-master',this)" style="background:linear-gradient(90deg,#FCE7F3,transparent)">🔩 BOM 마스터 <span class="nb nbg" id="badge-erp-bom">-</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -2245,6 +2246,107 @@
               <thead><tr id="reqq-thead"></tr></thead>
               <tbody id="reqq-tbody"></tbody>
               <tfoot><tr id="reqq-tfoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        
+
+    <!-- 🔩 ERP BOM 마스터 페이지 -->
+    <!-- ════════ 🔩 ERP BOM 마스터 (v4 NEW, 영림원 BOM 전체) ════════ -->
+    <div class="page" id="tab-erp-bom-master">
+      <div class="eq-wrap">
+        
+        <div class="eq-header">
+          <div class="eq-header-title">
+            <h2>🔩 ERP BOM 마스터</h2>
+            <span class="eq-header-time" id="bomq-last">확인 중...</span>
+          </div>
+          <div class="eq-header-actions">
+            <button class="eq-btn primary" onclick="bomqQuery()">🔄 조회</button>
+            <button class="eq-btn warn" onclick="bomqRefresh()">⚡ 새데이터</button>
+            <button class="eq-btn" onclick="bomqExportExcel()">📊 엑셀</button>
+            <button class="eq-btn" onclick="bomqResetFilter()">↺ 초기화</button>
+          </div>
+        </div>
+
+        <div class="eq-cards" id="bomq-cards">
+          <div class="eq-card">
+            <div class="eq-card-label">🔩 총 BOM</div>
+            <div class="eq-card-value"><span id="bomq-card-total">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개</span></div>
+            <div class="eq-card-sub">필터 후</div>
+          </div>
+          <div class="eq-card c-pu">
+            <div class="eq-card-label">📦 프로젝트</div>
+            <div class="eq-card-value"><span id="bomq-card-pjt">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개</span></div>
+            <div class="eq-card-sub">고유 프로젝트</div>
+          </div>
+          <div class="eq-card c-g">
+            <div class="eq-card-label">💰 단가등록</div>
+            <div class="eq-card-value"><span id="bomq-card-priced">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개</span></div>
+            <div class="eq-card-sub">/<span id="bomq-card-priced-pct">-</span>%</div>
+          </div>
+          <div class="eq-card c-a">
+            <div class="eq-card-label">🏢 거래처</div>
+            <div class="eq-card-value"><span id="bomq-card-cust">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개사</span></div>
+            <div class="eq-card-sub">고유 거래처</div>
+          </div>
+        </div>
+
+        <div class="eq-filter" id="bomq-filter">
+          <div class="eq-filter-head" onclick="bomqToggleFilter()">
+            <div class="eq-filter-head-title">
+              🔍 검색
+              <span class="eq-filter-head-summary" id="bomq-filter-summary"></span>
+            </div>
+            <div class="eq-filter-head-toggle">접기</div>
+          </div>
+          <div class="eq-filter-body">
+            <div class="eq-field">
+              <div class="eq-field-label">🎯 프로젝트</div>
+              <input type="text" id="bomq-pjt" class="eq-input" placeholder="프로젝트명·번호">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📦 품목</div>
+              <input type="text" id="bomq-item" class="eq-input" placeholder="품명·품번·규격">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏢 거래처</div>
+              <input type="text" id="bomq-cust" class="eq-input" placeholder="구매거래처명">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏭 제조사 (Maker)</div>
+              <input type="text" id="bomq-maker" class="eq-input" placeholder="Maker">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📋 조달구분</div>
+              <select id="bomq-pcr" class="eq-input">
+                <option value="">전체</option>
+                <option value="구매">구매</option>
+                <option value="외주제작">외주제작</option>
+                <option value="BOM레벨">BOM레벨</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">💰 단가</div>
+              <select id="bomq-priced" class="eq-input">
+                <option value="">전체</option>
+                <option value="yes">단가 있는 것만</option>
+                <option value="no">단가 없는 것만</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏷️ 품목분류</div>
+              <input type="text" id="bomq-class" class="eq-input" placeholder="품목분류">
+            </div>
+          </div>
+        </div>
+
+        <div class="eq-grid-wrap">
+          <div class="eq-grid-scroll">
+            <table class="eq-grid" id="bomq-table">
+              <thead><tr id="bomq-thead"></tr></thead>
+              <tbody id="bomq-tbody"></tbody>
+              <tfoot><tr id="bomq-tfoot"></tr></tfoot>
             </table>
           </div>
         </div>
@@ -29493,7 +29595,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서","erp-bom-master":"🔩 ERP BOM 마스터"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -32574,6 +32676,10 @@ function go(id, el) {
   // 📋 ERP 구매요청서 조회 탭 진입
   if(id === "erp-req-query") {
     if(typeof reqqInit === "function") reqqInit();
+  }
+  // 🔩 ERP BOM 마스터 탭 진입
+  if(id === "erp-bom-master") {
+    if(typeof bomqInit === "function") bomqInit();
   }
   // 🏪 거래처 SCM 탭 진입 시 - SCM 자동 로드
   if(id==="vendor-scm") {
@@ -40736,6 +40842,398 @@ function reqqOpenWriteModal() {
 
 
 console.log("✅ ERP 조회 모듈 로드 완료");
+
+
+
+
+/* ════════════════════════════════════════════════════════════════════
+   🔩 ERP BOM 마스터 (Phase B - v4 추가)
+   - SharePoint: 06.BackOffice/💰 재무·회계/100.ERP/bom-master.json
+   - 영림원 메뉴: 프로젝트재료자원조회(멀티)
+   ════════════════════════════════════════════════════════════════════ */
+const ERP_BOM_MASTER_JSON = `${ERP_SP_FOLDER}/bom-master.json`;  // 연도 무관
+const ERP_CACHE_BOM = "erp_cache_bom_master";  // 연도 무관
+
+const BOMQ_COLS = [
+  ["IsBuy",             "구매품",     "bool",   60,  "center"],
+  ["IsOutsrc",          "외주",       "bool",   55,  "center"],
+  ["PJTName",           "프로젝트",   "text",   260, "left"],
+  ["PJTNo",             "프로젝트번호","text",  130, "left"],
+  ["BOMLevel",          "BOM레벨",    "text",   80,  "center"],
+  ["IsStandard",        "표준품",     "bool",   60,  "center"],
+  ["ProcurementName",   "조달구분",   "text",   90,  "center"],
+  ["ItemClass",         "품목분류",   "text",   100, "left"],
+  ["ItemName",          "품명",       "text",   220, "left"],
+  ["ItemNo",            "품번",       "text",   220, "left"],
+  ["Spec",              "규격",       "text",   140, "left"],
+  ["ItemUnitName",      "단위",       "text",   60,  "center"],
+  ["BasicQty",          "기본소요량", "num",    85,  "right"],
+  ["MakingQty",         "제작대수",   "num",    80,  "right"],
+  ["SpareQty",          "여유수량",   "num",    80,  "right"],
+  ["TotalReqQty",       "총소요량",   "num",    85,  "right"],
+  ["SMCurrStatusName",  "진행구분",   "text",   90,  "center"],
+  ["RequestedQty",      "기요청수량", "num",    95,  "right"],
+  ["RemainingQty",      "요청잔량",   "num",    85,  "right"],
+  ["RegistrationType",  "등록구분",   "text",   80,  "center"],
+  ["DelvInDate",        "입고요청일", "date",   100, "center"],
+  ["DelvOutDate",       "출고요청일", "date",   100, "center"],
+  ["Remark",            "비고",       "text",   180, "left"],
+  ["BudgetAccount",     "예산과목",   "text",   110, "left"],
+  ["CurrName",          "통화",       "text",   60,  "center"],
+  ["ExRate",            "환율",       "num",    75,  "right"],
+  ["Price",             "단가",       "money",  110, "right"],
+  ["DomAmt",            "원화금액",   "money",  130, "right"],
+  ["Maker",             "Maker",      "text",   140, "left"],
+  ["Material",          "재질",       "text",   100, "left"],
+  ["CustName",          "구매거래처", "text",   180, "left"],
+  ["POQty",             "발주수량",   "num",    85,  "right"],
+  ["POAmt",             "발주금액",   "money",  120, "right"],
+  ["DelvInQty",         "입고수량",   "num",    85,  "right"],
+  ["DelvInAmt",         "입고금액",   "money",  120, "right"],
+  ["DrawingNo",         "도면번호",   "text",   130, "left"],
+  ["DrawingFile",       "도면파일",   "text",   180, "left"],
+];
+
+let _bomqRawData = null;
+let _bomqFiltered = [];
+let _bomqSort = [["PJTNo", "asc"], ["BOMLevel", "asc"]];
+
+
+/* BOM 마스터 SP에서 직접 로드 (캐시 활용) */
+async function _bomqFetchData(forceRefresh) {
+  // 캐시 확인
+  if(!forceRefresh) {
+    const cached = _erpLoadCache(ERP_CACHE_BOM);
+    if(cached && cached.rows && cached.columns) {
+      console.log(`🔩 BOM 캐시 히트: ${cached.rows.length}건`);
+      return cached;
+    }
+  }
+  
+  // SP에서 다운로드
+  console.log("🔩 BOM SP 다운로드 시작...");
+  const data = await _erpFetchJson(ERP_BOM_MASTER_JSON);
+  if(!data || !data.rows) {
+    console.warn("🔩 BOM 파일 없음 (RPA가 아직 안 돌렸을 수 있음)");
+    return null;
+  }
+  
+  console.log(`🔩 BOM 원본 받음: rows=${data.rows.length}, columns=${data.columns?.length || 0}`);
+  
+  // rowsToObjects 변환 (배열 반환)
+  const rowsAsObjects = _erpRowsToObjects(data);
+  const result = {
+    rows: rowsAsObjects,           // 배열 (객체로 변환된 행들)
+    columns: data.columns,
+    captured_at: data.captured_at,
+    row_count: data.row_count || rowsAsObjects.length
+  };
+  
+  // 캐시 저장
+  _erpSaveCache(ERP_CACHE_BOM, result);
+  console.log(`🔩 BOM SP 로드 완료: ${result.rows.length}건`);
+  return result;
+}
+
+async function bomqInit() {
+  bomqRenderHeader();
+  bomqBindKeyboard();
+  _erpLastRun = await _erpFetchJson(ERP_RUN_JSON);
+  bomqUpdateLastTime();
+  
+  if(_bomqRawData === null) {
+    await bomqLoadData(false);
+  } else {
+    bomqApplyFilters();
+  }
+}
+
+function bomqBindKeyboard() {
+  const inputs = document.querySelectorAll("#tab-erp-bom-master .eq-filter input, #tab-erp-bom-master .eq-filter select");
+  inputs.forEach(el => {
+    if(el.dataset._erpBound) return;
+    el.dataset._erpBound = "1";
+    el.addEventListener("keydown", e => {
+      if(e.key === "Enter") { e.preventDefault(); bomqQuery(); }
+    });
+  });
+}
+
+function bomqRenderHeader() {
+  const thead = document.getElementById("bomq-thead");
+  if(!thead) return;
+  thead.innerHTML = BOMQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let sortClass = "";
+    const si = _bomqSort.findIndex(s => s[0] === field);
+    if(si >= 0) sortClass = _bomqSort[si][1] === "asc" ? "sort-asc" : "sort-desc";
+    return `<th class="${sortClass}" style="min-width:${width}px;text-align:${align}" 
+              onclick="bomqSortBy('${field}', event)">${name}</th>`;
+  }).join("");
+}
+
+async function bomqQuery() {
+  bomqApplyFilters();
+}
+
+async function bomqLoadData(forceRefresh) {
+  const tbody = document.getElementById("bomq-tbody");
+  tbody.innerHTML = `<tr><td colspan="${BOMQ_COLS.length}" class="eq-loading">
+    <div class="eq-spinner"></div>
+    <div style="margin-top:10px" id="bomq-load-msg">BOM 마스터 로드 중...</div>
+  </td></tr>`;
+  
+  const data = await _bomqFetchData(forceRefresh);
+  
+  if(!data || !data.rows) {
+    tbody.innerHTML = `<tr><td colspan="${BOMQ_COLS.length}" class="eq-empty">
+      <div class="eq-empty-ic">📭</div>
+      <div class="eq-empty-msg">BOM 마스터 데이터가 없습니다</div>
+      <div class="eq-empty-sub">erp_bom_sync.py 를 1회 실행하여 영림원 BOM을 가져와주세요.<br><br>
+        <code style="background:var(--bg3);padding:4px 8px;border-radius:4px">py -3.12 erp_bom_sync.py test</code>
+      </div>
+    </td></tr>`;
+    return;
+  }
+  
+  _bomqRawData = data.rows;
+  console.log(`🔩 BOM 마스터 누적: ${_bomqRawData.length}건`);
+  bomqApplyFilters();
+}
+
+async function bomqRefresh() {
+  console.log("🔄 BOM 강제 갱신");
+  localStorage.removeItem(ERP_CACHE_BOM);
+  _bomqRawData = null;
+  await bomqLoadData(true);
+}
+
+function bomqApplyFilters() {
+  if(!_bomqRawData) return;
+  
+  const f = {
+    pjt: document.getElementById("bomq-pjt").value.trim().toLowerCase(),
+    item: document.getElementById("bomq-item").value.trim().toLowerCase(),
+    cust: document.getElementById("bomq-cust").value.trim().toLowerCase(),
+    maker: document.getElementById("bomq-maker").value.trim().toLowerCase(),
+    pcr: document.getElementById("bomq-pcr").value,
+    priced: document.getElementById("bomq-priced").value,
+    cls: document.getElementById("bomq-class").value.trim().toLowerCase(),
+  };
+  
+  _bomqFiltered = _bomqRawData.filter(r => {
+    if(f.pjt) {
+      const inN = String(r.PJTName||"").toLowerCase().includes(f.pjt);
+      const inNo = String(r.PJTNo||"").toLowerCase().includes(f.pjt);
+      if(!inN && !inNo) return false;
+    }
+    if(f.item) {
+      const inN = String(r.ItemName||"").toLowerCase().includes(f.item);
+      const inNo = String(r.ItemNo||"").toLowerCase().includes(f.item);
+      const inSp = String(r.Spec||"").toLowerCase().includes(f.item);
+      if(!inN && !inNo && !inSp) return false;
+    }
+    if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
+    if(f.maker && !String(r.Maker||"").toLowerCase().includes(f.maker)) return false;
+    if(f.pcr && r.ProcurementName !== f.pcr) return false;
+    if(f.priced === "yes") {
+      const p = Number(r.Price || 0);
+      if(p <= 0) return false;
+    } else if(f.priced === "no") {
+      const p = Number(r.Price || 0);
+      if(p > 0) return false;
+    }
+    if(f.cls && !String(r.ItemClass||"").toLowerCase().includes(f.cls)) return false;
+    return true;
+  });
+  
+  _bomqSortData();
+  bomqRender();
+  bomqUpdateCards();
+  bomqUpdateFilterSummary();
+}
+
+function _bomqSortData() {
+  if(!_bomqSort.length) return;
+  _bomqFiltered.sort((a, b) => {
+    for(const [field, dir] of _bomqSort) {
+      let av = a[field], bv = b[field];
+      if(av == null) av = "";
+      if(bv == null) bv = "";
+      const an = Number(av), bn = Number(bv);
+      let cmp;
+      if(!isNaN(an) && !isNaN(bn) && av !== "" && bv !== "") cmp = an - bn;
+      else cmp = String(av).localeCompare(String(bv), "ko");
+      if(cmp !== 0) return dir === "desc" ? -cmp : cmp;
+    }
+    return 0;
+  });
+}
+
+function bomqSortBy(field, evt) {
+  if(_bomqSort.length === 1 && _bomqSort[0][0] === field) {
+    _bomqSort[0][1] = _bomqSort[0][1] === "asc" ? "desc" : "asc";
+  } else {
+    _bomqSort = [[field, "asc"]];
+  }
+  bomqRenderHeader();
+  _bomqSortData();
+  bomqRender();
+}
+
+function bomqRender() {
+  const tbody = document.getElementById("bomq-tbody");
+  const tfoot = document.getElementById("bomq-tfoot");
+  
+  const badge = document.getElementById("badge-erp-bom-m");
+  if(badge) badge.textContent = (_bomqRawData||[]).length.toLocaleString();
+  
+  if(_bomqFiltered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${BOMQ_COLS.length}" class="eq-empty">
+      <div class="eq-empty-ic">🔍</div>
+      <div class="eq-empty-msg">검색 결과가 없습니다</div>
+    </td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+  
+  // 너무 많으면 자르기 (10000+)
+  const MAX_RENDER = 5000;
+  const rowsToRender = _bomqFiltered.length > MAX_RENDER ? _bomqFiltered.slice(0, MAX_RENDER) : _bomqFiltered;
+  const truncated = _bomqFiltered.length > MAX_RENDER;
+  
+  tbody.innerHTML = rowsToRender.map(r => {
+    let row = `<tr>` + BOMQ_COLS.map(c => {
+      const [field, name, type, width, align] = c;
+      let v = _erpFmt(r[field], type);
+      let cls = (type === "money" || type === "num") ? "num" : "";
+      let style = `text-align:${align}`;
+      
+      // 단가 없으면 빨간색
+      if(field === "Price" && (!r[field] || Number(r[field]) === 0)) {
+        return `<td class="${cls}" style="${style};color:#dc2626;font-weight:600" title="단가 미등록">⚠️</td>`;
+      }
+      return `<td class="${cls}" style="${style}" title="${String(r[field]||"").replace(/"/g,'&quot;')}">${v||""}</td>`;
+    }).join("") + `</tr>`;
+    return row;
+  }).join("") + (truncated ? `<tr><td colspan="${BOMQ_COLS.length}" style="text-align:center;padding:14px;color:#dc2626;font-weight:600;background:#fee2e2">⚠️ 결과가 너무 많아 ${MAX_RENDER.toLocaleString()}건만 표시. 필터를 더 좁혀주세요.</td></tr>` : "");
+  
+  tfoot.innerHTML = `<tr>` + BOMQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let val = "";
+    if(field === "IsBuy") val = `합계 ${_bomqFiltered.length.toLocaleString()}건`;
+    return `<td style="text-align:${align}">${val}</td>`;
+  }).join("") + `</tr>`;
+}
+
+function bomqUpdateLastTime() {
+  const t = document.getElementById("bomq-last");
+  if(!t) return;
+  if(_bomqRawData && _bomqRawData._captured_at) {
+    t.textContent = _erpRelativeTime(_bomqRawData._captured_at);
+  } else {
+    t.textContent = "BOM 데이터 확인 중...";
+  }
+}
+
+function bomqResetFilter() {
+  ["bomq-pjt","bomq-item","bomq-cust","bomq-maker","bomq-class"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  document.getElementById("bomq-pcr").value = "";
+  document.getElementById("bomq-priced").value = "";
+  bomqApplyFilters();
+}
+
+function bomqToggleFilter() {
+  const filter = document.getElementById("bomq-filter");
+  if(!filter) return;
+  filter.classList.toggle("collapsed");
+  const toggle = filter.querySelector(".eq-filter-head-toggle");
+  if(toggle) toggle.textContent = filter.classList.contains("collapsed") ? "펼치기" : "접기";
+}
+
+function bomqUpdateCards() {
+  if(!_bomqFiltered) return;
+  const rows = _bomqFiltered;
+  const total = rows.length;
+  
+  const pjtSet = new Set();
+  const custSet = new Set();
+  let priced = 0;
+  
+  for(const r of rows) {
+    if(r.PJTNo) pjtSet.add(r.PJTNo);
+    if(r.CustName) custSet.add(r.CustName);
+    if(Number(r.Price || 0) > 0) priced++;
+  }
+  
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+  };
+  
+  setTxt("bomq-card-total", total.toLocaleString());
+  setTxt("bomq-card-pjt", pjtSet.size.toLocaleString());
+  setTxt("bomq-card-priced", priced.toLocaleString());
+  setTxt("bomq-card-priced-pct", total > 0 ? Math.round((priced/total)*100) : 0);
+  setTxt("bomq-card-cust", custSet.size.toLocaleString());
+}
+
+function bomqUpdateFilterSummary() {
+  const el = document.getElementById("bomq-filter-summary");
+  if(!el) return;
+  const parts = [];
+  const pjt = document.getElementById("bomq-pjt")?.value.trim();
+  if(pjt) parts.push(`PJT: ${pjt}`);
+  const item = document.getElementById("bomq-item")?.value.trim();
+  if(item) parts.push(`품목: ${item}`);
+  const cust = document.getElementById("bomq-cust")?.value.trim();
+  if(cust) parts.push(`거래처: ${cust}`);
+  el.textContent = parts.length > 0 ? "· " + parts.join(" · ") : "";
+}
+
+function bomqExportExcel() {
+  if(!_bomqFiltered || !_bomqFiltered.length) {
+    alert("내보낼 데이터가 없습니다");
+    return;
+  }
+  if(typeof XLSX === "undefined") {
+    alert("SheetJS가 로드되지 않았습니다");
+    return;
+  }
+  const rows = _bomqFiltered.map(r => {
+    const o = {};
+    for(const c of BOMQ_COLS) o[c[1]] = r[c[0]];
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "BOM마스터");
+  const now = new Date();
+  const fn = `ERP_BOM마스터_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}.xlsx`;
+  XLSX.writeFile(wb, fn);
+}
+
+/* BOM 검색 헬퍼 (다른 탭에서 사용)
+   품목번호로 BOM 마스터에서 정보 찾기 */
+function bomLookup(itemNo, pjtNo) {
+  if(!_bomqRawData) return null;
+  // 1차: 정확한 매치 (itemNo + pjtNo)
+  if(pjtNo) {
+    const exact = _bomqRawData.find(r => r.ItemNo === itemNo && r.PJTNo === pjtNo);
+    if(exact) return exact;
+  }
+  // 2차: itemNo만 매치 (가장 최근)
+  const matches = _bomqRawData.filter(r => r.ItemNo === itemNo);
+  if(matches.length > 0) {
+    // 단가 있는 것 우선
+    const withPrice = matches.find(r => Number(r.Price || 0) > 0);
+    return withPrice || matches[0];
+  }
+  return null;
+}
 
 </script>
 
