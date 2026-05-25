@@ -2236,6 +2236,12 @@
               <div class="eq-field-label">👤 요청담당자</div>
               <input type="text" id="reqq-emp" class="eq-input" placeholder="담당자명">
             </div>
+            <div class="eq-field" style="display:flex;align-items:flex-end">
+              <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;cursor:pointer;font-size:13px;color:#991b1b;font-weight:600">
+                <input type="checkbox" id="reqq-hide-erp-done" checked onchange="reqqApplyFilters()" style="width:16px;height:16px;cursor:pointer">
+                ✅ ERP 완료 숨기기
+              </label>
+            </div>
           </div>
         </div>
 
@@ -40565,7 +40571,78 @@ async function reqqLoadData(forceRefresh, years) {
   years.forEach(y => window._reqqLoadedYears.add(y));
   
   console.log(`📋 ERP 구매요청: 누적 ${_reqqRawData.length}건 (연도: ${[...window._reqqLoadedYears].sort().join(", ")})`);
+  
+  // ⭐ ERP 처리 상태 로드 (done/failed/pending/processing)
+  await loadErpProcessingStatus();
+  
   reqqApplyFilters();
+}
+
+// ⭐ SP의 done/failed/pending/processing 폴더에서 처리 상태 수집
+// _erpProcessed[POReqNo-POReqSerl] = { status: 'done'|'failed'|'pending'|'processing', approReqNo, error, processedAt, queueId }
+window._erpProcessed = {};
+
+async function loadErpProcessingStatus() {
+  if(typeof getIds === "function") await getIds();
+  const token = await getToken();
+  if(!token || !spDrive) return;
+  
+  const folders = ["done", "failed", "pending", "processing"];
+  const newStatus = {};
+  
+  for(const folder of folders) {
+    try {
+      const path = `💰 재무·회계/100.ERP/queue/${folder}`;
+      const enc = path.split("/").map(encodeURIComponent).join("/");
+      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/children?$top=200`, {
+        headers: { Authorization: "Bearer " + token }
+      });
+      if(!r.ok) continue;
+      const data = await r.json();
+      const files = (data.value || []).filter(f => f.name.startsWith("PO-"));
+      
+      // 각 파일 내용 읽어서 어떤 POReqNo/POReqSerl 처리했는지 알아내기
+      // (병렬 다운로드)
+      const promises = files.map(async file => {
+        try {
+          const fr = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/items/${file.id}/content`, {
+            headers: { Authorization: "Bearer " + token }
+          });
+          if(!fr.ok) return null;
+          const fdata = await fr.json();
+          const requests = fdata.data?.requests || fdata.requests || [];
+          const results = fdata.results || [];
+          
+          requests.forEach((req, idx) => {
+            const key = `${req.POReqNo}-${req.POReqSerl}`;
+            const result = results[idx] || {};
+            // 더 진행된 상태가 있으면 그게 우선 (done > failed > processing > pending)
+            const priority = { done: 4, failed: 3, processing: 2, pending: 1 };
+            const existing = newStatus[key];
+            const newP = priority[folder] || 0;
+            const oldP = existing ? (priority[existing.status] || 0) : 0;
+            if(newP >= oldP) {
+              newStatus[key] = {
+                status: folder,
+                approReqNo: result.approReqNo || "",
+                error: result.error || "",
+                processedAt: fdata.processedAt || file.lastModifiedDateTime || "",
+                queueId: fdata.queue_id || file.name.replace(".json", "")
+              };
+            }
+          });
+        } catch(e) {
+          console.warn("queue 파일 읽기 실패:", file.name, e);
+        }
+      });
+      await Promise.all(promises);
+    } catch(e) {
+      console.warn(`${folder}/ 로드 실패:`, e);
+    }
+  }
+  
+  window._erpProcessed = newStatus;
+  console.log(`📊 ERP 처리 상태 로드: ${Object.keys(newStatus).length}건`);
 }
 
 async function reqqRefreshCurrentYear() {
@@ -40628,6 +40705,14 @@ function reqqApplyFilters() {
   }
   
   _reqqFiltered = _reqqRawData.filter(r => {
+    // ⭐ ERP에서 이미 완료된 항목 숨기기 (체크박스 켜져 있으면)
+    const hideCompleted = document.getElementById("reqq-hide-erp-done")?.checked;
+    if(hideCompleted) {
+      const key = `${r.POReqNo}-${r.POReqSerl}`;
+      const erpStatus = window._erpProcessed?.[key];
+      if(erpStatus && erpStatus.status === "done") return false;
+    }
+    
     const d = _erpDateNorm(r.ReqDate);
     if(f.dateFr && d && d < f.dateFr) return false;
     if(f.dateTo && d && d > f.dateTo) return false;
@@ -40738,7 +40823,27 @@ function reqqRender() {
     else if(status === "취소") statusColor = "background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px";
     else if(status === "완료") statusColor = "background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px";
     
-    let row = `<tr data-key="${key}"><td style="text-align:center;background:var(--bg3);position:sticky;left:0;z-index:5">
+    // ⭐ ERP 처리 상태 배지
+    const erpStatus = window._erpProcessed?.[key];
+    let rowBg = "";
+    let erpBadge = "";
+    if(erpStatus) {
+      if(erpStatus.status === "done") {
+        rowBg = "background:#f0fdf4;";
+        erpBadge = `<span style="background:#15803d;color:white;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px" title="영림원 품의번호: ${erpStatus.approReqNo}">✅ ERP완료 ${erpStatus.approReqNo}</span>`;
+      } else if(erpStatus.status === "failed") {
+        rowBg = "background:#fef2f2;";
+        erpBadge = `<span style="background:#dc2626;color:white;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px;cursor:help" title="${(erpStatus.error||'').replace(/"/g,'&quot;')}">❌ ERP실패</span>`;
+      } else if(erpStatus.status === "processing") {
+        rowBg = "background:#eff6ff;";
+        erpBadge = `<span style="background:#1e40af;color:white;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px">⚙️ 처리중</span>`;
+      } else if(erpStatus.status === "pending") {
+        rowBg = "background:#fefce8;";
+        erpBadge = `<span style="background:#a16207;color:white;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px">⏳ 대기중</span>`;
+      }
+    }
+    
+    let row = `<tr data-key="${key}" style="${rowBg}"><td style="text-align:center;background:var(--bg3);position:sticky;left:0;z-index:5">
       <input type="checkbox" ${checked} onchange="reqqToggleRow('${key}', this.checked)">
     </td>`;
     row += REQQ_COLS.map(c => {
@@ -40747,7 +40852,8 @@ function reqqRender() {
       let cls = (type === "money" || type === "num") ? "num" : "";
       let style = `text-align:${align}`;
       if(type === "status" && statusColor) {
-        return `<td style="${style};text-align:center"><span style="${statusColor}">${v||""}</span></td>`;
+        // 진행상태 칸에 ERP 배지 같이 표시
+        return `<td style="${style};text-align:center"><span style="${statusColor}">${v||""}</span>${erpBadge}</td>`;
       }
       return `<td class="${cls}" style="${style}" title="${String(r[field]||"").replace(/"/g,'&quot;')}">${v||""}</td>`;
     }).join("");
@@ -41865,10 +41971,23 @@ async function poActSendToERP() {
     await _erpUploadJson(triggerPath, triggerData);
     console.log(`🚀 트리거 생성: ${triggerPath}`);
     
-    alert(`🚀 ERP 전송 시작!\n\n큐 ID: ${queueId}\n품목: ${_poActSelected.length}건\n\nBH님 PC의 RPA가 곧 시작합니다 (최대 10초 내).\n\nTeams에 진행상황이 알림으로 옵니다.`);
+    alert(`🚀 ERP 전송 시작!\n\n큐 ID: ${queueId}\n품목: ${_poActSelected.length}건\n\n⏱️ 최대 1분 내 자동 처리 (작업스케줄러)\n[📊 처리 현황] 버튼으로 결과 확인 가능`);
     poActCloseModal();
     
     _reqqSelectedIds.clear();
+    
+    // ⭐ ERP 상태 즉시 갱신 (pending 표시)
+    setTimeout(async () => {
+      await loadErpProcessingStatus();
+      if(typeof reqqApplyFilters === "function") reqqApplyFilters();
+    }, 1000);
+    
+    // ⭐ 30초 후 다시 갱신 (worker 처리 결과 반영)
+    setTimeout(async () => {
+      await loadErpProcessingStatus();
+      if(typeof reqqApplyFilters === "function") reqqApplyFilters();
+    }, 30000);
+    
     if(typeof reqqRender === "function") reqqRender();
   } catch(e) {
     console.error("ERP 전송 실패:", e);
