@@ -508,6 +508,11 @@
       <div style="margin-top:8px;padding:6px 12px 4px;font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;border-top:1px solid var(--border);margin-top:10px;padding-top:10px">📤 ERP 업로드</div>
       <div class="ni" onclick="go('erp-purchase-order',this)" style="background:linear-gradient(90deg,#FEF3C7,transparent)">📦 프로젝트구매발주입력 <span class="nb nbg" id="badge-erp-po">-</span></div>
       <div class="ni" onclick="go('erp-purchase-receipt',this)" style="background:linear-gradient(90deg,#DBEAFE,transparent)">🚚 프로젝트구매납품입력 <span class="nb nbg" id="badge-erp-dlv">-</span></div>
+
+      <!-- ═══════ 📥 ERP 조회 그룹 (영림원 실시간 데이터 v2) ═══════ -->
+      <div style="margin-top:8px;padding:6px 12px 4px;font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;border-top:1px solid var(--border);margin-top:10px;padding-top:10px">📥 ERP 실시간 조회</div>
+      <div class="ni" onclick="go('erp-po-query',this)" style="background:linear-gradient(90deg,#E0F2FE,transparent)">📥 발주품목조회 <span class="nb nbg" id="badge-erp-po-q">-</span></div>
+      <div class="ni" onclick="go('erp-dlv-query',this)" style="background:linear-gradient(90deg,#DCFCE7,transparent)">📥 입고정산조회 <span class="nb nbg" id="badge-erp-dlv-q">-</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -1246,6 +1251,176 @@
         </div>
       </div>
     </div>
+
+    <div class="page" id="tab-erp-po-query">
+  <div class="eq-wrap">
+    
+    <!-- 📋 조회 조건 -->
+    <div class="eq-filter">
+      <div class="eq-filter-row">
+        <span class="eq-label">발주일</span>
+        <input type="date" id="poq-date-fr" class="eq-input date">
+        <span style="color:var(--t3)">~</span>
+        <input type="date" id="poq-date-to" class="eq-input date">
+        
+        <span class="eq-label" style="margin-left:8px">상태</span>
+        <select id="poq-status" class="eq-input">
+          <option value="">전체</option>
+          <option value="작성">작성</option>
+          <option value="결재중">결재중</option>
+          <option value="완료">완료</option>
+          <option value="중단">중단</option>
+        </select>
+        
+        <span class="eq-label" style="margin-left:8px">내외자</span>
+        <select id="poq-imptype" class="eq-input" style="min-width:80px">
+          <option value="">전체</option>
+          <option value="내수">내수</option>
+          <option value="외자">외자</option>
+        </select>
+        
+        <span class="eq-toggle-extra" onclick="poqToggleExtra()">➕ 추가조건</span>
+      </div>
+      
+      <div class="eq-filter-row">
+        <span class="eq-label">발주번호</span>
+        <input type="text" id="poq-pono" class="eq-input" placeholder="20260501-0001">
+        
+        <span class="eq-label" style="margin-left:8px">거래처</span>
+        <input type="text" id="poq-cust" class="eq-input" placeholder="거래처명 검색" style="min-width:160px">
+        
+        <span class="eq-label" style="margin-left:8px">품목</span>
+        <input type="text" id="poq-item" class="eq-input" placeholder="품명/품번 검색" style="min-width:160px">
+      </div>
+      
+      <div class="eq-extra-panel" id="poq-extra">
+        <div class="eq-filter-row">
+          <span class="eq-label">프로젝트</span>
+          <input type="text" id="poq-pjt" class="eq-input" placeholder="프로젝트명/번호" style="min-width:200px">
+          
+          <span class="eq-label" style="margin-left:8px">부서</span>
+          <input type="text" id="poq-dept" class="eq-input" placeholder="부서명" style="min-width:120px">
+          
+          <span class="eq-label" style="margin-left:8px">담당자</span>
+          <input type="text" id="poq-emp" class="eq-input" placeholder="담당자명" style="min-width:120px">
+        </div>
+        <div class="eq-filter-row">
+          <span class="eq-label">납기일</span>
+          <input type="date" id="poq-delv-fr" class="eq-input date">
+          <span style="color:var(--t3)">~</span>
+          <input type="date" id="poq-delv-to" class="eq-input date">
+          
+          <span class="eq-label" style="margin-left:8px">품목분류</span>
+          <input type="text" id="poq-class" class="eq-input" placeholder="대/중/소분류" style="min-width:160px">
+          
+          <span class="eq-label" style="margin-left:8px">중단포함</span>
+          <select id="poq-stop" class="eq-input" style="min-width:90px">
+            <option value="all">전체</option>
+            <option value="active">활성만</option>
+            <option value="stopped">중단만</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 🎛️ 도구바 -->
+    <div class="eq-toolbar">
+      <div class="eq-tb-left">
+        <span>📊 <span class="eq-tb-cnt" id="poq-cnt">0</span>건</span>
+        <span style="color:var(--t3)">|</span>
+        <div class="eq-stats">
+          <span>완료 <b class="stat-g" id="poq-st-done">0</b></span>
+          <span>작성 <b class="stat-a" id="poq-st-draft">0</b></span>
+          <span>중단 <b class="stat-r" id="poq-st-stop">0</b></span>
+        </div>
+        <span style="color:var(--t3)">|</span>
+        <span class="eq-tb-time" id="poq-last">마지막 갱신: 확인 중...</span>
+        <div class="eq-mode-toggle">
+          <button id="poq-mode-krw" class="on" onclick="poqSetMode('krw')">원화</button>
+          <button id="poq-mode-foreign" onclick="poqSetMode('foreign')">+ 외화</button>
+        </div>
+      </div>
+      <div class="eq-tb-right">
+        <button class="eq-btn primary" onclick="poqQuery()" title="입력 조건으로 필터링 (즉시)">🔄 조회</button>
+        <button class="eq-btn" onclick="poqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
+        <button class="eq-btn" onclick="poqExportExcel()">📊 엑셀</button>
+        <button class="eq-btn" onclick="poqPrint()">🖨 인쇄</button>
+        <button class="eq-btn" onclick="poqResetFilter()">↺ 초기화</button>
+      </div>
+    </div>
+    
+    <!-- 🗂 데이터 그리드 -->
+    <div class="eq-grid-wrap">
+      <div class="eq-grid-scroll">
+        <table class="eq-grid" id="poq-table">
+          <thead><tr id="poq-thead"></tr></thead>
+          <tbody id="poq-tbody"></tbody>
+          <tfoot><tr id="poq-tfoot"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+    <div class="page" id="tab-erp-dlv-query">
+  <div class="eq-wrap">
+    
+    <div class="eq-filter">
+      <div class="eq-filter-row">
+        <span class="eq-label">입고일</span>
+        <input type="date" id="dlvq-date-fr" class="eq-input date">
+        <span style="color:var(--t3)">~</span>
+        <input type="date" id="dlvq-date-to" class="eq-input date">
+        
+        <span class="eq-label" style="margin-left:8px">거래처</span>
+        <input type="text" id="dlvq-cust" class="eq-input" placeholder="거래처명" style="min-width:160px">
+        
+        <span class="eq-label" style="margin-left:8px">품목</span>
+        <input type="text" id="dlvq-item" class="eq-input" placeholder="품명/품번" style="min-width:160px">
+      </div>
+      
+      <div class="eq-filter-row">
+        <span class="eq-label">프로젝트</span>
+        <input type="text" id="dlvq-pjt" class="eq-input" placeholder="프로젝트명/번호" style="min-width:200px">
+        
+        <span class="eq-label" style="margin-left:8px">발주번호</span>
+        <input type="text" id="dlvq-pono" class="eq-input" placeholder="발주번호">
+        
+        <span class="eq-label" style="margin-left:8px">담당자</span>
+        <input type="text" id="dlvq-emp" class="eq-input" placeholder="담당자명" style="min-width:120px">
+      </div>
+    </div>
+    
+    <div class="eq-toolbar">
+      <div class="eq-tb-left">
+        <span>📊 <span class="eq-tb-cnt" id="dlvq-cnt">0</span>건</span>
+        <span style="color:var(--t3)">|</span>
+        <span class="eq-tb-time" id="dlvq-last">마지막 갱신: 확인 중...</span>
+      </div>
+      <div class="eq-tb-right">
+        <button class="eq-btn primary" onclick="dlvqQuery()" title="입력 조건으로 필터링 (즉시)">🔄 조회</button>
+        <button class="eq-btn" onclick="dlvqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
+        <button class="eq-btn" onclick="dlvqExportExcel()">📊 엑셀</button>
+        <button class="eq-btn" onclick="dlvqPrint()">🖨 인쇄</button>
+        <button class="eq-btn" onclick="dlvqResetFilter()">↺ 초기화</button>
+      </div>
+    </div>
+    
+    <div class="eq-grid-wrap">
+      <div class="eq-grid-scroll">
+        <table class="eq-grid" id="dlvq-table">
+          <thead><tr id="dlvq-thead"></tr></thead>
+          <tbody id="dlvq-tbody"></tbody>
+          <tfoot><tr id="dlvq-tfoot"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+
 
     <!-- 구매활동 Log -->
     <div class="page" id="tab-purchase-log">
@@ -26804,7 +26979,266 @@ function printQuote() {
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
       body{margin:0;padding:10mm;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff}
       @media print{body{padding:8mm}}
-    </style>
+    
+
+/* ═══════ 📥 ERP 조회 모듈 v2 스타일 ═══════ */
+/* ═══════ ERP 조회 페이지 공통 스타일 ═══════ */
+.eq-wrap { padding: 12px 16px; }
+
+/* 조회조건 패널 */
+.eq-filter {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.eq-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.eq-filter-row:last-child { margin-bottom: 0; }
+.eq-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t2);
+  min-width: 75px;
+  text-align: right;
+}
+.eq-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  font-family: var(--s);
+  font-size: 13px;
+  background: var(--bg2);
+  color: var(--t);
+  min-width: 130px;
+}
+.eq-input:focus {
+  border-color: var(--p);
+  outline: none;
+}
+.eq-input.date { min-width: 130px; }
+.eq-toggle-extra {
+  font-size: 12px;
+  color: var(--p);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: background .15s;
+}
+.eq-toggle-extra:hover { background: var(--pd); }
+.eq-extra-panel {
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  margin-top: 8px;
+  display: none;
+}
+.eq-extra-panel.on { display: block; }
+
+/* 우측 도구바 */
+.eq-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.eq-tb-left {
+  font-size: 13px;
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eq-tb-cnt {
+  font-weight: 800;
+  color: var(--p);
+  font-family: var(--m);
+}
+.eq-tb-time {
+  color: var(--t3);
+  font-size: 12px;
+}
+.eq-tb-right {
+  display: flex;
+  gap: 6px;
+}
+.eq-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  background: var(--bg2);
+  font-family: var(--s);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t2);
+  cursor: pointer;
+  transition: all .15s;
+}
+.eq-btn:hover { background: var(--bg3); border-color: var(--p); color: var(--p); }
+.eq-btn.primary {
+  background: var(--p);
+  color: #fff;
+  border-color: var(--p);
+}
+.eq-btn.primary:hover { background: #1559b8; color: #fff; }
+.eq-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 데이터 그리드 */
+.eq-grid-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.eq-grid-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 280px);
+}
+.eq-grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.eq-grid thead th {
+  background: var(--bg3);
+  color: var(--t2);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border2);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  cursor: pointer;
+  user-select: none;
+}
+.eq-grid thead th:hover { background: var(--pd); color: var(--p); }
+.eq-grid thead th.sort-asc::after { content: " ▲"; color: var(--p); font-size: 10px; }
+.eq-grid thead th.sort-desc::after { content: " ▼"; color: var(--p); font-size: 10px; }
+.eq-grid thead th.sort-1::after { content: " ▼¹"; color: var(--p); font-size: 10px; }
+.eq-grid thead th.sort-2::after { content: " ▲²"; color: var(--p); font-size: 10px; }
+.eq-grid tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  color: var(--t);
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.eq-grid tbody tr:hover td { background: var(--pd); }
+.eq-grid tbody tr.stopped td {
+  color: var(--t3);
+  background: rgba(200,32,30,0.03);
+  text-decoration: line-through;
+}
+.eq-grid tbody tr.stopped:hover td { background: rgba(200,32,30,0.08); }
+.eq-grid .num { text-align: right; font-family: var(--m); }
+.eq-grid .num.neg { color: var(--r); }
+.eq-grid .status-cell { font-weight: 700; }
+.eq-grid .status-완료 { color: var(--g); }
+.eq-grid .status-작성 { color: var(--a); }
+.eq-grid .status-중단 { color: var(--r); }
+.eq-grid .status-결재 { color: var(--p); }
+.eq-grid tfoot td {
+  background: var(--bg3);
+  font-weight: 800;
+  padding: 9px 10px;
+  border-top: 2px solid var(--border2);
+  border-right: 1px solid var(--border);
+  font-family: var(--m);
+  color: var(--p);
+}
+
+/* 빈 상태 */
+.eq-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--t3);
+}
+.eq-empty-ic { font-size: 40px; margin-bottom: 8px; }
+.eq-empty-msg { font-size: 14px; font-weight: 600; }
+.eq-empty-sub { font-size: 12px; margin-top: 4px; color: var(--t3); }
+
+/* 로딩 */
+.eq-loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--p);
+}
+.eq-spinner {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--bg3);
+  border-top-color: var(--p);
+  border-radius: 50%;
+  animation: eqSpin .8s linear infinite;
+}
+@keyframes eqSpin { to { transform: rotate(360deg); } }
+
+/* 외화 토글 영역 (메인은 원화 표시, 토글 시 외화 추가 컬럼) */
+.eq-mode-toggle {
+  display: inline-flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 2px;
+  margin-left: 6px;
+}
+.eq-mode-toggle button {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 5px;
+  color: var(--t3);
+  font-family: var(--s);
+}
+.eq-mode-toggle button.on {
+  background: var(--bg2);
+  color: var(--p);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* 검색 통계 */
+.eq-stats {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--t2);
+  font-family: var(--m);
+}
+.eq-stats b { color: var(--t); }
+.eq-stats .stat-r { color: var(--r); }
+.eq-stats .stat-g { color: var(--g); }
+.eq-stats .stat-a { color: var(--a); }
+
+</style>
     </head><body>${area.innerHTML}</body></html>`);
   win.document.close();
   setTimeout(()=>win.print(), 800);
@@ -28483,7 +28917,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -31548,6 +31982,14 @@ function go(id, el) {
   }
   if(id==="erp-purchase-receipt") {
     if(typeof erpInit === "function") erpInit("receipt");
+  }
+  // 📥 ERP 발주품목조회 탭 진입
+  if(id === "erp-po-query") {
+    if(typeof poqInit === "function") poqInit();
+  }
+  // 📥 ERP 입고정산조회 탭 진입
+  if(id === "erp-dlv-query") {
+    if(typeof dlvqInit === "function") dlvqInit();
   }
   // 🏪 거래처 SCM 탭 진입 시 - SCM 자동 로드
   if(id==="vendor-scm") {
@@ -37256,6 +37698,1279 @@ function deleteTax(id){
         </div>
       </div>
     </div>
+
+
+
+<!-- ═══════ 📥 ERP 조회 모듈 v2 JS ═══════ -->
+<script>
+
+/* ════════════════════════════════════════════════════════════════════
+   📥 ERP 조회 모듈 - 영림원 100% 클론
+   - SharePoint: 06.BackOffice/💰 재무·회계/100.ERP/po-items.json
+   - SharePoint: 06.BackOffice/💰 재무·회계/100.ERP/delivery.json
+   - SharePoint: 06.BackOffice/💰 재무·회계/100.ERP/last-run.json
+   ════════════════════════════════════════════════════════════════════ */
+
+const ERP_SP_FOLDER = "💰 재무·회계/100.ERP";
+const ERP_RUN_JSON  = `${ERP_SP_FOLDER}/last-run.json`;
+const ERP_META_JSON = `${ERP_SP_FOLDER}/meta.json`;
+const ERP_PO_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/po-${year}.json`;
+const ERP_DLV_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/delivery-${year}.json`;
+
+/* localStorage 캐시 키 */
+const ERP_CACHE_PO  = (year) => `erp_cache_po_${year}`;
+const ERP_CACHE_DLV = (year) => `erp_cache_dlv_${year}`;
+const ERP_CACHE_META = "erp_cache_meta";
+const ERP_CURRENT_YEAR = new Date().getFullYear();
+
+/* ─── 발주품목조회 컬럼 정의 (영림원 엑셀 30개 그대로) ─── */
+const POQ_COLS = [
+  // [API필드, 표시명, 종류, 너비, 정렬]
+  ["IsStop",            "중단",       "bool",   55,  "center"],
+  ["PODate",            "품의일",     "date",   100, "center"],
+  ["PONo",              "품의번호",   "text",   140, "left"],
+  ["CustName",          "구매거래처", "text",   180, "left"],
+  ["DeptName",          "품의부서",   "text",   100, "left"],
+  ["EmpName",           "품의담당자", "text",   95,  "left"],
+  ["PJTName",           "프로젝트명", "text",   260, "left"],
+  ["PJTNo",             "프로젝트번호","text",  130, "left"],
+  ["ItemName",          "품명",       "text",   220, "left"],
+  ["ItemNo",            "품번",       "text",   220, "left"],
+  ["Spec",              "규격",       "text",   150, "left"],
+  ["Qty",               "품의수량",   "num",    85,  "right"],
+  ["DomPrice",          "단가",       "money",  110, "right"],
+  ["DomAmt",            "품의금액",   "money",  120, "right"],
+  ["DomVAT",            "부가세",     "money",  110, "right"],
+  ["TotDomAmt",         "금액계",     "money",  130, "right"],
+  ["DelvDate",          "요청납기일", "date",   100, "center"],
+  ["SMCurrStatusName",  "진행상태",   "status", 85,  "center"],
+  ["SMImpTypeName",     "내외자구분", "text",   80,  "center"],
+  ["Remark1",           "특이사항",   "text",   180, "left"],
+  ["Remark",            "비고",       "text",   180, "left"],
+  ["SourceRefNo",       "원천관리번호","text",  130, "left"],
+  ["SourceNo",          "원천번호",   "text",   130, "left"],
+  ["ItemClassLName",    "품목대분류", "text",   110, "left"],
+  ["ItemClassMName",    "품목중분류", "text",   110, "left"],
+  ["ItemClassSName",    "품목소분류", "text",   110, "left"],
+  ["PJTTypeName",       "프로젝트유형","text",  110, "left"],
+];
+
+/* 외화 토글 시 추가될 컬럼들 (TotDomAmt 뒤에 끼워넣음) */
+const POQ_COLS_FOREIGN = [
+  ["CurrName",  "통화",     "text",  60,  "center"],
+  ["ExRate",    "환율",     "num",   75,  "right"],
+  ["Price",     "외화단가", "money", 100, "right"],
+  ["CurAmt",    "외화금액", "money", 120, "right"],
+  ["CurVAT",    "외화부가세","money",100, "right"],
+  ["TotCurAmt", "외화 총액","money", 130, "right"],
+];
+
+/* ─── 입고정산조회 컬럼 정의 ─── */
+const DLVQ_COLS = [
+  ["DelvInDate",        "입고일",     "date",   100, "center"],
+  ["DelvInNo",          "입고번호",   "text",   140, "left"],
+  ["CustName",          "거래처",     "text",   180, "left"],
+  ["PONo",              "발주번호",   "text",   140, "left"],
+  ["DeptName",          "부서",       "text",   100, "left"],
+  ["EmpName",           "담당자",     "text",   95,  "left"],
+  ["PJTName",           "프로젝트명", "text",   260, "left"],
+  ["PJTNo",             "프로젝트번호","text",  130, "left"],
+  ["ItemName",          "품명",       "text",   220, "left"],
+  ["ItemNo",            "품번",       "text",   220, "left"],
+  ["Spec",              "규격",       "text",   150, "left"],
+  ["DelvInQty",         "입고수량",   "num",    85,  "right"],
+  ["DomPrice",          "단가",       "money",  110, "right"],
+  ["DelvInDomAmt",      "입고금액",   "money",  130, "right"],
+  ["DelvInDomVAT",      "부가세",     "money",  110, "right"],
+  ["TotDelvInDomAmt",   "금액계",     "money",  130, "right"],
+  ["Remark",            "비고",       "text",   200, "left"],
+];
+
+/* ─── 전역 상태 ─── */
+let _poqRawData = null;     // 원본 SP 데이터 (조회 누르기 전)
+let _poqFiltered = [];      // 필터링 결과
+let _poqMode = "krw";       // "krw" | "foreign"
+let _poqSort = [            // 더블 정렬: [컬럼, 방향]
+  ["PODate", "desc"],
+  ["DelvDate", "asc"]
+];
+
+let _dlvqRawData = null;
+let _dlvqFiltered = [];
+let _dlvqSort = [["DelvInDate", "desc"]];
+
+let _erpLastRun = null;     // last-run.json 데이터
+
+/* ═══════════════════════════════════════════════════════════════════
+   📅 연도 추출 + localStorage 캐시 + 멀티 연도 로드 (v2)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 날짜 범위에서 필요한 연도 목록 추출 */
+function _erpYearsInRange(dateFr, dateTo) {
+  if(!dateFr || !dateTo) {
+    return [ERP_CURRENT_YEAR]; // 기본: 현재 연도만
+  }
+  const y1 = parseInt(String(dateFr).substring(0, 4));
+  const y2 = parseInt(String(dateTo).substring(0, 4));
+  if(isNaN(y1) || isNaN(y2)) return [ERP_CURRENT_YEAR];
+  const years = [];
+  for(let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
+    years.push(y);
+  }
+  return years;
+}
+
+/* localStorage에서 캐시 읽기 */
+function _erpLoadCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) {
+    console.warn(`ERP 캐시 읽기 실패 (${key}):`, e.message);
+    return null;
+  }
+}
+
+/* localStorage에 캐시 저장 (용량 초과 시 자동 정리) */
+function _erpSaveCache(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    return true;
+  } catch(e) {
+    // QuotaExceeded: 가장 오래된 캐시부터 삭제 후 재시도
+    if(e.name === "QuotaExceededError" || e.code === 22) {
+      console.warn("ERP localStorage 용량 초과 - 오래된 캐시 정리");
+      _erpPurgeOldCache();
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+        return true;
+      } catch(e2) {
+        console.error("ERP 캐시 저장 재시도 실패:", e2.message);
+        return false;
+      }
+    }
+    console.error("ERP 캐시 저장 실패:", e.message);
+    return false;
+  }
+}
+
+/* 오래된 ERP 캐시 정리 (현재 연도 제외) */
+function _erpPurgeOldCache() {
+  const keys = [];
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(k && (k.startsWith("erp_cache_po_") || k.startsWith("erp_cache_dlv_"))) {
+      // 현재 연도는 보호
+      if(!k.endsWith(`_${ERP_CURRENT_YEAR}`)) {
+        keys.push(k);
+      }
+    }
+  }
+  // 가장 옛날 연도부터 삭제
+  keys.sort();
+  for(const k of keys.slice(0, Math.max(1, Math.floor(keys.length/2)))) {
+    localStorage.removeItem(k);
+    console.log(`  🗑️ 캐시 삭제: ${k}`);
+  }
+}
+
+/* 캐시 통계 */
+function erpCacheStats() {
+  const stats = { po: [], dlv: [], meta: null, totalSize: 0 };
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(!k) continue;
+    const val = localStorage.getItem(k);
+    const size = val ? val.length * 2 : 0; // UTF-16 가정
+    if(k.startsWith("erp_cache_po_")) {
+      stats.po.push({key: k, year: k.replace("erp_cache_po_", ""), size});
+      stats.totalSize += size;
+    } else if(k.startsWith("erp_cache_dlv_")) {
+      stats.dlv.push({key: k, year: k.replace("erp_cache_dlv_", ""), size});
+      stats.totalSize += size;
+    } else if(k === ERP_CACHE_META) {
+      stats.meta = {size};
+      stats.totalSize += size;
+    }
+  }
+  return stats;
+}
+
+/* 전체 ERP 캐시 삭제 (디버깅용, 콘솔에서 호출) */
+function erpClearAllCache() {
+  const stats = erpCacheStats();
+  let count = 0;
+  for(const item of [...stats.po, ...stats.dlv]) {
+    localStorage.removeItem(item.key);
+    count++;
+  }
+  if(stats.meta) {
+    localStorage.removeItem(ERP_CACHE_META);
+    count++;
+  }
+  console.log(`🗑️ ERP 캐시 ${count}개 삭제됨`);
+  return count;
+}
+
+/* meta.json 로드 (캐시 우선, 1시간마다 재검증) */
+async function _erpLoadMeta(forceRefresh) {
+  const cached = _erpLoadCache(ERP_CACHE_META);
+  const now = Date.now();
+  
+  // 강제 갱신이 아니고 1시간 이내면 캐시 사용
+  if(!forceRefresh && cached && cached._cachedAt && 
+     (now - cached._cachedAt) < 3600000) {
+    return cached;
+  }
+  
+  const fresh = await _erpFetchJson(ERP_META_JSON);
+  if(fresh) {
+    fresh._cachedAt = now;
+    _erpSaveCache(ERP_CACHE_META, fresh);
+    return fresh;
+  }
+  
+  // SP 실패 시 캐시라도 반환
+  return cached;
+}
+
+/* 
+ * 멀티 연도 데이터 로드 (캐시 우선)
+ * - type: "po" or "dlv"
+ * - years: 로드할 연도 배열
+ * - forceRefresh: true면 현재 연도는 SP에서 다시 받음
+ * - onProgress: (year, idx, total, source) => void 
+ * 
+ * 반환: 모든 연도의 rows를 합친 배열 (객체 형태)
+ */
+async function _erpLoadMultiYear(type, years, forceRefresh, onProgress) {
+  if(!Array.isArray(years) || years.length === 0) return [];
+  
+  const meta = await _erpLoadMeta(false);
+  const allRows = [];
+  let allCols = null;
+  
+  for(let i = 0; i < years.length; i++) {
+    const year = years[i];
+    const isCurrentYear = (year === ERP_CURRENT_YEAR);
+    const cacheKey = (type === "po") ? ERP_CACHE_PO(year) : ERP_CACHE_DLV(year);
+    
+    // 캐시 정책:
+    // - 풀로드 연도 (≤ 2025): 영구 캐시
+    // - 현재 연도 (2026): forceRefresh=true 또는 캐시 없을 때만 SP
+    let data = null;
+    let source = "cache";
+    
+    const cached = _erpLoadCache(cacheKey);
+    
+    if(forceRefresh && isCurrentYear) {
+      // 새 데이터 받기
+      source = "sp_force";
+      data = null;
+    } else if(cached && cached.rows && cached.columns) {
+      // 캐시 있음
+      // 현재 연도면 meta.json의 last_modified와 비교해서 최신인지 확인
+      if(isCurrentYear && meta && meta.years && meta.years[String(year)]) {
+        const metaInfo = meta.years[String(year)][type];
+        const metaTime = metaInfo?.last_modified;
+        const cacheTime = cached.captured_at;
+        if(metaTime && cacheTime && metaTime > cacheTime) {
+          // SP가 더 최신
+          source = "sp_newer";
+          data = null;
+        } else {
+          data = cached;
+        }
+      } else {
+        // 풀로드 연도: 영구 캐시 사용
+        data = cached;
+      }
+    }
+    
+    if(!data) {
+      // SP에서 다운로드
+      if(onProgress) onProgress(year, i, years.length, source);
+      const spPath = (type === "po") ? ERP_PO_JSON_YEAR(year) : ERP_DLV_JSON_YEAR(year);
+      data = await _erpFetchJson(spPath);
+      
+      if(!data || !data.rows) {
+        console.warn(`ERP: ${spPath} 로드 실패 (해당 연도 데이터 없음)`);
+        continue;
+      }
+      
+      // 캐시 저장
+      _erpSaveCache(cacheKey, data);
+      source = "sp";
+    }
+    
+    if(onProgress) onProgress(year, i, years.length, source);
+    
+    // columns 검증
+    if(!allCols) allCols = data.columns;
+    
+    // rows 변환 + 누적
+    const objs = _erpRowsToObjects(data);
+    allRows.push(...objs);
+  }
+  
+  return { rows: allRows, columns: allCols };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SharePoint JSON 직접 로드 (배열 아닌 객체 구조)
+   ═══════════════════════════════════════════════════════════════════ */
+async function _erpFetchJson(spPath) {
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) {
+      console.warn("ERP: SP 토큰/Drive 없음");
+      return null;
+    }
+    const enc = spPath.split("/").map(encodeURIComponent).join("/");
+    const r = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`,
+      { headers: { "Authorization": "Bearer " + t } }
+    );
+    if(!r.ok) {
+      console.warn(`ERP: SP 응답 ${r.status} (${spPath.split("/").pop()})`);
+      return null;
+    }
+    return await r.json();
+  } catch(e) {
+    console.error(`ERP: SP 로드 실패 (${spPath}):`, e.message);
+    return null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   값 포맷팅
+   ═══════════════════════════════════════════════════════════════════ */
+function _erpFmt(val, type) {
+  if(val == null || val === "") return "";
+  
+  if(type === "bool") {
+    return val === true || val === "true" || val === "TRUE" || val === 1 ? "✓" : "";
+  }
+  if(type === "date") {
+    if(typeof val === "string" && val.length >= 10) return val.substr(0, 10);
+    return val;
+  }
+  if(type === "num") {
+    const n = Number(val);
+    if(isNaN(n)) return val;
+    return n.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+  }
+  if(type === "money") {
+    const n = Number(val);
+    if(isNaN(n)) return val;
+    if(n === 0) return "";
+    return n.toLocaleString("ko-KR", { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 2 
+    });
+  }
+  if(type === "status") {
+    return val;
+  }
+  return val;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   row 객체 변환: SP는 {columns, rows} 구조로 옴
+   rows[i]는 columns 순서대로 값 배열
+   ═══════════════════════════════════════════════════════════════════ */
+function _erpRowsToObjects(data) {
+  if(!data || !data.columns || !data.rows) return [];
+  const cols = data.columns;
+  return data.rows.map(r => {
+    const obj = {};
+    for(let i = 0; i < cols.length; i++) {
+      obj[cols[i]] = r[i];
+    }
+    return obj;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   상대 시간 표시 (마지막 갱신: 3분 전)
+   ═══════════════════════════════════════════════════════════════════ */
+function _erpRelativeTime(isoStr) {
+  if(!isoStr) return "알 수 없음";
+  try {
+    const t = new Date(isoStr).getTime();
+    const now = Date.now();
+    const diff = Math.floor((now - t) / 1000);
+    if(diff < 60) return "방금 전";
+    if(diff < 3600) return `${Math.floor(diff/60)}분 전`;
+    if(diff < 86400) return `${Math.floor(diff/3600)}시간 전`;
+    return `${Math.floor(diff/86400)}일 전`;
+  } catch(_) { return "알 수 없음"; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   📥 발주품목조회 - 초기화 (v2: 진입시 현재 연도 자동 로드)
+   ═══════════════════════════════════════════════════════════════════ */
+async function poqInit() {
+  // 1) 기본 날짜: 이번달 1일 ~ 오늘
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,"0");
+  const d = String(now.getDate()).padStart(2,"0");
+  const firstDay = `${y}-${m}-01`;
+  const today = `${y}-${m}-${d}`;
+  
+  if(!document.getElementById("poq-date-fr").value) {
+    document.getElementById("poq-date-fr").value = firstDay;
+  }
+  if(!document.getElementById("poq-date-to").value) {
+    document.getElementById("poq-date-to").value = today;
+  }
+  
+  // 2) 헤더 렌더 (정렬 표시 포함)
+  poqRenderHeader();
+  
+  // 3) Enter 키 바인딩 (입력칸에서 Enter → 조회)
+  poqBindKeyboard();
+  
+  // 4) last-run + meta 로드 (시간만)
+  _erpLastRun = await _erpFetchJson(ERP_RUN_JSON);
+  poqUpdateLastTime();
+  
+  // 5) 진입 시 자동: 현재 연도 데이터 로드 + 필터 적용
+  if(_poqRawData === null) {
+    await poqLoadData(false); // 캐시 우선 (forceRefresh=false)
+  } else {
+    poqApplyFilters();
+  }
+}
+
+/* Enter 키 → 조회 */
+function poqBindKeyboard() {
+  const inputs = document.querySelectorAll("#tab-erp-purchase-order .eq-cond input, #tab-erp-purchase-order .eq-cond select");
+  inputs.forEach(el => {
+    if(el.dataset._erpBound) return;
+    el.dataset._erpBound = "1";
+    el.addEventListener("keydown", e => {
+      if(e.key === "Enter") {
+        e.preventDefault();
+        poqQuery();
+      }
+    });
+  });
+}
+
+/* 헤더 렌더 (정렬 상태 표시) */
+function poqRenderHeader() {
+  const cols = _poqGetActiveCols();
+  const thead = document.getElementById("poq-thead");
+  if(!thead) return;
+  
+  thead.innerHTML = cols.map(c => {
+    const [field, name, type, width, align] = c;
+    let sortClass = "";
+    let sortIdx = _poqSort.findIndex(s => s[0] === field);
+    if(sortIdx >= 0) {
+      const dir = _poqSort[sortIdx][1];
+      if(_poqSort.length === 2) {
+        sortClass = sortIdx === 0 
+          ? (dir === "desc" ? "sort-1" : "sort-1") 
+          : "sort-2";
+      } else {
+        sortClass = dir === "asc" ? "sort-asc" : "sort-desc";
+      }
+    }
+    return `<th class="${sortClass}" style="min-width:${width}px;text-align:${align}" 
+              onclick="poqSortBy('${field}', event)" title="클릭=정렬 / Shift+클릭=2차 정렬">
+              ${name}
+            </th>`;
+  }).join("");
+}
+
+/* 현재 활성 컬럼 (원화/외화 모드 반영) */
+function _poqGetActiveCols() {
+  if(_poqMode === "foreign") {
+    // TotDomAmt 뒤에 외화 컬럼 삽입
+    const idx = POQ_COLS.findIndex(c => c[0] === "TotDomAmt");
+    return [
+      ...POQ_COLS.slice(0, idx+1),
+      ...POQ_COLS_FOREIGN,
+      ...POQ_COLS.slice(idx+1)
+    ];
+  }
+  return POQ_COLS;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   🔄 조회 (SharePoint에서 데이터 다시 가져옴)
+   ═══════════════════════════════════════════════════════════════════ */
+async function poqQuery() {
+  // ⚡ v2: 조회 = 필터링만 (즉시).
+  // 단, 조회 범위에 필요한 연도가 메모리에 없으면 자동 로드.
+  const dateFr = document.getElementById("poq-date-fr").value;
+  const dateTo = document.getElementById("poq-date-to").value;
+  const neededYears = _erpYearsInRange(dateFr, dateTo);
+  
+  // 현재 로드된 연도 추적 (전역 _poqLoadedYears에 저장)
+  if(!window._poqLoadedYears) window._poqLoadedYears = new Set();
+  const missing = neededYears.filter(y => !window._poqLoadedYears.has(y));
+  
+  if(missing.length > 0 || _poqRawData === null) {
+    // 추가 연도 로드 필요
+    await poqLoadData(false, neededYears);
+  } else {
+    // 메모리 필터링만 (즉시)
+    poqApplyFilters();
+  }
+}
+
+/* 
+ * 실제 데이터 로드 (캐시 우선 + 멀티 연도)
+ * - forceRefresh=true: 현재 연도는 SP에서 다시 받음
+ * - years: 로드할 연도 (없으면 조회 조건에서 추출)
+ */
+async function poqLoadData(forceRefresh, years) {
+  const tbody = document.getElementById("poq-tbody");
+  
+  // 연도 목록 결정
+  if(!years) {
+    const dateFr = document.getElementById("poq-date-fr").value;
+    const dateTo = document.getElementById("poq-date-to").value;
+    years = _erpYearsInRange(dateFr, dateTo);
+  }
+  
+  tbody.innerHTML = `<tr><td colspan="${_poqGetActiveCols().length}" class="eq-loading">
+    <div class="eq-spinner"></div>
+    <div style="margin-top:10px" id="poq-load-msg">데이터 로드 중...</div>
+  </td></tr>`;
+  
+  const loadMsg = document.getElementById("poq-load-msg");
+  
+  // last-run + meta 동시 로드
+  const [runInfo, _meta] = await Promise.all([
+    _erpFetchJson(ERP_RUN_JSON),
+    _erpLoadMeta(forceRefresh)
+  ]);
+  if(runInfo) _erpLastRun = runInfo;
+  poqUpdateLastTime();
+  
+  // 멀티 연도 로드 (캐시 우선)
+  const result = await _erpLoadMultiYear("po", years, forceRefresh, (year, idx, total, source) => {
+    if(loadMsg) {
+      const srcLabel = {
+        "cache": "캐시", "sp": "SharePoint", "sp_force": "SharePoint(새로)", "sp_newer": "SharePoint(갱신)"
+      }[source] || source;
+      loadMsg.textContent = `${year}년 로드 중... (${idx+1}/${total}) — ${srcLabel}`;
+    }
+  });
+  
+  if(!result || !result.rows || result.rows.length === 0) {
+    if(!result.columns) {
+      tbody.innerHTML = `<tr><td colspan="${_poqGetActiveCols().length}" class="eq-empty">
+        <div class="eq-empty-ic">📭</div>
+        <div class="eq-empty-msg">데이터를 로드할 수 없습니다</div>
+        <div class="eq-empty-sub">선택한 연도의 데이터가 SharePoint에 없습니다.<br>풀로드를 실행하거나 RPA 첫 실행을 기다려주세요.</div>
+      </td></tr>`;
+      document.getElementById("poq-cnt").textContent = "0";
+      return;
+    }
+  }
+  
+  // _poqRawData: 멀티 연도 누적된 객체 배열
+  // 기존 데이터 유지하면서 새로 추가된 연도만 머지
+  if(_poqRawData === null) {
+    _poqRawData = result.rows;
+  } else if(forceRefresh) {
+    // 강제 갱신: 모두 교체
+    _poqRawData = result.rows;
+    window._poqLoadedYears = new Set();
+  } else {
+    // 추가 연도 머지 (기존 + 새 연도, 중복 키로 dedupe)
+    const existingKeys = new Set();
+    for(const r of _poqRawData) {
+      const k = `${r.POSeq}-${r.POSerl}`;
+      existingKeys.add(k);
+    }
+    for(const r of result.rows) {
+      const k = `${r.POSeq}-${r.POSerl}`;
+      if(!existingKeys.has(k)) {
+        _poqRawData.push(r);
+        existingKeys.add(k);
+      }
+    }
+  }
+  
+  // 로드 완료된 연도 기록
+  if(!window._poqLoadedYears) window._poqLoadedYears = new Set();
+  years.forEach(y => window._poqLoadedYears.add(y));
+  
+  console.log(`📥 ERP 발주: 누적 ${_poqRawData.length}건 (로드된 연도: ${[...window._poqLoadedYears].sort().join(", ")})`);
+  
+  poqApplyFilters();
+}
+
+/* ⚡ 새데이터 받기 - 현재 연도만 SP에서 다시 다운로드 */
+async function poqRefreshCurrentYear() {
+  console.log(`🔄 현재 연도(${ERP_CURRENT_YEAR}) 강제 갱신`);
+  // 현재 연도 캐시만 삭제
+  localStorage.removeItem(ERP_CACHE_PO(ERP_CURRENT_YEAR));
+  // 메모리도 현재 연도만 제거
+  if(_poqRawData) {
+    _poqRawData = _poqRawData.filter(r => {
+      const d = r.PODate;
+      return !(typeof d === "string" && d.startsWith(String(ERP_CURRENT_YEAR)));
+    });
+  }
+  if(window._poqLoadedYears) window._poqLoadedYears.delete(ERP_CURRENT_YEAR);
+  
+  // meta.json도 강제 갱신
+  await _erpLoadMeta(true);
+  
+  // 현재 연도 다시 로드
+  const dateFr = document.getElementById("poq-date-fr").value;
+  const dateTo = document.getElementById("poq-date-to").value;
+  const needed = _erpYearsInRange(dateFr, dateTo);
+  const yearsToLoad = needed.includes(ERP_CURRENT_YEAR) ? needed : [...needed, ERP_CURRENT_YEAR];
+  
+  await poqLoadData(true, yearsToLoad);
+}
+
+/* 필터 + 정렬 + 렌더 */
+function poqApplyFilters() {
+  if(!_poqRawData) return;
+  
+  const f = {
+    dateFr:   document.getElementById("poq-date-fr").value,
+    dateTo:   document.getElementById("poq-date-to").value,
+    status:   document.getElementById("poq-status").value,
+    impType:  document.getElementById("poq-imptype").value,
+    pono:     document.getElementById("poq-pono").value.trim().toLowerCase(),
+    cust:     document.getElementById("poq-cust").value.trim().toLowerCase(),
+    item:     document.getElementById("poq-item").value.trim().toLowerCase(),
+    pjt:      document.getElementById("poq-pjt").value.trim().toLowerCase(),
+    dept:     document.getElementById("poq-dept").value.trim().toLowerCase(),
+    emp:      document.getElementById("poq-emp").value.trim().toLowerCase(),
+    delvFr:   document.getElementById("poq-delv-fr").value,
+    delvTo:   document.getElementById("poq-delv-to").value,
+    cls:      document.getElementById("poq-class").value.trim().toLowerCase(),
+    stop:     document.getElementById("poq-stop").value,
+  };
+  
+  _poqFiltered = _poqRawData.filter(r => {
+    if(f.dateFr && r.PODate && r.PODate.substr(0,10) < f.dateFr) return false;
+    if(f.dateTo && r.PODate && r.PODate.substr(0,10) > f.dateTo) return false;
+    if(f.status && r.SMCurrStatusName !== f.status) return false;
+    if(f.impType && r.SMImpTypeName !== f.impType) return false;
+    if(f.pono && !String(r.PONo||"").toLowerCase().includes(f.pono)) return false;
+    if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
+    if(f.item) {
+      const inName = String(r.ItemName||"").toLowerCase().includes(f.item);
+      const inNo = String(r.ItemNo||"").toLowerCase().includes(f.item);
+      if(!inName && !inNo) return false;
+    }
+    if(f.pjt) {
+      const inN = String(r.PJTName||"").toLowerCase().includes(f.pjt);
+      const inNo = String(r.PJTNo||"").toLowerCase().includes(f.pjt);
+      if(!inN && !inNo) return false;
+    }
+    if(f.dept && !String(r.DeptName||"").toLowerCase().includes(f.dept)) return false;
+    if(f.emp && !String(r.EmpName||"").toLowerCase().includes(f.emp)) return false;
+    if(f.delvFr && r.DelvDate && r.DelvDate.substr(0,10) < f.delvFr) return false;
+    if(f.delvTo && r.DelvDate && r.DelvDate.substr(0,10) > f.delvTo) return false;
+    if(f.cls) {
+      const inL = String(r.ItemClassLName||"").toLowerCase().includes(f.cls);
+      const inM = String(r.ItemClassMName||"").toLowerCase().includes(f.cls);
+      const inS = String(r.ItemClassSName||"").toLowerCase().includes(f.cls);
+      if(!inL && !inM && !inS) return false;
+    }
+    if(f.stop === "active" && (r.IsStop === true || r.IsStop === "TRUE")) return false;
+    if(f.stop === "stopped" && !(r.IsStop === true || r.IsStop === "TRUE")) return false;
+    return true;
+  });
+  
+  // 정렬
+  _poqSortData();
+  
+  // 렌더
+  poqRender();
+}
+
+/* 정렬 적용 */
+function _poqSortData() {
+  if(!_poqSort.length) return;
+  _poqFiltered.sort((a, b) => {
+    for(const [field, dir] of _poqSort) {
+      let av = a[field], bv = b[field];
+      if(av == null) av = "";
+      if(bv == null) bv = "";
+      // 숫자 우선 시도
+      const an = Number(av), bn = Number(bv);
+      let cmp;
+      if(!isNaN(an) && !isNaN(bn) && av !== "" && bv !== "") {
+        cmp = an - bn;
+      } else {
+        cmp = String(av).localeCompare(String(bv), "ko");
+      }
+      if(cmp !== 0) return dir === "desc" ? -cmp : cmp;
+    }
+    return 0;
+  });
+}
+
+/* 정렬 토글 (Shift+클릭으로 2차 정렬 추가) */
+function poqSortBy(field, evt) {
+  const isShift = evt && evt.shiftKey;
+  if(isShift) {
+    const existing = _poqSort.findIndex(s => s[0] === field);
+    if(existing >= 0) {
+      _poqSort[existing][1] = _poqSort[existing][1] === "asc" ? "desc" : "asc";
+    } else {
+      _poqSort.push([field, "asc"]);
+      if(_poqSort.length > 2) _poqSort.shift();
+    }
+  } else {
+    if(_poqSort.length === 1 && _poqSort[0][0] === field) {
+      _poqSort[0][1] = _poqSort[0][1] === "asc" ? "desc" : "asc";
+    } else {
+      _poqSort = [[field, "desc"]];
+    }
+  }
+  poqRenderHeader();
+  _poqSortData();
+  poqRender();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   렌더링 (그리드 + 통계 + 합계)
+   ═══════════════════════════════════════════════════════════════════ */
+function poqRender() {
+  const cols = _poqGetActiveCols();
+  const tbody = document.getElementById("poq-tbody");
+  const tfoot = document.getElementById("poq-tfoot");
+  
+  // 카운트 + 통계
+  document.getElementById("poq-cnt").textContent = _poqFiltered.length.toLocaleString();
+  
+  let stDone=0, stDraft=0, stStop=0;
+  let sumDomAmt=0, sumDomVAT=0, sumTot=0, sumCurAmt=0, sumTotCur=0;
+  
+  for(const r of _poqFiltered) {
+    if(r.SMCurrStatusName === "완료") stDone++;
+    else if(r.SMCurrStatusName === "작성") stDraft++;
+    if(r.IsStop === true || r.IsStop === "TRUE") stStop++;
+    sumDomAmt += Number(r.DomAmt||0);
+    sumDomVAT += Number(r.DomVAT||0);
+    sumTot    += Number(r.TotDomAmt||0);
+    sumCurAmt += Number(r.CurAmt||0);
+    sumTotCur += Number(r.TotCurAmt||0);
+  }
+  
+  document.getElementById("poq-st-done").textContent = stDone.toLocaleString();
+  document.getElementById("poq-st-draft").textContent = stDraft.toLocaleString();
+  document.getElementById("poq-st-stop").textContent = stStop.toLocaleString();
+  
+  // 사이드바 배지
+  const badge = document.getElementById("badge-erp-po-q");
+  if(badge) badge.textContent = (_poqRawData||[]).length.toLocaleString();
+  
+  // 빈 결과
+  if(_poqFiltered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${cols.length}" class="eq-empty">
+      <div class="eq-empty-ic">🔍</div>
+      <div class="eq-empty-msg">조회 결과가 없습니다</div>
+      <div class="eq-empty-sub">필터를 조정하거나 ↺ 초기화를 눌러보세요</div>
+    </td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+  
+  // 행 렌더 (최대 2000건씩 청크 처리해서 큰 데이터에서도 끊김 방지)
+  const MAX_DIRECT = 2000;
+  const display = _poqFiltered.slice(0, MAX_DIRECT);
+  
+  tbody.innerHTML = display.map(r => {
+    const isStop = (r.IsStop === true || r.IsStop === "TRUE");
+    const stopCls = isStop ? "stopped" : "";
+    return `<tr class="${stopCls}">` + cols.map(c => {
+      const [field, name, type, width, align] = c;
+      let v = _erpFmt(r[field], type);
+      let cls = "";
+      if(type === "money" || type === "num") cls = "num";
+      if(type === "status") cls = `status-cell status-${r[field]||""}`;
+      const n = Number(r[field]);
+      if((type === "money" || type === "num") && n < 0) cls += " neg";
+      return `<td class="${cls}" style="text-align:${align}" title="${String(r[field]||"").replace(/"/g,'&quot;')}">${v||""}</td>`;
+    }).join("") + `</tr>`;
+  }).join("");
+  
+  // 2000건 넘으면 안내 추가
+  if(_poqFiltered.length > MAX_DIRECT) {
+    tbody.innerHTML += `<tr><td colspan="${cols.length}" style="text-align:center;padding:14px;color:var(--t3);background:var(--bg3)">
+      ⚠️ ${_poqFiltered.length.toLocaleString()}건 중 처음 ${MAX_DIRECT.toLocaleString()}건만 표시 (성능 보호). 필터를 좁히세요.
+    </td></tr>`;
+  }
+  
+  // 합계 행
+  tfoot.innerHTML = cols.map((c, idx) => {
+    const [field, name, type, width, align] = c;
+    if(idx === 0) return `<td style="text-align:left">TOTAL (${_poqFiltered.length.toLocaleString()}건)</td>`;
+    if(field === "Qty") {
+      const s = _poqFiltered.reduce((a,r)=>a+Number(r.Qty||0), 0);
+      return `<td class="num" style="text-align:right">${s.toLocaleString()}</td>`;
+    }
+    if(field === "DomAmt") return `<td class="num" style="text-align:right">${sumDomAmt.toLocaleString()}</td>`;
+    if(field === "DomVAT") return `<td class="num" style="text-align:right">${sumDomVAT.toLocaleString()}</td>`;
+    if(field === "TotDomAmt") return `<td class="num" style="text-align:right">${sumTot.toLocaleString()}</td>`;
+    if(field === "CurAmt") return `<td class="num" style="text-align:right">${sumCurAmt.toLocaleString()}</td>`;
+    if(field === "TotCurAmt") return `<td class="num" style="text-align:right">${sumTotCur.toLocaleString()}</td>`;
+    return `<td></td>`;
+  }).join("");
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   추가 동작
+   ═══════════════════════════════════════════════════════════════════ */
+function poqToggleExtra() {
+  const p = document.getElementById("poq-extra");
+  p.classList.toggle("on");
+}
+
+function poqSetMode(mode) {
+  _poqMode = mode;
+  document.getElementById("poq-mode-krw").classList.toggle("on", mode==="krw");
+  document.getElementById("poq-mode-foreign").classList.toggle("on", mode==="foreign");
+  poqRenderHeader();
+  poqRender();
+}
+
+function poqResetFilter() {
+  const now = new Date();
+  const firstDay = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
+  const today = now.toISOString().substr(0, 10);
+  
+  document.getElementById("poq-date-fr").value = firstDay;
+  document.getElementById("poq-date-to").value = today;
+  ["status","imptype","pono","cust","item","pjt","dept","emp","delv-fr","delv-to","class"].forEach(k => {
+    const e = document.getElementById("poq-"+k);
+    if(e) e.value = "";
+  });
+  document.getElementById("poq-stop").value = "all";
+  poqApplyFilters();
+}
+
+function poqUpdateLastTime() {
+  const el = document.getElementById("poq-last");
+  if(!el) return;
+  if(_erpLastRun && _erpLastRun.ended_at) {
+    const rel = _erpRelativeTime(_erpLastRun.ended_at);
+    el.textContent = `마지막 자동 갱신: ${rel}`;
+    el.title = _erpLastRun.ended_at;
+  } else {
+    el.textContent = "마지막 갱신 정보 없음";
+  }
+}
+
+function poqExportExcel() {
+  if(!_poqFiltered || !_poqFiltered.length) {
+    alert("조회 결과가 없습니다");
+    return;
+  }
+  if(typeof XLSX === "undefined") {
+    alert("XLSX 라이브러리가 로드되지 않았습니다");
+    return;
+  }
+  const cols = _poqGetActiveCols();
+  const header = cols.map(c => c[1]);
+  const aoa = [header];
+  for(const r of _poqFiltered) {
+    aoa.push(cols.map(c => {
+      const v = r[c[0]];
+      if(v == null) return "";
+      if(c[2] === "bool") return (v===true||v==="TRUE") ? "TRUE" : "FALSE";
+      if(c[2] === "date" && typeof v === "string") return v.substr(0,10);
+      return v;
+    }));
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "ERP_발주조회");
+  const ymd = new Date().toISOString().substr(0,10).replace(/-/g,"");
+  XLSX.writeFile(wb, `ERP_발주품목조회_${ymd}.xlsx`);
+}
+
+function poqPrint() {
+  if(!_poqFiltered || !_poqFiltered.length) {
+    alert("조회 결과가 없습니다");
+    return;
+  }
+  const cols = _poqGetActiveCols();
+  const w = window.open("", "_blank");
+  w.document.write(`<html><head><title>ERP 발주품목조회</title>
+    <style>
+      body{font-family:맑은 고딕,sans-serif;padding:14px}
+      h1{font-size:18px}
+      table{border-collapse:collapse;width:100%;font-size:11px}
+      th,td{border:1px solid #999;padding:4px 6px}
+      th{background:#f0f0f0}
+      .num{text-align:right;font-family:Consolas,monospace}
+      @media print { @page { size: A3 landscape; margin: 10mm; } }
+    </style></head><body>
+    <h1>📥 ERP 발주품목조회 (${_poqFiltered.length}건)</h1>
+    <p style="font-size:12px;color:#666">출력: ${new Date().toLocaleString("ko-KR")}</p>
+    <table>
+      <thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr></thead>
+      <tbody>${_poqFiltered.map(r=>`<tr>${cols.map(c=>{
+        const v = _erpFmt(r[c[0]], c[2]);
+        const cls = (c[2]==="money"||c[2]==="num") ? "num" : "";
+        return `<td class="${cls}">${v||""}</td>`;
+      }).join("")}</tr>`).join("")}</tbody>
+    </table>
+    <script>window.print();<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   📥 입고정산조회
+   ═══════════════════════════════════════════════════════════════════ */
+async function dlvqInit() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,"0");
+  const d = String(now.getDate()).padStart(2,"0");
+  
+  if(!document.getElementById("dlvq-date-fr").value) {
+    document.getElementById("dlvq-date-fr").value = `${y}-${m}-01`;
+  }
+  if(!document.getElementById("dlvq-date-to").value) {
+    document.getElementById("dlvq-date-to").value = `${y}-${m}-${d}`;
+  }
+  
+  dlvqRenderHeader();
+  dlvqBindKeyboard();
+  _erpLastRun = await _erpFetchJson(ERP_RUN_JSON);
+  dlvqUpdateLastTime();
+  
+  if(_dlvqRawData === null) {
+    await dlvqLoadData(false);
+  } else {
+    dlvqApplyFilters();
+  }
+}
+
+function dlvqBindKeyboard() {
+  const inputs = document.querySelectorAll("#tab-erp-purchase-receipt .eq-cond input, #tab-erp-purchase-receipt .eq-cond select");
+  inputs.forEach(el => {
+    if(el.dataset._erpBound) return;
+    el.dataset._erpBound = "1";
+    el.addEventListener("keydown", e => {
+      if(e.key === "Enter") {
+        e.preventDefault();
+        dlvqQuery();
+      }
+    });
+  });
+}
+
+function dlvqRenderHeader() {
+  const thead = document.getElementById("dlvq-thead");
+  if(!thead) return;
+  thead.innerHTML = DLVQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let sortClass = "";
+    const si = _dlvqSort.findIndex(s => s[0] === field);
+    if(si >= 0) sortClass = _dlvqSort[si][1] === "asc" ? "sort-asc" : "sort-desc";
+    return `<th class="${sortClass}" style="min-width:${width}px;text-align:${align}" 
+              onclick="dlvqSortBy('${field}', event)">${name}</th>`;
+  }).join("");
+}
+
+async function dlvqQuery() {
+  // v2: 조회 = 필터링만 + 필요 연도 자동 로드
+  const dateFr = document.getElementById("dlvq-date-fr").value;
+  const dateTo = document.getElementById("dlvq-date-to").value;
+  const neededYears = _erpYearsInRange(dateFr, dateTo);
+  
+  if(!window._dlvqLoadedYears) window._dlvqLoadedYears = new Set();
+  const missing = neededYears.filter(y => !window._dlvqLoadedYears.has(y));
+  
+  if(missing.length > 0 || _dlvqRawData === null) {
+    await dlvqLoadData(false, neededYears);
+  } else {
+    dlvqApplyFilters();
+  }
+}
+
+async function dlvqLoadData(forceRefresh, years) {
+  const tbody = document.getElementById("dlvq-tbody");
+  
+  if(!years) {
+    const dateFr = document.getElementById("dlvq-date-fr").value;
+    const dateTo = document.getElementById("dlvq-date-to").value;
+    years = _erpYearsInRange(dateFr, dateTo);
+  }
+  
+  tbody.innerHTML = `<tr><td colspan="${DLVQ_COLS.length}" class="eq-loading">
+    <div class="eq-spinner"></div>
+    <div style="margin-top:10px" id="dlvq-load-msg">데이터 로드 중...</div>
+  </td></tr>`;
+  
+  const loadMsg = document.getElementById("dlvq-load-msg");
+  
+  const [runInfo, _meta] = await Promise.all([
+    _erpFetchJson(ERP_RUN_JSON),
+    _erpLoadMeta(forceRefresh)
+  ]);
+  if(runInfo) _erpLastRun = runInfo;
+  dlvqUpdateLastTime();
+  
+  const result = await _erpLoadMultiYear("dlv", years, forceRefresh, (year, idx, total, source) => {
+    if(loadMsg) {
+      const srcLabel = {
+        "cache": "캐시", "sp": "SharePoint", "sp_force": "SharePoint(새로)", "sp_newer": "SharePoint(갱신)"
+      }[source] || source;
+      loadMsg.textContent = `${year}년 로드 중... (${idx+1}/${total}) — ${srcLabel}`;
+    }
+  });
+  
+  if(!result || (!result.rows && !result.columns)) {
+    tbody.innerHTML = `<tr><td colspan="${DLVQ_COLS.length}" class="eq-empty">
+      <div class="eq-empty-ic">📭</div>
+      <div class="eq-empty-msg">데이터를 로드할 수 없습니다</div>
+      <div class="eq-empty-sub">선택한 연도의 입고 내역이 없거나, RPA가 아직 첫 실행되지 않았습니다</div>
+    </td></tr>`;
+    document.getElementById("dlvq-cnt").textContent = "0";
+    return;
+  }
+  
+  if(_dlvqRawData === null) {
+    _dlvqRawData = result.rows || [];
+  } else if(forceRefresh) {
+    _dlvqRawData = result.rows || [];
+    window._dlvqLoadedYears = new Set();
+  } else {
+    const existingKeys = new Set();
+    for(const r of _dlvqRawData) {
+      const k = `${r.DelvInSeq}-${r.DelvInSerl}`;
+      existingKeys.add(k);
+    }
+    for(const r of (result.rows || [])) {
+      const k = `${r.DelvInSeq}-${r.DelvInSerl}`;
+      if(!existingKeys.has(k)) {
+        _dlvqRawData.push(r);
+        existingKeys.add(k);
+      }
+    }
+  }
+  
+  if(!window._dlvqLoadedYears) window._dlvqLoadedYears = new Set();
+  years.forEach(y => window._dlvqLoadedYears.add(y));
+  
+  console.log(`📥 ERP 입고정산: 누적 ${_dlvqRawData.length}건 (연도: ${[...window._dlvqLoadedYears].sort().join(", ")})`);
+  dlvqApplyFilters();
+}
+
+async function dlvqRefreshCurrentYear() {
+  console.log(`🔄 입고정산 현재 연도(${ERP_CURRENT_YEAR}) 강제 갱신`);
+  localStorage.removeItem(ERP_CACHE_DLV(ERP_CURRENT_YEAR));
+  if(_dlvqRawData) {
+    _dlvqRawData = _dlvqRawData.filter(r => {
+      const d = r.DelvInDate;
+      return !(typeof d === "string" && d.startsWith(String(ERP_CURRENT_YEAR)));
+    });
+  }
+  if(window._dlvqLoadedYears) window._dlvqLoadedYears.delete(ERP_CURRENT_YEAR);
+  await _erpLoadMeta(true);
+  
+  const dateFr = document.getElementById("dlvq-date-fr").value;
+  const dateTo = document.getElementById("dlvq-date-to").value;
+  const needed = _erpYearsInRange(dateFr, dateTo);
+  const yearsToLoad = needed.includes(ERP_CURRENT_YEAR) ? needed : [...needed, ERP_CURRENT_YEAR];
+  
+  await dlvqLoadData(true, yearsToLoad);
+}
+
+function dlvqApplyFilters() {
+  if(!_dlvqRawData) return;
+  const f = {
+    dateFr: document.getElementById("dlvq-date-fr").value,
+    dateTo: document.getElementById("dlvq-date-to").value,
+    cust:   document.getElementById("dlvq-cust").value.trim().toLowerCase(),
+    item:   document.getElementById("dlvq-item").value.trim().toLowerCase(),
+    pjt:    document.getElementById("dlvq-pjt").value.trim().toLowerCase(),
+    pono:   document.getElementById("dlvq-pono").value.trim().toLowerCase(),
+    emp:    document.getElementById("dlvq-emp").value.trim().toLowerCase(),
+  };
+  
+  _dlvqFiltered = _dlvqRawData.filter(r => {
+    const d = (r.DelvInDate||"").substr(0,10);
+    if(f.dateFr && d && d < f.dateFr) return false;
+    if(f.dateTo && d && d > f.dateTo) return false;
+    if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
+    if(f.item) {
+      const inN = String(r.ItemName||"").toLowerCase().includes(f.item);
+      const inNo = String(r.ItemNo||"").toLowerCase().includes(f.item);
+      if(!inN && !inNo) return false;
+    }
+    if(f.pjt) {
+      const inN = String(r.PJTName||"").toLowerCase().includes(f.pjt);
+      const inNo = String(r.PJTNo||"").toLowerCase().includes(f.pjt);
+      if(!inN && !inNo) return false;
+    }
+    if(f.pono && !String(r.PONo||"").toLowerCase().includes(f.pono)) return false;
+    if(f.emp && !String(r.EmpName||"").toLowerCase().includes(f.emp)) return false;
+    return true;
+  });
+  
+  _dlvqSortData();
+  dlvqRender();
+}
+
+function _dlvqSortData() {
+  if(!_dlvqSort.length) return;
+  _dlvqFiltered.sort((a, b) => {
+    for(const [field, dir] of _dlvqSort) {
+      let av = a[field], bv = b[field];
+      if(av == null) av = "";
+      if(bv == null) bv = "";
+      const an = Number(av), bn = Number(bv);
+      let cmp;
+      if(!isNaN(an) && !isNaN(bn) && av !== "" && bv !== "") cmp = an - bn;
+      else cmp = String(av).localeCompare(String(bv), "ko");
+      if(cmp !== 0) return dir === "desc" ? -cmp : cmp;
+    }
+    return 0;
+  });
+}
+
+function dlvqSortBy(field, evt) {
+  if(_dlvqSort.length === 1 && _dlvqSort[0][0] === field) {
+    _dlvqSort[0][1] = _dlvqSort[0][1] === "asc" ? "desc" : "asc";
+  } else {
+    _dlvqSort = [[field, "desc"]];
+  }
+  dlvqRenderHeader();
+  _dlvqSortData();
+  dlvqRender();
+}
+
+function dlvqRender() {
+  const tbody = document.getElementById("dlvq-tbody");
+  const tfoot = document.getElementById("dlvq-tfoot");
+  
+  document.getElementById("dlvq-cnt").textContent = _dlvqFiltered.length.toLocaleString();
+  const badge = document.getElementById("badge-erp-dlv-q");
+  if(badge) badge.textContent = (_dlvqRawData||[]).length.toLocaleString();
+  
+  if(_dlvqFiltered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${DLVQ_COLS.length}" class="eq-empty">
+      <div class="eq-empty-ic">🔍</div>
+      <div class="eq-empty-msg">입고 내역이 없습니다</div>
+    </td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+  
+  tbody.innerHTML = _dlvqFiltered.map(r => {
+    return `<tr>` + DLVQ_COLS.map(c => {
+      const [field, name, type, width, align] = c;
+      let v = _erpFmt(r[field], type);
+      let cls = (type === "money" || type === "num") ? "num" : "";
+      return `<td class="${cls}" style="text-align:${align}" title="${String(r[field]||"").replace(/"/g,'&quot;')}">${v||""}</td>`;
+    }).join("") + `</tr>`;
+  }).join("");
+  
+  // 합계
+  const sumQ  = _dlvqFiltered.reduce((a,r)=>a+Number(r.DelvInQty||0),0);
+  const sumA  = _dlvqFiltered.reduce((a,r)=>a+Number(r.DelvInDomAmt||0),0);
+  const sumV  = _dlvqFiltered.reduce((a,r)=>a+Number(r.DelvInDomVAT||0),0);
+  const sumT  = _dlvqFiltered.reduce((a,r)=>a+Number(r.TotDelvInDomAmt||0),0);
+  
+  tfoot.innerHTML = DLVQ_COLS.map((c,idx)=>{
+    if(idx === 0) return `<td style="text-align:left">TOTAL (${_dlvqFiltered.length.toLocaleString()}건)</td>`;
+    if(c[0] === "DelvInQty") return `<td class="num" style="text-align:right">${sumQ.toLocaleString()}</td>`;
+    if(c[0] === "DelvInDomAmt") return `<td class="num" style="text-align:right">${sumA.toLocaleString()}</td>`;
+    if(c[0] === "DelvInDomVAT") return `<td class="num" style="text-align:right">${sumV.toLocaleString()}</td>`;
+    if(c[0] === "TotDelvInDomAmt") return `<td class="num" style="text-align:right">${sumT.toLocaleString()}</td>`;
+    return `<td></td>`;
+  }).join("");
+}
+
+function dlvqResetFilter() {
+  const now = new Date();
+  const firstDay = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
+  document.getElementById("dlvq-date-fr").value = firstDay;
+  document.getElementById("dlvq-date-to").value = now.toISOString().substr(0,10);
+  ["cust","item","pjt","pono","emp"].forEach(k => {
+    const e = document.getElementById("dlvq-"+k);
+    if(e) e.value = "";
+  });
+  dlvqApplyFilters();
+}
+
+function dlvqUpdateLastTime() {
+  const el = document.getElementById("dlvq-last");
+  if(!el) return;
+  if(_erpLastRun && _erpLastRun.ended_at) {
+    el.textContent = `마지막 자동 갱신: ${_erpRelativeTime(_erpLastRun.ended_at)}`;
+    el.title = _erpLastRun.ended_at;
+  } else {
+    el.textContent = "마지막 갱신 정보 없음";
+  }
+}
+
+function dlvqExportExcel() {
+  if(!_dlvqFiltered || !_dlvqFiltered.length) { alert("조회 결과가 없습니다"); return; }
+  if(typeof XLSX === "undefined") { alert("XLSX 라이브러리 로드 안 됨"); return; }
+  const header = DLVQ_COLS.map(c => c[1]);
+  const aoa = [header];
+  for(const r of _dlvqFiltered) {
+    aoa.push(DLVQ_COLS.map(c => {
+      const v = r[c[0]];
+      if(v == null) return "";
+      if(c[2] === "date" && typeof v === "string") return v.substr(0,10);
+      return v;
+    }));
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "ERP_입고정산");
+  const ymd = new Date().toISOString().substr(0,10).replace(/-/g,"");
+  XLSX.writeFile(wb, `ERP_입고정산조회_${ymd}.xlsx`);
+}
+
+function dlvqPrint() {
+  if(!_dlvqFiltered || !_dlvqFiltered.length) { alert("조회 결과가 없습니다"); return; }
+  const w = window.open("", "_blank");
+  w.document.write(`<html><head><title>ERP 입고정산조회</title>
+    <style>
+      body{font-family:맑은 고딕,sans-serif;padding:14px}
+      h1{font-size:18px}
+      table{border-collapse:collapse;width:100%;font-size:11px}
+      th,td{border:1px solid #999;padding:4px 6px}
+      th{background:#f0f0f0}
+      .num{text-align:right;font-family:Consolas,monospace}
+      @media print { @page { size: A3 landscape; margin: 10mm; } }
+    </style></head><body>
+    <h1>📥 ERP 입고정산조회 (${_dlvqFiltered.length}건)</h1>
+    <p style="font-size:12px;color:#666">출력: ${new Date().toLocaleString("ko-KR")}</p>
+    <table>
+      <thead><tr>${DLVQ_COLS.map(c=>`<th>${c[1]}</th>`).join("")}</tr></thead>
+      <tbody>${_dlvqFiltered.map(r=>`<tr>${DLVQ_COLS.map(c=>{
+        const v = _erpFmt(r[c[0]], c[2]);
+        const cls = (c[2]==="money"||c[2]==="num") ? "num" : "";
+        return `<td class="${cls}">${v||""}</td>`;
+      }).join("")}</tr>`).join("")}</tbody>
+    </table>
+    <script>window.print();<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+console.log("✅ ERP 조회 모듈 로드 완료");
+
+</script>
 
 </body>
 </html>
