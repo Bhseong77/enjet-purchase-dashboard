@@ -39476,212 +39476,6 @@ function poqPrint() {
       }).join("")}</tr>`).join("")}</tbody>
     </table>
     <script>window.print();<\/script>
-<!-- ERP 처리 상태 모달 (대시보드에 추가) -->
-<!-- 사이드바 또는 메인 메뉴에 다음 버튼 추가:
-<button onclick="openErpStatusModal()">📊 ERP 처리 현황</button>
--->
-
-<div id="erpStatusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:flex-start;justify-content:center;padding:40px">
-  <div style="background:white;border-radius:14px;max-width:1100px;width:100%;max-height:90vh;overflow:auto">
-    <!-- 헤더 -->
-    <div style="background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;padding:16px 24px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <h2 style="margin:0;font-size:20px">📊 ERP 처리 현황</h2>
-        <div style="font-size:12px;margin-top:4px;opacity:0.9">대시보드에서 보낸 품의의 영림원 처리 결과</div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button onclick="loadErpStatus()" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer;font-size:13px">🔄 새로고침</button>
-        <button onclick="document.getElementById('erpStatusModal').style.display='none'" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer">✖ 닫기</button>
-      </div>
-    </div>
-
-    <!-- 요약 카드 -->
-    <div style="padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-bottom:1px solid #e5e7eb">
-      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#92400e;font-weight:600">⏳ 대기중 (pending)</div>
-        <div style="font-size:28px;font-weight:700;color:#78350f" id="erpst-pending">-</div>
-      </div>
-      <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#1e40af;font-weight:600">⚙️ 처리중 (processing)</div>
-        <div style="font-size:28px;font-weight:700;color:#1e3a8a" id="erpst-processing">-</div>
-      </div>
-      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#15803d;font-weight:600">✅ 성공 (done)</div>
-        <div style="font-size:28px;font-weight:700;color:#14532d" id="erpst-done">-</div>
-      </div>
-      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#991b1b;font-weight:600">❌ 실패 (failed)</div>
-        <div style="font-size:28px;font-weight:700;color:#7f1d1d" id="erpst-failed">-</div>
-      </div>
-    </div>
-
-    <!-- 탭 -->
-    <div style="padding:0 20px;border-bottom:1px solid #e5e7eb;display:flex;gap:4px">
-      <button onclick="erpStatusSwitch('pending')" class="erpst-tab on" data-tab="pending" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid #3b82f6;font-weight:600;color:#3b82f6">⏳ 대기</button>
-      <button onclick="erpStatusSwitch('processing')" class="erpst-tab" data-tab="processing" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">⚙️ 처리중</button>
-      <button onclick="erpStatusSwitch('done')" class="erpst-tab" data-tab="done" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">✅ 성공</button>
-      <button onclick="erpStatusSwitch('failed')" class="erpst-tab" data-tab="failed" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">❌ 실패</button>
-    </div>
-
-    <!-- 콘텐츠 -->
-    <div id="erpst-content" style="padding:20px;min-height:300px">
-      <div style="text-align:center;color:#9ca3af;padding:40px">새로고침 버튼을 누르세요</div>
-    </div>
-  </div>
-</div>
-
-<script>
-let _erpStData = { pending: [], processing: [], done: [], failed: [] };
-let _erpStCurrentTab = "pending";
-
-async function openErpStatusModal() {
-  document.getElementById("erpStatusModal").style.display = "flex";
-  await loadErpStatus();
-}
-
-async function loadErpStatus() {
-  if(typeof getIds === "function") await getIds();
-  const token = await getToken();
-  if(!token || !spDrive) {
-    alert("SP 인증 필요");
-    return;
-  }
-  
-  const folders = ["pending", "processing", "done", "failed"];
-  for(const folder of folders) {
-    try {
-      const path = `💰 재무·회계/100.ERP/queue/${folder}`;
-      const enc = path.split("/").map(encodeURIComponent).join("/");
-      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/children?$top=100`, {
-        headers: { Authorization: "Bearer " + token }
-      });
-      if(r.ok) {
-        const data = await r.json();
-        // PO-로 시작하는 것만
-        _erpStData[folder] = (data.value || []).filter(f => f.name.startsWith("PO-"));
-      } else {
-        _erpStData[folder] = [];
-      }
-    } catch(e) {
-      console.error(folder, e);
-      _erpStData[folder] = [];
-    }
-  }
-  
-  // 요약 업데이트
-  document.getElementById("erpst-pending").textContent = _erpStData.pending.length;
-  document.getElementById("erpst-processing").textContent = _erpStData.processing.length;
-  document.getElementById("erpst-done").textContent = _erpStData.done.length;
-  document.getElementById("erpst-failed").textContent = _erpStData.failed.length;
-  
-  // 현재 탭 렌더
-  erpStatusSwitch(_erpStCurrentTab);
-}
-
-function erpStatusSwitch(tab) {
-  _erpStCurrentTab = tab;
-  // 탭 스타일
-  document.querySelectorAll(".erpst-tab").forEach(b => {
-    if(b.dataset.tab === tab) {
-      b.style.borderBottom = "3px solid #3b82f6";
-      b.style.color = "#3b82f6";
-      b.style.fontWeight = "600";
-    } else {
-      b.style.borderBottom = "3px solid transparent";
-      b.style.color = "#6b7280";
-      b.style.fontWeight = "400";
-    }
-  });
-  
-  const items = _erpStData[tab] || [];
-  const container = document.getElementById("erpst-content");
-  
-  if(items.length === 0) {
-    container.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:60px">해당 항목 없음</div>`;
-    return;
-  }
-  
-  // 최신순 정렬
-  items.sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""));
-  
-  container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
-          <th style="padding:10px;text-align:left">큐 ID</th>
-          <th style="padding:10px;text-align:left">생성일시</th>
-          <th style="padding:10px;text-align:right">크기</th>
-          <th style="padding:10px;text-align:center">상세</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map(item => `
-          <tr style="border-bottom:1px solid #f3f4f6">
-            <td style="padding:10px;font-family:monospace;font-size:12px">${item.name.replace('.json', '')}</td>
-            <td style="padding:10px;color:#6b7280;font-size:12px">${(item.lastModifiedDateTime || '').slice(0, 19).replace('T', ' ')}</td>
-            <td style="padding:10px;text-align:right;font-family:monospace">${(item.size || 0).toLocaleString()}b</td>
-            <td style="padding:10px;text-align:center">
-              <button onclick="viewErpQueueFile('${tab}', '${item.name}')" 
-                      style="padding:5px 10px;border-radius:6px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:11px">상세 보기</button>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-async function viewErpQueueFile(folder, filename) {
-  const token = await getToken();
-  const path = `💰 재무·회계/100.ERP/queue/${folder}/${filename}`;
-  const enc = path.split("/").map(encodeURIComponent).join("/");
-  try {
-    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    const data = await r.json();
-    
-    // 핵심 정보만 정리
-    const req = data.data?.requests?.[0] || {};
-    const result = data.results?.[0] || {};
-    const ui = req.user_inputs || {};
-    
-    let msg = `📋 ${filename.replace('.json', '')}\n\n`;
-    msg += `상태: ${data.status || folder}\n`;
-    msg += `생성: ${data.created_at || '?'}\n`;
-    if(data.processedAt) msg += `처리: ${data.processedAt}\n`;
-    msg += `\n──── 품의 정보 ────\n`;
-    msg += `요청서: ${req.POReqNo || '?'}/${req.POReqSerl || '?'}\n`;
-    msg += `품목: ${req.ItemName || '?'} (${req.ItemNo || '?'})\n`;
-    msg += `프로젝트: ${req.PJTName || '?'}\n`;
-    msg += `수량: ${ui.userQty || req.Qty || 0}\n`;
-    msg += `단가: ${(ui.userPrice || 0).toLocaleString()}원\n`;
-    msg += `거래처: ${ui.userCust || '?'}\n`;
-    msg += `납기일: ${ui.userDelvDate || req.DelvDate || '?'}\n`;
-    
-    if(folder === "done" && result.approReqNo) {
-      msg += `\n🎉 ──── 영림원 품의 ────\n`;
-      msg += `품의번호: ${result.approReqNo}\n`;
-      msg += `품의Seq: ${result.approReqSeq}\n`;
-    } else if(folder === "failed" && result.error) {
-      msg += `\n❌ ──── 에러 ────\n`;
-      msg += `${result.error}\n`;
-    }
-    
-    alert(msg);
-  } catch(e) {
-    alert("파일 읽기 실패: " + e.message);
-  }
-}
-
-// 자동 새로고침 (모달 열려있을 때 30초마다)
-setInterval(() => {
-  if(document.getElementById("erpStatusModal")?.style.display === "flex") {
-    loadErpStatus();
-  }
-}, 30000);
-</script>
-
   </body></html>`);
   w.document.close();
 }
@@ -40025,212 +39819,6 @@ function dlvqPrint() {
       }).join("")}</tr>`).join("")}</tbody>
     </table>
     <script>window.print();<\/script>
-<!-- ERP 처리 상태 모달 (대시보드에 추가) -->
-<!-- 사이드바 또는 메인 메뉴에 다음 버튼 추가:
-<button onclick="openErpStatusModal()">📊 ERP 처리 현황</button>
--->
-
-<div id="erpStatusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:flex-start;justify-content:center;padding:40px">
-  <div style="background:white;border-radius:14px;max-width:1100px;width:100%;max-height:90vh;overflow:auto">
-    <!-- 헤더 -->
-    <div style="background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;padding:16px 24px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <h2 style="margin:0;font-size:20px">📊 ERP 처리 현황</h2>
-        <div style="font-size:12px;margin-top:4px;opacity:0.9">대시보드에서 보낸 품의의 영림원 처리 결과</div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button onclick="loadErpStatus()" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer;font-size:13px">🔄 새로고침</button>
-        <button onclick="document.getElementById('erpStatusModal').style.display='none'" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer">✖ 닫기</button>
-      </div>
-    </div>
-
-    <!-- 요약 카드 -->
-    <div style="padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-bottom:1px solid #e5e7eb">
-      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#92400e;font-weight:600">⏳ 대기중 (pending)</div>
-        <div style="font-size:28px;font-weight:700;color:#78350f" id="erpst-pending">-</div>
-      </div>
-      <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#1e40af;font-weight:600">⚙️ 처리중 (processing)</div>
-        <div style="font-size:28px;font-weight:700;color:#1e3a8a" id="erpst-processing">-</div>
-      </div>
-      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#15803d;font-weight:600">✅ 성공 (done)</div>
-        <div style="font-size:28px;font-weight:700;color:#14532d" id="erpst-done">-</div>
-      </div>
-      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#991b1b;font-weight:600">❌ 실패 (failed)</div>
-        <div style="font-size:28px;font-weight:700;color:#7f1d1d" id="erpst-failed">-</div>
-      </div>
-    </div>
-
-    <!-- 탭 -->
-    <div style="padding:0 20px;border-bottom:1px solid #e5e7eb;display:flex;gap:4px">
-      <button onclick="erpStatusSwitch('pending')" class="erpst-tab on" data-tab="pending" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid #3b82f6;font-weight:600;color:#3b82f6">⏳ 대기</button>
-      <button onclick="erpStatusSwitch('processing')" class="erpst-tab" data-tab="processing" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">⚙️ 처리중</button>
-      <button onclick="erpStatusSwitch('done')" class="erpst-tab" data-tab="done" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">✅ 성공</button>
-      <button onclick="erpStatusSwitch('failed')" class="erpst-tab" data-tab="failed" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">❌ 실패</button>
-    </div>
-
-    <!-- 콘텐츠 -->
-    <div id="erpst-content" style="padding:20px;min-height:300px">
-      <div style="text-align:center;color:#9ca3af;padding:40px">새로고침 버튼을 누르세요</div>
-    </div>
-  </div>
-</div>
-
-<script>
-let _erpStData = { pending: [], processing: [], done: [], failed: [] };
-let _erpStCurrentTab = "pending";
-
-async function openErpStatusModal() {
-  document.getElementById("erpStatusModal").style.display = "flex";
-  await loadErpStatus();
-}
-
-async function loadErpStatus() {
-  if(typeof getIds === "function") await getIds();
-  const token = await getToken();
-  if(!token || !spDrive) {
-    alert("SP 인증 필요");
-    return;
-  }
-  
-  const folders = ["pending", "processing", "done", "failed"];
-  for(const folder of folders) {
-    try {
-      const path = `💰 재무·회계/100.ERP/queue/${folder}`;
-      const enc = path.split("/").map(encodeURIComponent).join("/");
-      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/children?$top=100`, {
-        headers: { Authorization: "Bearer " + token }
-      });
-      if(r.ok) {
-        const data = await r.json();
-        // PO-로 시작하는 것만
-        _erpStData[folder] = (data.value || []).filter(f => f.name.startsWith("PO-"));
-      } else {
-        _erpStData[folder] = [];
-      }
-    } catch(e) {
-      console.error(folder, e);
-      _erpStData[folder] = [];
-    }
-  }
-  
-  // 요약 업데이트
-  document.getElementById("erpst-pending").textContent = _erpStData.pending.length;
-  document.getElementById("erpst-processing").textContent = _erpStData.processing.length;
-  document.getElementById("erpst-done").textContent = _erpStData.done.length;
-  document.getElementById("erpst-failed").textContent = _erpStData.failed.length;
-  
-  // 현재 탭 렌더
-  erpStatusSwitch(_erpStCurrentTab);
-}
-
-function erpStatusSwitch(tab) {
-  _erpStCurrentTab = tab;
-  // 탭 스타일
-  document.querySelectorAll(".erpst-tab").forEach(b => {
-    if(b.dataset.tab === tab) {
-      b.style.borderBottom = "3px solid #3b82f6";
-      b.style.color = "#3b82f6";
-      b.style.fontWeight = "600";
-    } else {
-      b.style.borderBottom = "3px solid transparent";
-      b.style.color = "#6b7280";
-      b.style.fontWeight = "400";
-    }
-  });
-  
-  const items = _erpStData[tab] || [];
-  const container = document.getElementById("erpst-content");
-  
-  if(items.length === 0) {
-    container.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:60px">해당 항목 없음</div>`;
-    return;
-  }
-  
-  // 최신순 정렬
-  items.sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""));
-  
-  container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
-          <th style="padding:10px;text-align:left">큐 ID</th>
-          <th style="padding:10px;text-align:left">생성일시</th>
-          <th style="padding:10px;text-align:right">크기</th>
-          <th style="padding:10px;text-align:center">상세</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map(item => `
-          <tr style="border-bottom:1px solid #f3f4f6">
-            <td style="padding:10px;font-family:monospace;font-size:12px">${item.name.replace('.json', '')}</td>
-            <td style="padding:10px;color:#6b7280;font-size:12px">${(item.lastModifiedDateTime || '').slice(0, 19).replace('T', ' ')}</td>
-            <td style="padding:10px;text-align:right;font-family:monospace">${(item.size || 0).toLocaleString()}b</td>
-            <td style="padding:10px;text-align:center">
-              <button onclick="viewErpQueueFile('${tab}', '${item.name}')" 
-                      style="padding:5px 10px;border-radius:6px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:11px">상세 보기</button>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-async function viewErpQueueFile(folder, filename) {
-  const token = await getToken();
-  const path = `💰 재무·회계/100.ERP/queue/${folder}/${filename}`;
-  const enc = path.split("/").map(encodeURIComponent).join("/");
-  try {
-    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    const data = await r.json();
-    
-    // 핵심 정보만 정리
-    const req = data.data?.requests?.[0] || {};
-    const result = data.results?.[0] || {};
-    const ui = req.user_inputs || {};
-    
-    let msg = `📋 ${filename.replace('.json', '')}\n\n`;
-    msg += `상태: ${data.status || folder}\n`;
-    msg += `생성: ${data.created_at || '?'}\n`;
-    if(data.processedAt) msg += `처리: ${data.processedAt}\n`;
-    msg += `\n──── 품의 정보 ────\n`;
-    msg += `요청서: ${req.POReqNo || '?'}/${req.POReqSerl || '?'}\n`;
-    msg += `품목: ${req.ItemName || '?'} (${req.ItemNo || '?'})\n`;
-    msg += `프로젝트: ${req.PJTName || '?'}\n`;
-    msg += `수량: ${ui.userQty || req.Qty || 0}\n`;
-    msg += `단가: ${(ui.userPrice || 0).toLocaleString()}원\n`;
-    msg += `거래처: ${ui.userCust || '?'}\n`;
-    msg += `납기일: ${ui.userDelvDate || req.DelvDate || '?'}\n`;
-    
-    if(folder === "done" && result.approReqNo) {
-      msg += `\n🎉 ──── 영림원 품의 ────\n`;
-      msg += `품의번호: ${result.approReqNo}\n`;
-      msg += `품의Seq: ${result.approReqSeq}\n`;
-    } else if(folder === "failed" && result.error) {
-      msg += `\n❌ ──── 에러 ────\n`;
-      msg += `${result.error}\n`;
-    }
-    
-    alert(msg);
-  } catch(e) {
-    alert("파일 읽기 실패: " + e.message);
-  }
-}
-
-// 자동 새로고침 (모달 열려있을 때 30초마다)
-setInterval(() => {
-  if(document.getElementById("erpStatusModal")?.style.display === "flex") {
-    loadErpStatus();
-  }
-}, 30000);
-</script>
-
   </body></html>`);
   w.document.close();
 }
@@ -40829,212 +40417,6 @@ function recvqPrint() {
       }).join("")}</tr>`).join("")}</tbody>
     </table>
     <script>window.print();<\/script>
-<!-- ERP 처리 상태 모달 (대시보드에 추가) -->
-<!-- 사이드바 또는 메인 메뉴에 다음 버튼 추가:
-<button onclick="openErpStatusModal()">📊 ERP 처리 현황</button>
--->
-
-<div id="erpStatusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:flex-start;justify-content:center;padding:40px">
-  <div style="background:white;border-radius:14px;max-width:1100px;width:100%;max-height:90vh;overflow:auto">
-    <!-- 헤더 -->
-    <div style="background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;padding:16px 24px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <h2 style="margin:0;font-size:20px">📊 ERP 처리 현황</h2>
-        <div style="font-size:12px;margin-top:4px;opacity:0.9">대시보드에서 보낸 품의의 영림원 처리 결과</div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button onclick="loadErpStatus()" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer;font-size:13px">🔄 새로고침</button>
-        <button onclick="document.getElementById('erpStatusModal').style.display='none'" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer">✖ 닫기</button>
-      </div>
-    </div>
-
-    <!-- 요약 카드 -->
-    <div style="padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-bottom:1px solid #e5e7eb">
-      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#92400e;font-weight:600">⏳ 대기중 (pending)</div>
-        <div style="font-size:28px;font-weight:700;color:#78350f" id="erpst-pending">-</div>
-      </div>
-      <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#1e40af;font-weight:600">⚙️ 처리중 (processing)</div>
-        <div style="font-size:28px;font-weight:700;color:#1e3a8a" id="erpst-processing">-</div>
-      </div>
-      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#15803d;font-weight:600">✅ 성공 (done)</div>
-        <div style="font-size:28px;font-weight:700;color:#14532d" id="erpst-done">-</div>
-      </div>
-      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#991b1b;font-weight:600">❌ 실패 (failed)</div>
-        <div style="font-size:28px;font-weight:700;color:#7f1d1d" id="erpst-failed">-</div>
-      </div>
-    </div>
-
-    <!-- 탭 -->
-    <div style="padding:0 20px;border-bottom:1px solid #e5e7eb;display:flex;gap:4px">
-      <button onclick="erpStatusSwitch('pending')" class="erpst-tab on" data-tab="pending" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid #3b82f6;font-weight:600;color:#3b82f6">⏳ 대기</button>
-      <button onclick="erpStatusSwitch('processing')" class="erpst-tab" data-tab="processing" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">⚙️ 처리중</button>
-      <button onclick="erpStatusSwitch('done')" class="erpst-tab" data-tab="done" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">✅ 성공</button>
-      <button onclick="erpStatusSwitch('failed')" class="erpst-tab" data-tab="failed" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">❌ 실패</button>
-    </div>
-
-    <!-- 콘텐츠 -->
-    <div id="erpst-content" style="padding:20px;min-height:300px">
-      <div style="text-align:center;color:#9ca3af;padding:40px">새로고침 버튼을 누르세요</div>
-    </div>
-  </div>
-</div>
-
-<script>
-let _erpStData = { pending: [], processing: [], done: [], failed: [] };
-let _erpStCurrentTab = "pending";
-
-async function openErpStatusModal() {
-  document.getElementById("erpStatusModal").style.display = "flex";
-  await loadErpStatus();
-}
-
-async function loadErpStatus() {
-  if(typeof getIds === "function") await getIds();
-  const token = await getToken();
-  if(!token || !spDrive) {
-    alert("SP 인증 필요");
-    return;
-  }
-  
-  const folders = ["pending", "processing", "done", "failed"];
-  for(const folder of folders) {
-    try {
-      const path = `💰 재무·회계/100.ERP/queue/${folder}`;
-      const enc = path.split("/").map(encodeURIComponent).join("/");
-      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/children?$top=100`, {
-        headers: { Authorization: "Bearer " + token }
-      });
-      if(r.ok) {
-        const data = await r.json();
-        // PO-로 시작하는 것만
-        _erpStData[folder] = (data.value || []).filter(f => f.name.startsWith("PO-"));
-      } else {
-        _erpStData[folder] = [];
-      }
-    } catch(e) {
-      console.error(folder, e);
-      _erpStData[folder] = [];
-    }
-  }
-  
-  // 요약 업데이트
-  document.getElementById("erpst-pending").textContent = _erpStData.pending.length;
-  document.getElementById("erpst-processing").textContent = _erpStData.processing.length;
-  document.getElementById("erpst-done").textContent = _erpStData.done.length;
-  document.getElementById("erpst-failed").textContent = _erpStData.failed.length;
-  
-  // 현재 탭 렌더
-  erpStatusSwitch(_erpStCurrentTab);
-}
-
-function erpStatusSwitch(tab) {
-  _erpStCurrentTab = tab;
-  // 탭 스타일
-  document.querySelectorAll(".erpst-tab").forEach(b => {
-    if(b.dataset.tab === tab) {
-      b.style.borderBottom = "3px solid #3b82f6";
-      b.style.color = "#3b82f6";
-      b.style.fontWeight = "600";
-    } else {
-      b.style.borderBottom = "3px solid transparent";
-      b.style.color = "#6b7280";
-      b.style.fontWeight = "400";
-    }
-  });
-  
-  const items = _erpStData[tab] || [];
-  const container = document.getElementById("erpst-content");
-  
-  if(items.length === 0) {
-    container.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:60px">해당 항목 없음</div>`;
-    return;
-  }
-  
-  // 최신순 정렬
-  items.sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""));
-  
-  container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
-          <th style="padding:10px;text-align:left">큐 ID</th>
-          <th style="padding:10px;text-align:left">생성일시</th>
-          <th style="padding:10px;text-align:right">크기</th>
-          <th style="padding:10px;text-align:center">상세</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map(item => `
-          <tr style="border-bottom:1px solid #f3f4f6">
-            <td style="padding:10px;font-family:monospace;font-size:12px">${item.name.replace('.json', '')}</td>
-            <td style="padding:10px;color:#6b7280;font-size:12px">${(item.lastModifiedDateTime || '').slice(0, 19).replace('T', ' ')}</td>
-            <td style="padding:10px;text-align:right;font-family:monospace">${(item.size || 0).toLocaleString()}b</td>
-            <td style="padding:10px;text-align:center">
-              <button onclick="viewErpQueueFile('${tab}', '${item.name}')" 
-                      style="padding:5px 10px;border-radius:6px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:11px">상세 보기</button>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-async function viewErpQueueFile(folder, filename) {
-  const token = await getToken();
-  const path = `💰 재무·회계/100.ERP/queue/${folder}/${filename}`;
-  const enc = path.split("/").map(encodeURIComponent).join("/");
-  try {
-    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    const data = await r.json();
-    
-    // 핵심 정보만 정리
-    const req = data.data?.requests?.[0] || {};
-    const result = data.results?.[0] || {};
-    const ui = req.user_inputs || {};
-    
-    let msg = `📋 ${filename.replace('.json', '')}\n\n`;
-    msg += `상태: ${data.status || folder}\n`;
-    msg += `생성: ${data.created_at || '?'}\n`;
-    if(data.processedAt) msg += `처리: ${data.processedAt}\n`;
-    msg += `\n──── 품의 정보 ────\n`;
-    msg += `요청서: ${req.POReqNo || '?'}/${req.POReqSerl || '?'}\n`;
-    msg += `품목: ${req.ItemName || '?'} (${req.ItemNo || '?'})\n`;
-    msg += `프로젝트: ${req.PJTName || '?'}\n`;
-    msg += `수량: ${ui.userQty || req.Qty || 0}\n`;
-    msg += `단가: ${(ui.userPrice || 0).toLocaleString()}원\n`;
-    msg += `거래처: ${ui.userCust || '?'}\n`;
-    msg += `납기일: ${ui.userDelvDate || req.DelvDate || '?'}\n`;
-    
-    if(folder === "done" && result.approReqNo) {
-      msg += `\n🎉 ──── 영림원 품의 ────\n`;
-      msg += `품의번호: ${result.approReqNo}\n`;
-      msg += `품의Seq: ${result.approReqSeq}\n`;
-    } else if(folder === "failed" && result.error) {
-      msg += `\n❌ ──── 에러 ────\n`;
-      msg += `${result.error}\n`;
-    }
-    
-    alert(msg);
-  } catch(e) {
-    alert("파일 읽기 실패: " + e.message);
-  }
-}
-
-// 자동 새로고침 (모달 열려있을 때 30초마다)
-setInterval(() => {
-  if(document.getElementById("erpStatusModal")?.style.display === "flex") {
-    loadErpStatus();
-  }
-}, 30000);
-</script>
-
   </body></html>`);
   w.document.close();
 }
@@ -42033,7 +41415,7 @@ function poActValidateBOM() {
       // 단가/거래처/제조사: BOM에서 자동, 없으면 영림원 구매요청에 있는 값 사용
       price: bomItem ? Number(bomItem.Price || 0) : 0,
       custName: bomItem ? (bomItem.CustName || "") : (req.CustName || ""),
-      custSeq: bomItem ? (bomItem.CustSeq || "") : (req.CustSeq || ""),  // ⭐ Seq도 보관
+      custSeq: bomItem ? (bomItem.CustSeq || "") : (req.CustSeq || ""),
       maker: bomItem ? (bomItem.Maker || "") : (req.MakerName || ""),
       currName: bomItem ? (bomItem.CurrName || "KRW") : (req.CurrName || "KRW"),
       exRate: bomItem ? Number(bomItem.ExRate || 1) : Number(req.ExRate || 1),
@@ -42126,15 +41508,13 @@ function poActRender() {
         </select>
       </td>
       <!-- 구매거래처 ⬅ 입력 -->
-      <!-- 구매거래처 ⬅ 필수 입력 -->
       <td style="padding:10px 6px;vertical-align:middle">
-        <input type="text" value="${userCust || ''}" placeholder="${item.custName || r.CustName || '⭐ 거래처 필수!'}"
-          onchange="poActUpdateField(${idx}, 'userCust', this.value)" 
-          style="${inputStyle}${(!userCust && !item.custName && !r.CustName) ? ';border-color:#ef4444;background:#fef2f2' : ''}">
+        <input type="text" value="${userCust || ''}" placeholder="영림원 자동"
+          onchange="poActUpdateField(${idx}, 'userCust', this.value)" style="${inputStyle}">
       </td>
       <!-- 제조사 ⬅ 입력 -->
       <td style="padding:10px 6px;vertical-align:middle">
-        <input type="text" value="${userMaker || ''}" placeholder="${item.maker || r.MakerName || '영림원 자동'}"
+        <input type="text" value="${userMaker || ''}" placeholder="영림원 자동"
           onchange="poActUpdateField(${idx}, 'userMaker', this.value)" style="${inputStyle}">
       </td>
       <!-- 요청납기일 ⬅ 수정 가능 (오늘 이전이면 빨간색) -->
@@ -42167,11 +41547,10 @@ function poActRender() {
         <input type="number" step="0.01" value="${userExRate || ''}" placeholder="1.00"
           onchange="poActUpdateField(${idx}, 'userExRate', this.value)" style="${numStyle}">
       </td>
-      <!-- 단가 ⬅ 필수 입력 -->
+      <!-- 단가 ⬅ 입력 -->
       <td style="padding:10px 6px;vertical-align:middle">
-        <input type="number" value="${userPrice || ''}" placeholder="${item.price > 0 ? item.price.toLocaleString() : '⭐ 단가 필수!'}"
-          onchange="poActUpdateField(${idx}, 'userPrice', this.value)" 
-          style="${numStyle}${(!userPrice && !item.price) ? ';border-color:#ef4444;background:#fef2f2' : ''}">
+        <input type="number" value="${userPrice || ''}" placeholder="영림원 자동"
+          onchange="poActUpdateField(${idx}, 'userPrice', this.value)" style="${numStyle}">
       </td>
       <!-- 금액 (자동) -->
       <td style="padding:10px 6px;text-align:right;vertical-align:middle;font-family:Consolas,monospace;font-size:12px;font-weight:600">${amount > 0 ? amount.toLocaleString() : "-"}</td>
@@ -42202,9 +41581,6 @@ function poActRender() {
       </td>
     </tr>`;
   }).join("");
-  
-  // ⭐ 렌더 후 요청납기일 검증 (오늘 이전이면 빨간색 표시)
-  setTimeout(poActValidateAllRows, 0);
 }
 
 // 사용자가 모달 안에서 단가/거래처/비고 수정할 때
@@ -42212,14 +41588,12 @@ function poActUpdateField(idx, field, value) {
   if(_poActBomResults[idx]) {
     _poActBomResults[idx][field] = field === 'userPrice' ? Number(value) : value;
     poActUpdateSummary();
-    // userDelvDate는 row 단위로만 색 업데이트 (전체 re-render 안 함)
     if(field !== 'userDelvDate') {
       poActRender();
     }
   }
 }
 
-// ⭐ 요청납기일 검증 - 오늘 이전이면 빨간 테두리
 function poActValidateRow(idx) {
   const el = document.getElementById(`poact-delv-${idx}`);
   if(!el) return;
@@ -42238,7 +41612,6 @@ function poActValidateRow(idx) {
   }
 }
 
-// 모달 렌더 후 모든 행 검증
 function poActValidateAllRows() {
   if(!_poActSelected) return;
   for(let i = 0; i < _poActSelected.length; i++) {
@@ -42303,7 +41676,7 @@ async function poActSaveDraft() {
             Spec: r.Spec,
             Qty: r.Qty,
             SMCurrStatusName: r.SMCurrStatusName,
-            DelvDate: r.DelvDate,
+            DelvDate: item.userDelvDate ? item.userDelvDate.replace(/-/g, "") : r.DelvDate,
             user_inputs: {
               userPrice: item.userPrice,
               userQty: item.userQty,
@@ -42357,10 +41730,10 @@ async function poActSendToERP() {
     return;
   }
   
-  // ⭐ 요청납기일 검증 - 오늘 이전이면 차단
+  // ⭐ 검증
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+  const todayStr = today.toISOString().slice(0, 10);
   
   const pastDateRows = [];
   const missingCustRows = [];
@@ -42372,59 +41745,34 @@ async function poActSendToERP() {
     if(delvDate && delvDate < todayStr) {
       pastDateRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName, date: delvDate });
     }
-    
-    // 거래처 검증 (사용자 입력 > BOM값 > 영림원값)
     const cust = item.userCust || item.custName || r.CustName || "";
     if(!cust || !cust.toString().trim()) {
       missingCustRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName });
     }
-    
-    // 단가 검증
-    const price = (item.userPrice !== undefined && item.userPrice !== null && item.userPrice !== "") 
-                  ? Number(item.userPrice) 
-                  : Number(item.price || 0);
+    const price = (item.userPrice !== undefined && item.userPrice !== null && item.userPrice !== "") ? Number(item.userPrice) : Number(item.price || 0);
     if(!price || price <= 0) {
       missingPriceRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName });
     }
   });
   
-  // 1) 요청납기일 검증
   if(pastDateRows.length > 0) {
     let msg = `❌ 전송 불가\n\n요청납기일이 오늘(${todayStr}) 이전인 품의가 ${pastDateRows.length}건 있습니다:\n\n`;
-    pastDateRows.slice(0, 5).forEach(p => {
-      msg += `  • ${p.no} ${p.name} → ${p.date}\n`;
-    });
-    if(pastDateRows.length > 5) msg += `  ...외 ${pastDateRows.length - 5}건\n`;
+    pastDateRows.slice(0,5).forEach(p => { msg += `  • ${p.no} ${p.name} → ${p.date}\n`; });
     msg += `\n→ 표에서 요청납기일을 오늘 이후로 수정한 후 다시 전송하세요.`;
     alert(msg);
-    const target = document.getElementById(`poact-delv-${pastDateRows[0].idx}`);
-    if(target) {
-      target.focus();
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
     return;
   }
-  
-  // 2) 거래처 검증
   if(missingCustRows.length > 0) {
     let msg = `❌ 전송 불가\n\n거래처가 입력되지 않은 품의가 ${missingCustRows.length}건 있습니다:\n\n`;
-    missingCustRows.slice(0, 5).forEach(p => {
-      msg += `  • ${p.no} ${p.name}\n`;
-    });
-    if(missingCustRows.length > 5) msg += `  ...외 ${missingCustRows.length - 5}건\n`;
-    msg += `\n→ 표의 [구매거래처] 칸에 거래처명을 입력한 후 다시 전송하세요.`;
+    missingCustRows.slice(0,5).forEach(p => { msg += `  • ${p.no} ${p.name}\n`; });
+    msg += `\n→ 표의 [구매거래처] 칸에 입력 후 다시 전송하세요.`;
     alert(msg);
     return;
   }
-  
-  // 3) 단가 검증
   if(missingPriceRows.length > 0) {
     let msg = `❌ 전송 불가\n\n단가가 입력되지 않은 품의가 ${missingPriceRows.length}건 있습니다:\n\n`;
-    missingPriceRows.slice(0, 5).forEach(p => {
-      msg += `  • ${p.no} ${p.name}\n`;
-    });
-    if(missingPriceRows.length > 5) msg += `  ...외 ${missingPriceRows.length - 5}건\n`;
-    msg += `\n→ 표의 [단가] 칸에 단가를 입력한 후 다시 전송하세요.`;
+    missingPriceRows.slice(0,5).forEach(p => { msg += `  • ${p.no} ${p.name}\n`; });
+    msg += `\n→ 표의 [단가] 칸에 입력 후 다시 전송하세요.`;
     alert(msg);
     return;
   }
@@ -42466,10 +41814,8 @@ async function poActSendToERP() {
             Spec: r.Spec,
             Qty: r.Qty,
             SMCurrStatusName: r.SMCurrStatusName,
-            // ⭐ 사용자가 수정한 납기일이 있으면 우선 (YYYYMMDD로 변환), 아니면 원본
             DelvDate: item.userDelvDate ? item.userDelvDate.replace(/-/g, "") : r.DelvDate,
-            // 사용자가 모달에서 입력/수정한 값 (영림원에 채워 넣을 값)
-            // 사용자 입력 우선, 없으면 자동값 사용
+            // 사용자가 모달에서 입력/수정한 값 (자동값 fallback 포함)
             user_inputs: {
               userPrice: (item.userPrice !== undefined && item.userPrice !== null && item.userPrice !== "") ? Number(item.userPrice) : Number(item.price || 0),
               userQty: (item.userQty !== undefined && item.userQty !== null && item.userQty !== "") ? Number(item.userQty) : Number(r.Qty || 0),
@@ -42570,14 +41916,6 @@ async function poActSendToERP() {
             </div>
           </div>
 
-          <!-- 필수 입력 안내 -->
-          <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:10px">
-            <div style="font-size:13px;color:#991b1b">
-              <strong>⭐ 필수 항목 (전송 전 반드시 입력)</strong>: 구매거래처, 요청납기일(오늘 이후), 단가
-              <span style="color:#7f1d1d;margin-left:8px">→ 빨간 칸은 입력 안 됨 / 노란 칸은 영림원 자동 채움</span>
-            </div>
-          </div>
-
           <!-- 안내 -->
           <div id="poact-warning" style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none">
             <div style="font-weight:600;color:#92400e;margin-bottom:4px">⚠️ BOM 미등록 품목 있음</div>
@@ -42601,14 +41939,14 @@ async function poActSendToERP() {
                   <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:90px">규격</th>
                   <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:70px">구매단위</th>
                   <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:75px">💵 내외자구분</th>
-                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:150px;background:#fee2e2;color:#991b1b">⭐ 구매거래처 <span style="font-size:10px">(필수)</span></th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:150px;background:#fef3c7">💵 구매거래처</th>
                   <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:120px;background:#fef3c7">💵 제조사</th>
-                  <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:110px;background:#fee2e2;color:#991b1b">⭐ 요청납기일 <span style="font-size:10px">(필수)</span></th>
+                  <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:100px">요청납기일</th>
                   <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:75px;background:#fef3c7">💵 품의수량</th>
                   <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:70px">현재고</th>
                   <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:60px;background:#fef3c7">💵 통화</th>
                   <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:65px;background:#fef3c7">💵 환율</th>
-                  <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:110px;background:#fee2e2;color:#991b1b">⭐ 단가 <span style="font-size:10px">(필수)</span></th>
+                  <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:100px;background:#fef3c7">💵 단가</th>
                   <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:110px">금액</th>
                   <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:75px;background:#fef3c7">💵 부가세포함</th>
                   <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);border-bottom:2px solid var(--border);width:60px;background:#fef3c7">💵 부가세율</th>
@@ -42630,7 +41968,6 @@ async function poActSendToERP() {
             </div>
             <div style="display:flex;gap:8px">
               <button class="eq-btn" onclick="poActCloseModal()">취소</button>
-              <button class="eq-btn" onclick="openErpStatusModal()" style="background:#f0fdf4;color:#15803d;border-color:#86efac" title="ERP 처리 현황 (성공/실패 결과 확인)">📊 처리 현황</button>
               <button class="eq-btn warn" onclick="poActSaveDraft()" title="SP queue/pending에 저장만 (ERP 전송 안 함)">💾 임시저장</button>
               <button class="eq-btn primary" onclick="poActSendToERP()" title="trigger.json 만들어서 RPA가 ERP 자동 입력 시작">🚀 ERP 일괄 전송</button>
             </div>
@@ -42639,212 +41976,6 @@ async function poActSendToERP() {
         </div>
       </div>
     </div>
-
-<!-- ERP 처리 상태 모달 (대시보드에 추가) -->
-<!-- 사이드바 또는 메인 메뉴에 다음 버튼 추가:
-<button onclick="openErpStatusModal()">📊 ERP 처리 현황</button>
--->
-
-<div id="erpStatusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:flex-start;justify-content:center;padding:40px">
-  <div style="background:white;border-radius:14px;max-width:1100px;width:100%;max-height:90vh;overflow:auto">
-    <!-- 헤더 -->
-    <div style="background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;padding:16px 24px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <h2 style="margin:0;font-size:20px">📊 ERP 처리 현황</h2>
-        <div style="font-size:12px;margin-top:4px;opacity:0.9">대시보드에서 보낸 품의의 영림원 처리 결과</div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button onclick="loadErpStatus()" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer;font-size:13px">🔄 새로고침</button>
-        <button onclick="document.getElementById('erpStatusModal').style.display='none'" style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;cursor:pointer">✖ 닫기</button>
-      </div>
-    </div>
-
-    <!-- 요약 카드 -->
-    <div style="padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-bottom:1px solid #e5e7eb">
-      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#92400e;font-weight:600">⏳ 대기중 (pending)</div>
-        <div style="font-size:28px;font-weight:700;color:#78350f" id="erpst-pending">-</div>
-      </div>
-      <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#1e40af;font-weight:600">⚙️ 처리중 (processing)</div>
-        <div style="font-size:28px;font-weight:700;color:#1e3a8a" id="erpst-processing">-</div>
-      </div>
-      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#15803d;font-weight:600">✅ 성공 (done)</div>
-        <div style="font-size:28px;font-weight:700;color:#14532d" id="erpst-done">-</div>
-      </div>
-      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:14px">
-        <div style="font-size:12px;color:#991b1b;font-weight:600">❌ 실패 (failed)</div>
-        <div style="font-size:28px;font-weight:700;color:#7f1d1d" id="erpst-failed">-</div>
-      </div>
-    </div>
-
-    <!-- 탭 -->
-    <div style="padding:0 20px;border-bottom:1px solid #e5e7eb;display:flex;gap:4px">
-      <button onclick="erpStatusSwitch('pending')" class="erpst-tab on" data-tab="pending" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid #3b82f6;font-weight:600;color:#3b82f6">⏳ 대기</button>
-      <button onclick="erpStatusSwitch('processing')" class="erpst-tab" data-tab="processing" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">⚙️ 처리중</button>
-      <button onclick="erpStatusSwitch('done')" class="erpst-tab" data-tab="done" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">✅ 성공</button>
-      <button onclick="erpStatusSwitch('failed')" class="erpst-tab" data-tab="failed" style="padding:10px 16px;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;color:#6b7280">❌ 실패</button>
-    </div>
-
-    <!-- 콘텐츠 -->
-    <div id="erpst-content" style="padding:20px;min-height:300px">
-      <div style="text-align:center;color:#9ca3af;padding:40px">새로고침 버튼을 누르세요</div>
-    </div>
-  </div>
-</div>
-
-<script>
-let _erpStData = { pending: [], processing: [], done: [], failed: [] };
-let _erpStCurrentTab = "pending";
-
-async function openErpStatusModal() {
-  document.getElementById("erpStatusModal").style.display = "flex";
-  await loadErpStatus();
-}
-
-async function loadErpStatus() {
-  if(typeof getIds === "function") await getIds();
-  const token = await getToken();
-  if(!token || !spDrive) {
-    alert("SP 인증 필요");
-    return;
-  }
-  
-  const folders = ["pending", "processing", "done", "failed"];
-  for(const folder of folders) {
-    try {
-      const path = `💰 재무·회계/100.ERP/queue/${folder}`;
-      const enc = path.split("/").map(encodeURIComponent).join("/");
-      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/children?$top=100`, {
-        headers: { Authorization: "Bearer " + token }
-      });
-      if(r.ok) {
-        const data = await r.json();
-        // PO-로 시작하는 것만
-        _erpStData[folder] = (data.value || []).filter(f => f.name.startsWith("PO-"));
-      } else {
-        _erpStData[folder] = [];
-      }
-    } catch(e) {
-      console.error(folder, e);
-      _erpStData[folder] = [];
-    }
-  }
-  
-  // 요약 업데이트
-  document.getElementById("erpst-pending").textContent = _erpStData.pending.length;
-  document.getElementById("erpst-processing").textContent = _erpStData.processing.length;
-  document.getElementById("erpst-done").textContent = _erpStData.done.length;
-  document.getElementById("erpst-failed").textContent = _erpStData.failed.length;
-  
-  // 현재 탭 렌더
-  erpStatusSwitch(_erpStCurrentTab);
-}
-
-function erpStatusSwitch(tab) {
-  _erpStCurrentTab = tab;
-  // 탭 스타일
-  document.querySelectorAll(".erpst-tab").forEach(b => {
-    if(b.dataset.tab === tab) {
-      b.style.borderBottom = "3px solid #3b82f6";
-      b.style.color = "#3b82f6";
-      b.style.fontWeight = "600";
-    } else {
-      b.style.borderBottom = "3px solid transparent";
-      b.style.color = "#6b7280";
-      b.style.fontWeight = "400";
-    }
-  });
-  
-  const items = _erpStData[tab] || [];
-  const container = document.getElementById("erpst-content");
-  
-  if(items.length === 0) {
-    container.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:60px">해당 항목 없음</div>`;
-    return;
-  }
-  
-  // 최신순 정렬
-  items.sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""));
-  
-  container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
-          <th style="padding:10px;text-align:left">큐 ID</th>
-          <th style="padding:10px;text-align:left">생성일시</th>
-          <th style="padding:10px;text-align:right">크기</th>
-          <th style="padding:10px;text-align:center">상세</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map(item => `
-          <tr style="border-bottom:1px solid #f3f4f6">
-            <td style="padding:10px;font-family:monospace;font-size:12px">${item.name.replace('.json', '')}</td>
-            <td style="padding:10px;color:#6b7280;font-size:12px">${(item.lastModifiedDateTime || '').slice(0, 19).replace('T', ' ')}</td>
-            <td style="padding:10px;text-align:right;font-family:monospace">${(item.size || 0).toLocaleString()}b</td>
-            <td style="padding:10px;text-align:center">
-              <button onclick="viewErpQueueFile('${tab}', '${item.name}')" 
-                      style="padding:5px 10px;border-radius:6px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:11px">상세 보기</button>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-async function viewErpQueueFile(folder, filename) {
-  const token = await getToken();
-  const path = `💰 재무·회계/100.ERP/queue/${folder}/${filename}`;
-  const enc = path.split("/").map(encodeURIComponent).join("/");
-  try {
-    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    const data = await r.json();
-    
-    // 핵심 정보만 정리
-    const req = data.data?.requests?.[0] || {};
-    const result = data.results?.[0] || {};
-    const ui = req.user_inputs || {};
-    
-    let msg = `📋 ${filename.replace('.json', '')}\n\n`;
-    msg += `상태: ${data.status || folder}\n`;
-    msg += `생성: ${data.created_at || '?'}\n`;
-    if(data.processedAt) msg += `처리: ${data.processedAt}\n`;
-    msg += `\n──── 품의 정보 ────\n`;
-    msg += `요청서: ${req.POReqNo || '?'}/${req.POReqSerl || '?'}\n`;
-    msg += `품목: ${req.ItemName || '?'} (${req.ItemNo || '?'})\n`;
-    msg += `프로젝트: ${req.PJTName || '?'}\n`;
-    msg += `수량: ${ui.userQty || req.Qty || 0}\n`;
-    msg += `단가: ${(ui.userPrice || 0).toLocaleString()}원\n`;
-    msg += `거래처: ${ui.userCust || '?'}\n`;
-    msg += `납기일: ${ui.userDelvDate || req.DelvDate || '?'}\n`;
-    
-    if(folder === "done" && result.approReqNo) {
-      msg += `\n🎉 ──── 영림원 품의 ────\n`;
-      msg += `품의번호: ${result.approReqNo}\n`;
-      msg += `품의Seq: ${result.approReqSeq}\n`;
-    } else if(folder === "failed" && result.error) {
-      msg += `\n❌ ──── 에러 ────\n`;
-      msg += `${result.error}\n`;
-    }
-    
-    alert(msg);
-  } catch(e) {
-    alert("파일 읽기 실패: " + e.message);
-  }
-}
-
-// 자동 새로고침 (모달 열려있을 때 30초마다)
-setInterval(() => {
-  if(document.getElementById("erpStatusModal")?.style.display === "flex") {
-    loadErpStatus();
-  }
-}, 30000);
-</script>
 
   </body>
 </html>
