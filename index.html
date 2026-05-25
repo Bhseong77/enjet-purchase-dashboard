@@ -41412,12 +41412,13 @@ function poActValidateBOM() {
       request: req,
       bom: bomItem,
       bomOk: bomItem !== null && Number(bomItem?.Price || 0) > 0,
-      // 단가/거래처/제조사는 BOM에서 자동
+      // 단가/거래처/제조사: BOM에서 자동, 없으면 영림원 구매요청에 있는 값 사용
       price: bomItem ? Number(bomItem.Price || 0) : 0,
-      custName: bomItem ? (bomItem.CustName || "") : "",
-      maker: bomItem ? (bomItem.Maker || "") : "",
-      currName: bomItem ? (bomItem.CurrName || "KRW") : "KRW",
-      exRate: bomItem ? Number(bomItem.ExRate || 1) : 1,
+      custName: bomItem ? (bomItem.CustName || "") : (req.CustName || ""),
+      custSeq: bomItem ? (bomItem.CustSeq || "") : (req.CustSeq || ""),  // ⭐ Seq도 보관
+      maker: bomItem ? (bomItem.Maker || "") : (req.MakerName || ""),
+      currName: bomItem ? (bomItem.CurrName || "KRW") : (req.CurrName || "KRW"),
+      exRate: bomItem ? Number(bomItem.ExRate || 1) : Number(req.ExRate || 1),
     };
   });
 }
@@ -41507,13 +41508,14 @@ function poActRender() {
         </select>
       </td>
       <!-- 구매거래처 ⬅ 입력 -->
+      <!-- 구매거래처 ⬅ 입력 (BOM 자동값 또는 영림원값 또는 사용자입력) -->
       <td style="padding:10px 6px;vertical-align:middle">
-        <input type="text" value="${userCust || ''}" placeholder="영림원 자동"
+        <input type="text" value="${userCust || ''}" placeholder="${item.custName || r.CustName || '거래처 입력 필요'}"
           onchange="poActUpdateField(${idx}, 'userCust', this.value)" style="${inputStyle}">
       </td>
       <!-- 제조사 ⬅ 입력 -->
       <td style="padding:10px 6px;vertical-align:middle">
-        <input type="text" value="${userMaker || ''}" placeholder="영림원 자동"
+        <input type="text" value="${userMaker || ''}" placeholder="${item.maker || r.MakerName || '영림원 자동'}"
           onchange="poActUpdateField(${idx}, 'userMaker', this.value)" style="${inputStyle}">
       </td>
       <!-- 요청납기일 ⬅ 수정 가능 (오늘 이전이면 빨간색) -->
@@ -41741,14 +41743,32 @@ async function poActSendToERP() {
   const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
   
   const pastDateRows = [];
+  const missingCustRows = [];
+  const missingPriceRows = [];
+  
   _poActSelected.forEach((r, idx) => {
     const item = _poActBomResults[idx] || {};
     const delvDate = item.userDelvDate || (typeof _erpDateNorm === "function" ? _erpDateNorm(r.DelvDate) : r.DelvDate) || "";
     if(delvDate && delvDate < todayStr) {
       pastDateRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName, date: delvDate });
     }
+    
+    // 거래처 검증 (사용자 입력 > BOM값 > 영림원값)
+    const cust = item.userCust || item.custName || r.CustName || "";
+    if(!cust || !cust.toString().trim()) {
+      missingCustRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName });
+    }
+    
+    // 단가 검증
+    const price = (item.userPrice !== undefined && item.userPrice !== null && item.userPrice !== "") 
+                  ? Number(item.userPrice) 
+                  : Number(item.price || 0);
+    if(!price || price <= 0) {
+      missingPriceRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName });
+    }
   });
   
+  // 1) 요청납기일 검증
   if(pastDateRows.length > 0) {
     let msg = `❌ 전송 불가\n\n요청납기일이 오늘(${todayStr}) 이전인 품의가 ${pastDateRows.length}건 있습니다:\n\n`;
     pastDateRows.slice(0, 5).forEach(p => {
@@ -41757,12 +41777,35 @@ async function poActSendToERP() {
     if(pastDateRows.length > 5) msg += `  ...외 ${pastDateRows.length - 5}건\n`;
     msg += `\n→ 표에서 요청납기일을 오늘 이후로 수정한 후 다시 전송하세요.`;
     alert(msg);
-    // 첫 번째 잘못된 행으로 스크롤 + 포커스
     const target = document.getElementById(`poact-delv-${pastDateRows[0].idx}`);
     if(target) {
       target.focus();
       target.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+    return;
+  }
+  
+  // 2) 거래처 검증
+  if(missingCustRows.length > 0) {
+    let msg = `❌ 전송 불가\n\n거래처가 입력되지 않은 품의가 ${missingCustRows.length}건 있습니다:\n\n`;
+    missingCustRows.slice(0, 5).forEach(p => {
+      msg += `  • ${p.no} ${p.name}\n`;
+    });
+    if(missingCustRows.length > 5) msg += `  ...외 ${missingCustRows.length - 5}건\n`;
+    msg += `\n→ 표의 [구매거래처] 칸에 거래처명을 입력한 후 다시 전송하세요.`;
+    alert(msg);
+    return;
+  }
+  
+  // 3) 단가 검증
+  if(missingPriceRows.length > 0) {
+    let msg = `❌ 전송 불가\n\n단가가 입력되지 않은 품의가 ${missingPriceRows.length}건 있습니다:\n\n`;
+    missingPriceRows.slice(0, 5).forEach(p => {
+      msg += `  • ${p.no} ${p.name}\n`;
+    });
+    if(missingPriceRows.length > 5) msg += `  ...외 ${missingPriceRows.length - 5}건\n`;
+    msg += `\n→ 표의 [단가] 칸에 단가를 입력한 후 다시 전송하세요.`;
+    alert(msg);
     return;
   }
   
@@ -41806,19 +41849,20 @@ async function poActSendToERP() {
             // ⭐ 사용자가 수정한 납기일이 있으면 우선 (YYYYMMDD로 변환), 아니면 원본
             DelvDate: item.userDelvDate ? item.userDelvDate.replace(/-/g, "") : r.DelvDate,
             // 사용자가 모달에서 입력/수정한 값 (영림원에 채워 넣을 값)
+            // 사용자 입력 우선, 없으면 자동값 사용
             user_inputs: {
-              userPrice: item.userPrice,
-              userQty: item.userQty,
-              userCust: item.userCust,
-              userMaker: item.userMaker,
-              userCurr: item.userCurr,
-              userExRate: item.userExRate,
-              userVatYn: item.userVatYn,
-              userVatRate: item.userVatRate,
-              userWh: item.userWh,
-              userMemo: item.userMemo,
-              userInOut: item.userInOut,
-              userDelvDate: item.userDelvDate  // ⭐ 수정된 납기일 (YYYY-MM-DD)
+              userPrice: (item.userPrice !== undefined && item.userPrice !== null && item.userPrice !== "") ? Number(item.userPrice) : Number(item.price || 0),
+              userQty: (item.userQty !== undefined && item.userQty !== null && item.userQty !== "") ? Number(item.userQty) : Number(r.Qty || 0),
+              userCust: item.userCust || item.custName || r.CustName || "",
+              userMaker: item.userMaker || item.maker || r.MakerName || "",
+              userCurr: item.userCurr || item.currName || "KRW",
+              userExRate: item.userExRate || item.exRate || 1,
+              userVatYn: (item.userVatYn !== undefined) ? item.userVatYn : true,
+              userVatRate: (item.userVatRate !== undefined) ? item.userVatRate : 10,
+              userWh: item.userWh || r.WHName || "",
+              userMemo: item.userMemo || r.Remark || "",
+              userInOut: item.userInOut || r.SMInOutTypeName || "내수",
+              userDelvDate: item.userDelvDate
             }
           };
         }),
