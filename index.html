@@ -2207,13 +2207,13 @@
             <div class="eq-field">
               <div class="eq-field-label">📊 진행상태</div>
               <select id="reqq-status" class="eq-input">
-                <option value="확정(승인)">확정(승인) - 품의 가능</option>
+                <option value="확정(승인)">✅ 확정(승인) - 품의 가능</option>
                 <option value="">전체</option>
-                <option value="작성">작성</option>
-                <option value="요청">요청</option>
-                <option value="진행">진행</option>
-                <option value="완료">완료</option>
-                <option value="취소">취소</option>
+                <option value="미확정">📝 미확정</option>
+                <option value="결재진행중">🔄 결재진행중</option>
+                <option value="진행">⏩ 진행</option>
+                <option value="완료">✔️ 완료 (이미 발주됨)</option>
+                <option value="중단">❌ 중단</option>
               </select>
             </div>
             <div class="eq-field">
@@ -40758,7 +40758,8 @@ function reqqUpdateCards() {
   for(const r of rows) {
     const status = r.SMCurrStatusName || "";
     if(status === "확정(승인)") approved++;
-    if(status === "확정(승인)" || status === "진행" || status === "작성") progress++;
+    // 진행중 = 확정(승인) + 진행 + 결재진행중 + 완료 (실제로 뭔가 진행되고 있는 것들)
+    if(status === "확정(승인)" || status === "진행" || status === "결재진행중" || status === "완료") progress++;
     const d = _erpDateNorm(r.ReqDate);
     if(d && d > maxDate) maxDate = d;
   }
