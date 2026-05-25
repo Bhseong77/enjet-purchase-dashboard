@@ -41314,7 +41314,17 @@ async function poActOpenModal(selectedRequests) {
       </td></tr>`;
     
     try {
-      await _bomqFetchData(false);
+      // bomqLoadData를 호출해서 _bomqRawData 전역 변수까지 채움
+      // (단순히 _bomqFetchData만 호출하면 캐시만 갱신되고 _bomqRawData가 안 채워짐)
+      if(typeof bomqLoadData === "function") {
+        await bomqLoadData(false);
+      } else {
+        const data = await _bomqFetchData(false);
+        if(data && data.rows) {
+          _bomqRawData = data.rows;
+        }
+      }
+      console.log(`✅ 품의 모달: BOM 마스터 ${_bomqRawData?.length || 0}건 로드 완료`);
     } catch(e) {
       console.warn("BOM 로드 실패:", e);
     }
@@ -41356,54 +41366,79 @@ function poActRender() {
   tbody.innerHTML = _poActBomResults.map((item, idx) => {
     const r = item.request;
     const qty = Number(r.Qty || 0);
-    const amount = item.price * qty;
+    
+    // 사용자가 입력한 값 우선, 없으면 BOM 값, 없으면 빈 값
+    const userPrice = (item.userPrice !== undefined && item.userPrice !== null) ? item.userPrice : item.price;
+    const userCust = (item.userCust !== undefined) ? item.userCust : item.custName;
+    const userMemo = (item.userMemo !== undefined) ? item.userMemo : (r.Remark || "");
+    
+    const amount = Number(userPrice) * qty;
     
     // BOM 상태 아이콘
     let statusIcon = "🔴";
     let statusStyle = "background:#fee2e2;color:#b91c1c";
-    let statusTitle = "BOM 미등록 - 단가 자동 입력 안 됨";
+    let statusTitle = "BOM 미등록 - 단가/거래처를 직접 입력하세요";
     if(item.bomOk) {
       statusIcon = "🟢";
       statusStyle = "background:#dcfce7;color:#15803d";
-      statusTitle = "BOM 등록됨 - 단가 자동 채워짐";
+      statusTitle = "BOM 등록됨 - 단가 자동 채워짐 (수정 가능)";
     } else if(item.bom && !item.bomOk) {
       statusIcon = "🟡";
       statusStyle = "background:#fef3c7;color:#92400e";
-      statusTitle = "BOM은 있지만 단가 미등록";
+      statusTitle = "BOM은 있지만 단가 미등록 - 직접 입력하세요";
     }
     
-    const priceDisplay = item.price > 0 
-      ? item.price.toLocaleString("ko-KR") 
-      : `<span style="color:#dc2626">⚠️ 미등록</span>`;
-    
+    // 영림원이 자동 매칭하므로 단가/거래처가 비어있어도 OK (영림원에서 채움)
     const amountDisplay = amount > 0 
       ? amount.toLocaleString("ko-KR") 
-      : "-";
+      : '<span style="color:var(--t3)">영림원 자동</span>';
     
-    return `<tr style="border-top:1px solid var(--border)">
-      <td style="padding:8px;text-align:center" title="${statusTitle}">
+    return `<tr style="border-top:1px solid var(--border)" data-idx="${idx}">
+      <td style="padding:8px;text-align:center;vertical-align:top" title="${statusTitle}">
         <span style="display:inline-block;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;${statusStyle}">${statusIcon}</span>
       </td>
-      <td style="padding:8px">
+      <td style="padding:8px;vertical-align:top">
         <div style="font-weight:600;color:var(--t1)">${r.POReqNo||"-"}</div>
-        <div style="font-size:11px;color:var(--t3)">${r.ReqDate ? _erpDateNorm(r.ReqDate) : ""}</div>
+        <div style="font-size:11px;color:var(--t3)">행 ${r.POReqSerl||"1"}</div>
+        <div style="font-size:11px;color:var(--t3)">${r.ReqDate ? (typeof _erpDateNorm === "function" ? _erpDateNorm(r.ReqDate) : r.ReqDate) : ""}</div>
       </td>
-      <td style="padding:8px">
-        <div style="font-size:12px;color:var(--t2)">${r.PJTName||"-"}</div>
+      <td style="padding:8px;vertical-align:top">
+        <div style="font-size:12px;color:var(--t2);font-weight:600">${r.PJTName||"-"}</div>
         <div style="font-size:11px;color:var(--t3);font-family:Consolas,monospace">${r.PJTNo||"-"}</div>
       </td>
-      <td style="padding:8px">
+      <td style="padding:8px;vertical-align:top">
         <div style="font-weight:600">${r.ItemName||"-"}</div>
         <div style="font-size:11px;color:var(--t3);font-family:Consolas,monospace">${r.ItemNo||"-"}</div>
       </td>
-      <td style="padding:8px;color:var(--t2)">${r.Spec||"-"}</td>
-      <td style="padding:8px;text-align:center;font-weight:600">${qty.toLocaleString()} ${r.ItemUnitName||""}</td>
-      <td style="padding:8px;text-align:right;font-family:Consolas,monospace">${priceDisplay}</td>
-      <td style="padding:8px;font-size:12px">${item.custName || (item.bom ? "" : '<span style="color:#dc2626">미정</span>')}</td>
-      <td style="padding:8px;font-size:12px">${item.maker || ""}</td>
-      <td style="padding:8px;text-align:right;font-weight:700;color:var(--p);font-family:Consolas,monospace">${amountDisplay}</td>
+      <td style="padding:8px;color:var(--t2);vertical-align:top">${r.Spec||"-"}</td>
+      <td style="padding:8px;text-align:center;font-weight:600;vertical-align:top">${qty.toLocaleString()} ${r.StdUnitName||r.ItemUnitName||""}</td>
+      <td style="padding:8px;vertical-align:top">
+        <input type="number" value="${userPrice || ''}" placeholder="자동" 
+          onchange="poActUpdateField(${idx}, 'userPrice', this.value)"
+          style="width:90px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;text-align:right;font-family:Consolas,monospace">
+      </td>
+      <td style="padding:8px;vertical-align:top">
+        <input type="text" value="${userCust || ''}" placeholder="영림원 자동"
+          onchange="poActUpdateField(${idx}, 'userCust', this.value)"
+          style="width:130px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+      </td>
+      <td style="padding:8px;vertical-align:top">
+        <input type="text" value="${userMemo || ''}" placeholder="비고"
+          onchange="poActUpdateField(${idx}, 'userMemo', this.value)"
+          style="width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+      </td>
+      <td style="padding:8px;text-align:right;font-weight:700;color:var(--p);font-family:Consolas,monospace;vertical-align:top">${amountDisplay}</td>
     </tr>`;
   }).join("");
+}
+
+// 사용자가 모달 안에서 단가/거래처/비고 수정할 때
+function poActUpdateField(idx, field, value) {
+  if(_poActBomResults[idx]) {
+    _poActBomResults[idx][field] = field === 'userPrice' ? Number(value) : value;
+    poActUpdateSummary();
+    poActRender();  // 금액 재계산 표시
+  }
 }
 
 function poActUpdateSummary() {
@@ -41634,8 +41669,8 @@ async function poActSendToERP() {
                   <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border)">규격</th>
                   <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);width:60px">수량</th>
                   <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);width:100px">단가</th>
-                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);width:140px">거래처</th>
-                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);width:100px">제조사</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);width:130px">거래처</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);width:120px">비고</th>
                   <th style="padding:10px 8px;text-align:right;width:120px">예상금액</th>
                 </tr>
               </thead>
