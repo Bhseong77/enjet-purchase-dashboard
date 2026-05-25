@@ -38836,6 +38836,40 @@ async function _erpFetchJson(spPath) {
   }
 }
 
+/* SP에 JSON 파일 업로드 (생성 또는 덮어쓰기)
+   Phase C: 큐 시스템용 (queue/pending/*.json, queue/trigger.json) */
+async function _erpUploadJson(spPath, data) {
+  try {
+    if(typeof getIds === "function") await getIds();
+    const t = await getToken();
+    if(!t || !spDrive) {
+      console.error("ERP 업로드: SP 토큰/Drive 없음");
+      throw new Error("SP 인증 없음");
+    }
+    const enc = spPath.split("/").map(encodeURIComponent).join("/");
+    const url = `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${enc}:/content`;
+    const body = JSON.stringify(data, null, 2);
+    const r = await fetch(url, {
+      method: "PUT",
+      headers: { 
+        "Authorization": "Bearer " + t,
+        "Content-Type": "application/json"
+      },
+      body: body
+    });
+    if(!r.ok) {
+      const errText = await r.text();
+      console.error(`ERP 업로드 실패 ${r.status}: ${errText.substring(0, 300)}`);
+      throw new Error(`업로드 실패: HTTP ${r.status}`);
+    }
+    console.log(`📤 SP 업로드: ${spPath.split("/").pop()} (${body.length}b)`);
+    return await r.json();
+  } catch(e) {
+    console.error(`ERP 업로드 실패 (${spPath}):`, e.message);
+    throw e;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    값 포맷팅
    ═══════════════════════════════════════════════════════════════════ */
@@ -41596,16 +41630,34 @@ async function poActSaveDraft() {
       created_by: typeof currentUser !== "undefined" ? (currentUser?.displayName || "unknown") : "unknown",
       status: "pending",
       data: {
-        requests: _poActSelected.map(r => ({
-          POReqNo: r.POReqNo,
-          POReqSerl: r.POReqSerl,
-          ItemNo: r.ItemNo,
-          ItemName: r.ItemName,
-          PJTNo: r.PJTNo,
-          PJTName: r.PJTName,
-          Qty: r.Qty,
-          SMCurrStatusName: r.SMCurrStatusName
-        })),
+        requests: _poActSelected.map((r, idx) => {
+          const item = _poActBomResults[idx] || {};
+          return {
+            POReqNo: r.POReqNo,
+            POReqSerl: r.POReqSerl,
+            ItemNo: r.ItemNo,
+            ItemName: r.ItemName,
+            PJTNo: r.PJTNo,
+            PJTName: r.PJTName,
+            Spec: r.Spec,
+            Qty: r.Qty,
+            SMCurrStatusName: r.SMCurrStatusName,
+            DelvDate: r.DelvDate,
+            user_inputs: {
+              userPrice: item.userPrice,
+              userQty: item.userQty,
+              userCust: item.userCust,
+              userMaker: item.userMaker,
+              userCurr: item.userCurr,
+              userExRate: item.userExRate,
+              userVatYn: item.userVatYn,
+              userVatRate: item.userVatRate,
+              userWh: item.userWh,
+              userMemo: item.userMemo,
+              userInOut: item.userInOut
+            }
+          };
+        }),
         bom_validation: _poActBomResults.map(b => ({
           ItemNo: b.request.ItemNo,
           bom_ok: b.bomOk,
@@ -41667,19 +41719,43 @@ async function poActSendToERP() {
       created_by: typeof currentUser !== "undefined" ? (currentUser?.displayName || "unknown") : "unknown",
       status: "pending",
       data: {
-        requests: _poActSelected.map(r => ({
-          POReqNo: r.POReqNo,
-          POReqSerl: r.POReqSerl,
-          ItemNo: r.ItemNo,
-          ItemName: r.ItemName,
-          PJTNo: r.PJTNo,
-          PJTName: r.PJTName,
-          Qty: r.Qty,
-          SMCurrStatusName: r.SMCurrStatusName
-        })),
+        requests: _poActSelected.map((r, idx) => {
+          const item = _poActBomResults[idx] || {};
+          return {
+            // 영림원 식별 키
+            POReqNo: r.POReqNo,
+            POReqSerl: r.POReqSerl,
+            // 영림원이 자동으로 채울 정보 (참고용)
+            ItemNo: r.ItemNo,
+            ItemName: r.ItemName,
+            PJTNo: r.PJTNo,
+            PJTName: r.PJTName,
+            Spec: r.Spec,
+            Qty: r.Qty,
+            SMCurrStatusName: r.SMCurrStatusName,
+            DelvDate: r.DelvDate,
+            // 사용자가 모달에서 입력/수정한 값 (영림원에 채워 넣을 값)
+            user_inputs: {
+              userPrice: item.userPrice,
+              userQty: item.userQty,
+              userCust: item.userCust,
+              userMaker: item.userMaker,
+              userCurr: item.userCurr,
+              userExRate: item.userExRate,
+              userVatYn: item.userVatYn,
+              userVatRate: item.userVatRate,
+              userWh: item.userWh,
+              userMemo: item.userMemo,
+              userInOut: item.userInOut
+            }
+          };
+        }),
         bom_validation: _poActBomResults.map(b => ({
           ItemNo: b.request.ItemNo,
-          bom_ok: b.bomOk
+          bom_ok: b.bomOk,
+          price: b.price,
+          cust: b.custName,
+          maker: b.maker
         })),
         summary: {
           total_count: _poActBomResults.length,
