@@ -40569,12 +40569,40 @@ function reqqApplyFilters() {
     emp:    document.getElementById("reqq-emp").value.trim().toLowerCase(),
   };
   
+  // 요청서 단위 상태 집계 (영림원 화면 로직과 동일)
+  // - 모든 행이 "완료"이면 요청서 = "완료"
+  // - 모든 행이 "확정(승인)"이면 요청서 = "확정(승인)"
+  // - 행마다 다른 상태가 섞여있으면 요청서 = "진행"
+  const reqStatusByNo = {};
+  if(f.status) {  // 상태 필터가 있을 때만 집계 (성능 최적화)
+    const allRowsByReq = {};
+    _reqqRawData.forEach(r => {
+      const no = r.POReqNo;
+      if(!allRowsByReq[no]) allRowsByReq[no] = [];
+      allRowsByReq[no].push(r);
+    });
+    for(const [no, rows] of Object.entries(allRowsByReq)) {
+      const statuses = [...new Set(rows.map(r => r.SMCurrStatusName))];
+      if(statuses.length === 1) {
+        // 모든 행이 같은 상태
+        reqStatusByNo[no] = statuses[0];
+      } else {
+        // 행마다 다른 상태 = 진행
+        reqStatusByNo[no] = "진행";
+      }
+    }
+  }
+  
   _reqqFiltered = _reqqRawData.filter(r => {
     const d = _erpDateNorm(r.ReqDate);
     if(f.dateFr && d && d < f.dateFr) return false;
     if(f.dateTo && d && d > f.dateTo) return false;
     if(f.rno && !String(r.POReqNo||"").toLowerCase().includes(f.rno)) return false;
-    if(f.status && r.SMCurrStatusName !== f.status) return false;
+    // 상태 필터: 요청서 마스터 상태로 판단 (영림원과 동일)
+    if(f.status) {
+      const reqStatus = reqStatusByNo[r.POReqNo];
+      if(reqStatus !== f.status) return false;
+    }
     if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
     if(f.item) {
       const inN = String(r.ItemName||"").toLowerCase().includes(f.item);
