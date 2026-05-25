@@ -41516,8 +41516,14 @@ function poActRender() {
         <input type="text" value="${userMaker || ''}" placeholder="영림원 자동"
           onchange="poActUpdateField(${idx}, 'userMaker', this.value)" style="${inputStyle}">
       </td>
-      <!-- 요청납기일 -->
-      <td style="padding:10px 6px;text-align:center;vertical-align:middle;font-size:11px">${delvDateF}</td>
+      <!-- 요청납기일 ⬅ 수정 가능 (오늘 이전이면 빨간색) -->
+      <td style="padding:10px 6px;text-align:center;vertical-align:middle">
+        <input type="date" value="${(item.userDelvDate || delvDateF)}" 
+          onchange="poActUpdateField(${idx}, 'userDelvDate', this.value); poActValidateRow(${idx})"
+          style="${inputStyle};font-size:11px;text-align:center" 
+          data-orig="${delvDateF}"
+          id="poact-delv-${idx}">
+      </td>
       <!-- 품의수량 ⬅ 입력 -->
       <td style="padding:10px 6px;vertical-align:middle">
         <input type="number" value="${userQty || ''}" placeholder="${qty}"
@@ -41574,6 +41580,9 @@ function poActRender() {
       </td>
     </tr>`;
   }).join("");
+  
+  // ⭐ 렌더 후 요청납기일 검증 (오늘 이전이면 빨간색 표시)
+  setTimeout(poActValidateAllRows, 0);
 }
 
 // 사용자가 모달 안에서 단가/거래처/비고 수정할 때
@@ -41581,7 +41590,37 @@ function poActUpdateField(idx, field, value) {
   if(_poActBomResults[idx]) {
     _poActBomResults[idx][field] = field === 'userPrice' ? Number(value) : value;
     poActUpdateSummary();
-    poActRender();  // 금액 재계산 표시
+    // userDelvDate는 row 단위로만 색 업데이트 (전체 re-render 안 함)
+    if(field !== 'userDelvDate') {
+      poActRender();
+    }
+  }
+}
+
+// ⭐ 요청납기일 검증 - 오늘 이전이면 빨간 테두리
+function poActValidateRow(idx) {
+  const el = document.getElementById(`poact-delv-${idx}`);
+  if(!el) return;
+  const val = el.value;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10);
+  if(val && val < todayStr) {
+    el.style.borderColor = "#ef4444";
+    el.style.background = "#fef2f2";
+    el.title = `⚠️ 오늘(${todayStr}) 이전 - 전송 불가`;
+  } else {
+    el.style.borderColor = "#3b82f6";
+    el.style.background = "white";
+    el.title = "";
+  }
+}
+
+// 모달 렌더 후 모든 행 검증
+function poActValidateAllRows() {
+  if(!_poActSelected) return;
+  for(let i = 0; i < _poActSelected.length; i++) {
+    poActValidateRow(i);
   }
 }
 
@@ -41696,6 +41735,37 @@ async function poActSendToERP() {
     return;
   }
   
+  // ⭐ 요청납기일 검증 - 오늘 이전이면 차단
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+  
+  const pastDateRows = [];
+  _poActSelected.forEach((r, idx) => {
+    const item = _poActBomResults[idx] || {};
+    const delvDate = item.userDelvDate || (typeof _erpDateNorm === "function" ? _erpDateNorm(r.DelvDate) : r.DelvDate) || "";
+    if(delvDate && delvDate < todayStr) {
+      pastDateRows.push({ idx: idx, no: r.POReqNo, name: r.ItemName, date: delvDate });
+    }
+  });
+  
+  if(pastDateRows.length > 0) {
+    let msg = `❌ 전송 불가\n\n요청납기일이 오늘(${todayStr}) 이전인 품의가 ${pastDateRows.length}건 있습니다:\n\n`;
+    pastDateRows.slice(0, 5).forEach(p => {
+      msg += `  • ${p.no} ${p.name} → ${p.date}\n`;
+    });
+    if(pastDateRows.length > 5) msg += `  ...외 ${pastDateRows.length - 5}건\n`;
+    msg += `\n→ 표에서 요청납기일을 오늘 이후로 수정한 후 다시 전송하세요.`;
+    alert(msg);
+    // 첫 번째 잘못된 행으로 스크롤 + 포커스
+    const target = document.getElementById(`poact-delv-${pastDateRows[0].idx}`);
+    if(target) {
+      target.focus();
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return;
+  }
+  
   const missing = _poActBomResults.filter(r => !r.bomOk).length;
   let warningMsg = "";
   if(missing > 0) {
@@ -41733,7 +41803,8 @@ async function poActSendToERP() {
             Spec: r.Spec,
             Qty: r.Qty,
             SMCurrStatusName: r.SMCurrStatusName,
-            DelvDate: r.DelvDate,
+            // ⭐ 사용자가 수정한 납기일이 있으면 우선 (YYYYMMDD로 변환), 아니면 원본
+            DelvDate: item.userDelvDate ? item.userDelvDate.replace(/-/g, "") : r.DelvDate,
             // 사용자가 모달에서 입력/수정한 값 (영림원에 채워 넣을 값)
             user_inputs: {
               userPrice: item.userPrice,
@@ -41746,7 +41817,8 @@ async function poActSendToERP() {
               userVatRate: item.userVatRate,
               userWh: item.userWh,
               userMemo: item.userMemo,
-              userInOut: item.userInOut
+              userInOut: item.userInOut,
+              userDelvDate: item.userDelvDate  // ⭐ 수정된 납기일 (YYYY-MM-DD)
             }
           };
         }),
