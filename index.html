@@ -1024,6 +1024,7 @@
       <div class="ni" onclick="go('erp-dlv-query',this)" style="background:linear-gradient(90deg,#DCFCE7,transparent)">📥 입고정산조회 <span class="nb nbg" id="badge-erp-dlv-q">-</span></div>
       <div class="ni" onclick="go('erp-recv-query',this)" style="background:linear-gradient(90deg,#FFF7E0,transparent)">📥 입고품목조회 <span class="nb nbg" id="badge-erp-recv-q">-</span></div>
       <div class="ni" onclick="go('erp-req-query',this)" style="background:linear-gradient(90deg,#F3E8FF,transparent)">📋 구매요청서 <span class="nb nbg" id="badge-erp-req-q">-</span></div>
+      <div class="ni" onclick="go('erp-bom-master',this)" style="background:linear-gradient(90deg,#FEE2E2,transparent)">🔩 BOM 마스터 <span class="nb nbg" id="badge-erp-bom-m">-</span></div>
     </nav>
     <div class="sb-foot">
       <div style="font-size:14px;color:var(--t3);font-family:var(--m)" id="clock">--:--:--</div>
@@ -2218,6 +2219,109 @@
             </div>
           </div>
         </div>
+
+
+    <!-- ════════ 🔩 ERP BOM 마스터 (v4 NEW, 영림원 BOM 전체) ════════ -->
+    <div class="page" id="tab-erp-bom-master">
+      <div class="eq-wrap">
+        
+        <div class="eq-header">
+          <div class="eq-header-title">
+            <h2>🔩 ERP BOM 마스터</h2>
+            <span class="eq-header-time" id="bomq-last">확인 중...</span>
+          </div>
+          <div class="eq-header-actions">
+            <button class="eq-btn primary" onclick="bomqQuery()">🔄 조회</button>
+            <button class="eq-btn warn" onclick="bomqRefresh()">⚡ 새데이터</button>
+            <button class="eq-btn" onclick="bomqExportExcel()">📊 엑셀</button>
+            <button class="eq-btn" onclick="bomqResetFilter()">↺ 초기화</button>
+          </div>
+        </div>
+
+        <div class="eq-cards" id="bomq-cards">
+          <div class="eq-card">
+            <div class="eq-card-label">🔩 총 BOM</div>
+            <div class="eq-card-value"><span id="bomq-card-total">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개</span></div>
+            <div class="eq-card-sub">필터 후</div>
+          </div>
+          <div class="eq-card c-pu">
+            <div class="eq-card-label">📦 프로젝트</div>
+            <div class="eq-card-value"><span id="bomq-card-pjt">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개</span></div>
+            <div class="eq-card-sub">고유 프로젝트</div>
+          </div>
+          <div class="eq-card c-g">
+            <div class="eq-card-label">💰 단가등록</div>
+            <div class="eq-card-value"><span id="bomq-card-priced">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개</span></div>
+            <div class="eq-card-sub">/<span id="bomq-card-priced-pct">-</span>%</div>
+          </div>
+          <div class="eq-card c-a">
+            <div class="eq-card-label">🏢 거래처</div>
+            <div class="eq-card-value"><span id="bomq-card-cust">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개사</span></div>
+            <div class="eq-card-sub">고유 거래처</div>
+          </div>
+        </div>
+
+        <div class="eq-filter" id="bomq-filter">
+          <div class="eq-filter-head" onclick="bomqToggleFilter()">
+            <div class="eq-filter-head-title">
+              🔍 검색
+              <span class="eq-filter-head-summary" id="bomq-filter-summary"></span>
+            </div>
+            <div class="eq-filter-head-toggle">접기</div>
+          </div>
+          <div class="eq-filter-body">
+            <div class="eq-field">
+              <div class="eq-field-label">🎯 프로젝트</div>
+              <input type="text" id="bomq-pjt" class="eq-input" placeholder="프로젝트명·번호">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📦 품목</div>
+              <input type="text" id="bomq-item" class="eq-input" placeholder="품명·품번·규격">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏢 거래처</div>
+              <input type="text" id="bomq-cust" class="eq-input" placeholder="구매거래처명">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏭 제조사 (Maker)</div>
+              <input type="text" id="bomq-maker" class="eq-input" placeholder="Maker">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📋 조달구분</div>
+              <select id="bomq-pcr" class="eq-input">
+                <option value="">전체</option>
+                <option value="구매">구매</option>
+                <option value="외주제작">외주제작</option>
+                <option value="BOM레벨">BOM레벨</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">💰 단가</div>
+              <select id="bomq-priced" class="eq-input">
+                <option value="">전체</option>
+                <option value="yes">단가 있는 것만</option>
+                <option value="no">단가 없는 것만</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏷️ 품목분류</div>
+              <input type="text" id="bomq-class" class="eq-input" placeholder="품목분류">
+            </div>
+          </div>
+        </div>
+
+        <div class="eq-grid-wrap">
+          <div class="eq-grid-scroll">
+            <table class="eq-grid" id="bomq-table">
+              <thead><tr id="bomq-thead"></tr></thead>
+              <tbody id="bomq-tbody"></tbody>
+              <tfoot><tr id="bomq-tfoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        
+      </div>
+    </div>
 
         <!-- 데이터 그리드 -->
         <div class="eq-grid-wrap">
@@ -27813,6 +27917,13 @@ function printQuote() {
 
 
 </style>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
     </head><body>${area.innerHTML}</body></html>`);
   win.document.close();
   setTimeout(()=>win.print(), 800);
@@ -29491,7 +29602,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서","erp-bom-master":"🔩 ERP BOM 마스터"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -32572,6 +32683,10 @@ function go(id, el) {
   // 📋 ERP 구매요청서 조회 탭 진입
   if(id === "erp-req-query") {
     if(typeof reqqInit === "function") reqqInit();
+  }
+  // 🔩 ERP BOM 마스터 탭 진입
+  if(id === "erp-bom-master") {
+    if(typeof bomqInit === "function") bomqInit();
   }
   // 🏪 거래처 SCM 탭 진입 시 - SCM 자동 로드
   if(id==="vendor-scm") {
@@ -38299,12 +38414,14 @@ const ERP_PO_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/po-${year}.json`;
 const ERP_DLV_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/delivery-${year}.json`;
 const ERP_RECV_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/recv-${year}.json`;
 const ERP_REQ_JSON_YEAR = (year) => `${ERP_SP_FOLDER}/request-${year}.json`;
+const ERP_BOM_MASTER_JSON = `${ERP_SP_FOLDER}/bom-master.json`;  // 연도 무관
 
 /* localStorage 캐시 키 */
 const ERP_CACHE_PO  = (year) => `erp_cache_po_${year}`;
 const ERP_CACHE_DLV = (year) => `erp_cache_dlv_${year}`;
 const ERP_CACHE_RECV = (year) => `erp_cache_recv_${year}`;
 const ERP_CACHE_REQ = (year) => `erp_cache_req_${year}`;
+const ERP_CACHE_BOM = "erp_cache_bom_master";  // 연도 무관
 const ERP_CACHE_META = "erp_cache_meta";
 const ERP_CURRENT_YEAR = new Date().getFullYear();
 
@@ -38462,6 +38579,51 @@ let _reqqRawData = null;
 let _reqqFiltered = [];
 let _reqqSort = [["PReqDate", "desc"]];
 let _reqqSelectedIds = new Set();  // 선택된 (PReqNo+PReqSerl) - 품의 작성용
+
+/* ─── BOM 마스터 컬럼 정의 (영림원 38개 + 필수 추가) ─── */
+const BOMQ_COLS = [
+  ["IsBuy",             "구매품",     "bool",   60,  "center"],
+  ["IsOutsrc",          "외주",       "bool",   55,  "center"],
+  ["PJTName",           "프로젝트",   "text",   260, "left"],
+  ["PJTNo",             "프로젝트번호","text",  130, "left"],
+  ["BOMLevel",          "BOM레벨",    "text",   80,  "center"],
+  ["IsStandard",        "표준품",     "bool",   60,  "center"],
+  ["ProcurementName",   "조달구분",   "text",   90,  "center"],
+  ["ItemClass",         "품목분류",   "text",   100, "left"],
+  ["ItemName",          "품명",       "text",   220, "left"],
+  ["ItemNo",            "품번",       "text",   220, "left"],
+  ["Spec",              "규격",       "text",   140, "left"],
+  ["ItemUnitName",      "단위",       "text",   60,  "center"],
+  ["BasicQty",          "기본소요량", "num",    85,  "right"],
+  ["MakingQty",         "제작대수",   "num",    80,  "right"],
+  ["SpareQty",          "여유수량",   "num",    80,  "right"],
+  ["TotalReqQty",       "총소요량",   "num",    85,  "right"],
+  ["SMCurrStatusName",  "진행구분",   "text",   90,  "center"],
+  ["RequestedQty",      "기요청수량", "num",    95,  "right"],
+  ["RemainingQty",      "요청잔량",   "num",    85,  "right"],
+  ["RegistrationType",  "등록구분",   "text",   80,  "center"],
+  ["DelvInDate",        "입고요청일", "date",   100, "center"],
+  ["DelvOutDate",       "출고요청일", "date",   100, "center"],
+  ["Remark",            "비고",       "text",   180, "left"],
+  ["BudgetAccount",     "예산과목",   "text",   110, "left"],
+  ["CurrName",          "통화",       "text",   60,  "center"],
+  ["ExRate",            "환율",       "num",    75,  "right"],
+  ["Price",             "단가",       "money",  110, "right"],
+  ["DomAmt",            "원화금액",   "money",  130, "right"],
+  ["Maker",             "Maker",      "text",   140, "left"],
+  ["Material",          "재질",       "text",   100, "left"],
+  ["CustName",          "구매거래처", "text",   180, "left"],
+  ["POQty",             "발주수량",   "num",    85,  "right"],
+  ["POAmt",             "발주금액",   "money",  120, "right"],
+  ["DelvInQty",         "입고수량",   "num",    85,  "right"],
+  ["DelvInAmt",         "입고금액",   "money",  120, "right"],
+  ["DrawingNo",         "도면번호",   "text",   130, "left"],
+  ["DrawingFile",       "도면파일",   "text",   180, "left"],
+];
+
+let _bomqRawData = null;
+let _bomqFiltered = [];
+let _bomqSort = [["PJTNo", "asc"], ["BOMLevel", "asc"]];
 
 let _erpLastRun = null;     // last-run.json 데이터
 
@@ -40724,18 +40886,768 @@ function reqqOpenWriteModal() {
     }
   }
   
-  console.log("📝 품의 작성 시작:", selected.length, "건");
-  console.log("선택된 항목:", selected);
+  // 모달 열기 + 데이터 채우기
+  poActOpenModal(selected);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   📝 품의 작성 모달 (Phase B-3)
+   ════════════════════════════════════════════════════════════════════ */
+
+let _poActSelected = [];  // 선택된 요청서들 (모달 안에서 사용)
+let _poActBomResults = [];  // BOM 검증 결과
+
+async function poActOpenModal(selectedRequests) {
+  _poActSelected = selectedRequests;
   
-  // TODO: Phase B에서 품의 작성 모달 구현
-  alert(`📝 품의 작성 모달은 다음 단계(Phase B)에서 구현됩니다.\n\n현재 선택된 ${selected.length}건:\n` + 
-    selected.map(r => `- ${r.PReqNo} | ${r.ItemName} | 수량:${r.PReqQty}`).join("\n"));
+  // 모달 보이기
+  const modal = document.getElementById("poActModal");
+  if(!modal) {
+    alert("❌ 품의 작성 모달이 없습니다 (HTML 누락)");
+    return;
+  }
+  modal.style.display = "flex";
+  modal.style.position = "fixed";
+  modal.style.top = "0";
+  modal.style.left = "0";
+  modal.style.width = "100vw";
+  modal.style.height = "100vh";
+  modal.style.background = "rgba(0,0,0,0.5)";
+  modal.style.zIndex = "1000";
+  modal.style.justifyContent = "center";
+  modal.style.alignItems = "flex-start";
+  modal.style.paddingTop = "30px";
+  
+  // BOM 마스터가 메모리에 없으면 미리 로드
+  if(_bomqRawData === null) {
+    console.log("📝 품의 모달: BOM 마스터 로드 시작");
+    document.getElementById("poact-items-tbody").innerHTML = 
+      `<tr><td colspan="10" style="padding:30px;text-align:center;color:var(--t3)">
+        <div class="eq-spinner" style="display:inline-block"></div>
+        <div style="margin-top:10px">BOM 마스터 로드 중...</div>
+      </td></tr>`;
+    
+    try {
+      await _bomqFetchData(false);
+    } catch(e) {
+      console.warn("BOM 로드 실패:", e);
+    }
+  }
+  
+  // BOM 검증 + 렌더링
+  poActValidateBOM();
+  poActRender();
+  poActUpdateSummary();
+}
+
+function poActCloseModal() {
+  document.getElementById("poActModal").style.display = "none";
+  _poActSelected = [];
+  _poActBomResults = [];
+}
+
+function poActValidateBOM() {
+  _poActBomResults = _poActSelected.map(req => {
+    const bomItem = (typeof bomLookup === "function") ? bomLookup(req.ItemNo, req.PJTNo) : null;
+    return {
+      request: req,
+      bom: bomItem,
+      bomOk: bomItem !== null && Number(bomItem?.Price || 0) > 0,
+      // 단가/거래처/제조사는 BOM에서 자동
+      price: bomItem ? Number(bomItem.Price || 0) : 0,
+      custName: bomItem ? (bomItem.CustName || "") : "",
+      maker: bomItem ? (bomItem.Maker || "") : "",
+      currName: bomItem ? (bomItem.CurrName || "KRW") : "KRW",
+      exRate: bomItem ? Number(bomItem.ExRate || 1) : 1,
+    };
+  });
+}
+
+function poActRender() {
+  const tbody = document.getElementById("poact-items-tbody");
+  if(!tbody) return;
+  
+  tbody.innerHTML = _poActBomResults.map((item, idx) => {
+    const r = item.request;
+    const qty = Number(r.PReqQty || 0);
+    const amount = item.price * qty;
+    
+    // BOM 상태 아이콘
+    let statusIcon = "🔴";
+    let statusStyle = "background:#fee2e2;color:#b91c1c";
+    let statusTitle = "BOM 미등록 - 단가 자동 입력 안 됨";
+    if(item.bomOk) {
+      statusIcon = "🟢";
+      statusStyle = "background:#dcfce7;color:#15803d";
+      statusTitle = "BOM 등록됨 - 단가 자동 채워짐";
+    } else if(item.bom && !item.bomOk) {
+      statusIcon = "🟡";
+      statusStyle = "background:#fef3c7;color:#92400e";
+      statusTitle = "BOM은 있지만 단가 미등록";
+    }
+    
+    const priceDisplay = item.price > 0 
+      ? item.price.toLocaleString("ko-KR") 
+      : `<span style="color:#dc2626">⚠️ 미등록</span>`;
+    
+    const amountDisplay = amount > 0 
+      ? amount.toLocaleString("ko-KR") 
+      : "-";
+    
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:8px;text-align:center" title="${statusTitle}">
+        <span style="display:inline-block;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;${statusStyle}">${statusIcon}</span>
+      </td>
+      <td style="padding:8px">
+        <div style="font-weight:600;color:var(--t1)">${r.PReqNo||"-"}</div>
+        <div style="font-size:11px;color:var(--t3)">${r.PReqDate ? _erpDateNorm(r.PReqDate) : ""}</div>
+      </td>
+      <td style="padding:8px">
+        <div style="font-size:12px;color:var(--t2)">${r.PJTName||"-"}</div>
+        <div style="font-size:11px;color:var(--t3);font-family:Consolas,monospace">${r.PJTNo||"-"}</div>
+      </td>
+      <td style="padding:8px">
+        <div style="font-weight:600">${r.ItemName||"-"}</div>
+        <div style="font-size:11px;color:var(--t3);font-family:Consolas,monospace">${r.ItemNo||"-"}</div>
+      </td>
+      <td style="padding:8px;color:var(--t2)">${r.Spec||"-"}</td>
+      <td style="padding:8px;text-align:center;font-weight:600">${qty.toLocaleString()} ${r.ItemUnitName||""}</td>
+      <td style="padding:8px;text-align:right;font-family:Consolas,monospace">${priceDisplay}</td>
+      <td style="padding:8px;font-size:12px">${item.custName || (item.bom ? "" : '<span style="color:#dc2626">미정</span>')}</td>
+      <td style="padding:8px;font-size:12px">${item.maker || ""}</td>
+      <td style="padding:8px;text-align:right;font-weight:700;color:var(--p);font-family:Consolas,monospace">${amountDisplay}</td>
+    </tr>`;
+  }).join("");
+}
+
+function poActUpdateSummary() {
+  const total = _poActBomResults.length;
+  const ok = _poActBomResults.filter(r => r.bomOk).length;
+  const missing = total - ok;
+  
+  let totalAmount = 0;
+  for(const r of _poActBomResults) {
+    totalAmount += r.price * Number(r.request.PReqQty || 0);
+  }
+  
+  const setTxt = (id, v) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = v;
+  };
+  
+  setTxt("poact-count-req", total.toLocaleString());
+  setTxt("poact-count-bom-ok", ok.toLocaleString());
+  setTxt("poact-count-bom-missing", missing.toLocaleString());
+  setTxt("poact-total-amount", totalAmount > 0 ? totalAmount.toLocaleString() : "-");
+  
+  // 경고 표시
+  const warning = document.getElementById("poact-warning");
+  if(warning) warning.style.display = missing > 0 ? "block" : "none";
+}
+
+async function poActSaveDraft() {
+  if(_poActSelected.length === 0) {
+    alert("선택된 요청서가 없습니다");
+    return;
+  }
+  
+  if(!confirm(`💾 임시저장 시작\n\n${_poActSelected.length}건의 품의를 SP queue/pending/에 저장합니다.\n(ERP에는 아직 전송되지 않습니다)\n\n계속하시겠습니까?`)) {
+    return;
+  }
+  
+  try {
+    const now = new Date();
+    const queueData = {
+      queue_id: `PO-${now.getFullYear().toString().substr(2)}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`,
+      type: "purchase_order_from_request",
+      menu_name: "프로젝트구매품의입력",
+      created_at: now.toISOString(),
+      created_by: typeof currentUser !== "undefined" ? (currentUser?.displayName || "unknown") : "unknown",
+      status: "pending",
+      data: {
+        requests: _poActSelected.map(r => ({
+          PReqNo: r.PReqNo,
+          PReqSerl: r.PReqSerl,
+          ItemNo: r.ItemNo,
+          ItemName: r.ItemName,
+          PJTNo: r.PJTNo,
+          PJTName: r.PJTName,
+          PReqQty: r.PReqQty,
+          SMCurrStatusName: r.SMCurrStatusName
+        })),
+        bom_validation: _poActBomResults.map(b => ({
+          ItemNo: b.request.ItemNo,
+          bom_ok: b.bomOk,
+          price: b.price,
+          cust: b.custName,
+          maker: b.maker
+        })),
+        summary: {
+          total_count: _poActBomResults.length,
+          bom_ok: _poActBomResults.filter(r => r.bomOk).length,
+          bom_missing: _poActBomResults.filter(r => !r.bomOk).length
+        }
+      },
+      attempts: 0
+    };
+    
+    // SP에 업로드
+    const path = `${ERP_SP_FOLDER}/queue/pending/${queueData.queue_id}.json`;
+    await _erpUploadJson(path, queueData);
+    
+    alert(`✅ 임시저장 완료\n\nID: ${queueData.queue_id}\n${queueData.data.requests.length}건 저장됨\n\n나중에 [🚀 ERP 일괄 전송]으로 보낼 수 있습니다.`);
+    poActCloseModal();
+    
+    // 선택 초기화
+    _reqqSelectedIds.clear();
+    if(typeof reqqRender === "function") reqqRender();
+  } catch(e) {
+    console.error("임시저장 실패:", e);
+    alert(`❌ 임시저장 실패\n\n${e.message || e}`);
+  }
+}
+
+async function poActSendToERP() {
+  if(_poActSelected.length === 0) {
+    alert("선택된 요청서가 없습니다");
+    return;
+  }
+  
+  const missing = _poActBomResults.filter(r => !r.bomOk).length;
+  let warningMsg = "";
+  if(missing > 0) {
+    warningMsg = `\n\n⚠️ BOM 미등록 ${missing}건 포함\n→ 영림원에서 단가가 자동으로 안 채워질 수 있어요.`;
+  }
+  
+  if(!confirm(`🚀 ERP 일괄 전송 시작\n\n${_poActSelected.length}건의 품의를 ERP에 자동 입력합니다.${warningMsg}\n\n진행하시겠습니까?\n(BH님 PC의 RPA가 영림원을 자동 조작합니다)`)) {
+    return;
+  }
+  
+  try {
+    const now = new Date();
+    const queueId = `PO-${now.getFullYear().toString().substr(2)}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
+    
+    // 1. 큐 데이터 SP에 저장
+    const queueData = {
+      queue_id: queueId,
+      type: "purchase_order_from_request",
+      menu_name: "프로젝트구매품의입력",
+      created_at: now.toISOString(),
+      created_by: typeof currentUser !== "undefined" ? (currentUser?.displayName || "unknown") : "unknown",
+      status: "pending",
+      data: {
+        requests: _poActSelected.map(r => ({
+          PReqNo: r.PReqNo,
+          PReqSerl: r.PReqSerl,
+          ItemNo: r.ItemNo,
+          ItemName: r.ItemName,
+          PJTNo: r.PJTNo,
+          PJTName: r.PJTName,
+          PReqQty: r.PReqQty,
+          SMCurrStatusName: r.SMCurrStatusName
+        })),
+        bom_validation: _poActBomResults.map(b => ({
+          ItemNo: b.request.ItemNo,
+          bom_ok: b.bomOk
+        })),
+        summary: {
+          total_count: _poActBomResults.length,
+          bom_ok: _poActBomResults.filter(r => r.bomOk).length,
+          bom_missing: _poActBomResults.filter(r => !r.bomOk).length
+        }
+      },
+      attempts: 0
+    };
+    
+    const queuePath = `${ERP_SP_FOLDER}/queue/pending/${queueId}.json`;
+    await _erpUploadJson(queuePath, queueData);
+    console.log(`📦 큐 저장: ${queueId}`);
+    
+    // 2. trigger.json 생성 → RPA가 이걸 감지
+    const triggerData = {
+      triggered_at: now.toISOString(),
+      triggered_by: typeof currentUser !== "undefined" ? (currentUser?.displayName || "unknown") : "unknown",
+      action: "process_pending",
+      queue_ids: [queueId],
+      total_count: _poActSelected.length
+    };
+    
+    const triggerPath = `${ERP_SP_FOLDER}/queue/trigger.json`;
+    await _erpUploadJson(triggerPath, triggerData);
+    console.log(`🚀 트리거 생성: ${triggerPath}`);
+    
+    alert(`🚀 ERP 전송 시작!\n\n큐 ID: ${queueId}\n품목: ${_poActSelected.length}건\n\nBH님 PC의 RPA가 곧 시작합니다 (최대 10초 내).\n\nTeams에 진행상황이 알림으로 옵니다.`);
+    poActCloseModal();
+    
+    _reqqSelectedIds.clear();
+    if(typeof reqqRender === "function") reqqRender();
+  } catch(e) {
+    console.error("ERP 전송 실패:", e);
+    alert(`❌ 전송 실패\n\n${e.message || e}`);
+  }
+}
+
+/* ─── SP에 JSON 업로드 헬퍼 ─── */
+async function _erpUploadJson(spPath, data) {
+  if(typeof getToken !== "function") {
+    throw new Error("Microsoft Graph 토큰 함수 없음 (로그인 필요)");
+  }
+  if(typeof spDrive === "undefined" || !spDrive) {
+    throw new Error("spDrive 변수 없음 (대시보드 초기화 필요)");
+  }
+  
+  const token = await getToken();
+  
+  // 경로 인코딩
+  const encodedPath = encodeURIComponent(spPath).replace(/'/g, "%27");
+  const url = `https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodedPath}:/content`;
+  
+  const r = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data, null, 2)
+  });
+  
+  if(!r.ok) {
+    const errText = await r.text();
+    throw new Error(`SP 업로드 실패: ${r.status} ${errText.substr(0, 200)}`);
+  }
+  
+  return await r.json();
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════════
+   🔩 BOM 마스터 조회 (bomq) - v4 신규
+   영림원 '프로젝트재료자원조회(멀티)' BOM 데이터 (단일 파일 bom-master.json)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* BOM 마스터 SP에서 직접 로드 (캐시 활용) */
+async function _bomqFetchData(forceRefresh) {
+  // 캐시 확인
+  if(!forceRefresh) {
+    const cached = _erpLoadCache(ERP_CACHE_BOM);
+    if(cached && cached.rows && cached.columns) {
+      console.log(`🔩 BOM 캐시 히트: ${cached.rows.length}건`);
+      return cached;
+    }
+  }
+  
+  // SP에서 다운로드
+  console.log("🔩 BOM SP 다운로드 시작...");
+  const data = await _erpFetchJson(ERP_BOM_MASTER_JSON);
+  if(!data || !data.rows) {
+    console.warn("🔩 BOM 파일 없음 (RPA가 아직 안 돌렸을 수 있음)");
+    return null;
+  }
+  
+  // rowsToObjects 변환
+  const objs = _erpRowsToObjects(data);
+  const result = {
+    rows: objs.rows,
+    columns: data.columns,
+    captured_at: data.captured_at,
+    row_count: data.row_count
+  };
+  
+  // 캐시 저장
+  _erpSaveCache(ERP_CACHE_BOM, result);
+  console.log(`🔩 BOM SP 로드 완료: ${result.rows.length}건`);
+  return result;
+}
+
+async function bomqInit() {
+  bomqRenderHeader();
+  bomqBindKeyboard();
+  _erpLastRun = await _erpFetchJson(ERP_RUN_JSON);
+  bomqUpdateLastTime();
+  
+  if(_bomqRawData === null) {
+    await bomqLoadData(false);
+  } else {
+    bomqApplyFilters();
+  }
+}
+
+function bomqBindKeyboard() {
+  const inputs = document.querySelectorAll("#tab-erp-bom-master .eq-filter input, #tab-erp-bom-master .eq-filter select");
+  inputs.forEach(el => {
+    if(el.dataset._erpBound) return;
+    el.dataset._erpBound = "1";
+    el.addEventListener("keydown", e => {
+      if(e.key === "Enter") { e.preventDefault(); bomqQuery(); }
+    });
+  });
+}
+
+function bomqRenderHeader() {
+  const thead = document.getElementById("bomq-thead");
+  if(!thead) return;
+  thead.innerHTML = BOMQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let sortClass = "";
+    const si = _bomqSort.findIndex(s => s[0] === field);
+    if(si >= 0) sortClass = _bomqSort[si][1] === "asc" ? "sort-asc" : "sort-desc";
+    return `<th class="${sortClass}" style="min-width:${width}px;text-align:${align}" 
+              onclick="bomqSortBy('${field}', event)">${name}</th>`;
+  }).join("");
+}
+
+async function bomqQuery() {
+  bomqApplyFilters();
+}
+
+async function bomqLoadData(forceRefresh) {
+  const tbody = document.getElementById("bomq-tbody");
+  tbody.innerHTML = `<tr><td colspan="${BOMQ_COLS.length}" class="eq-loading">
+    <div class="eq-spinner"></div>
+    <div style="margin-top:10px" id="bomq-load-msg">BOM 마스터 로드 중...</div>
+  </td></tr>`;
+  
+  const data = await _bomqFetchData(forceRefresh);
+  
+  if(!data || !data.rows) {
+    tbody.innerHTML = `<tr><td colspan="${BOMQ_COLS.length}" class="eq-empty">
+      <div class="eq-empty-ic">📭</div>
+      <div class="eq-empty-msg">BOM 마스터 데이터가 없습니다</div>
+      <div class="eq-empty-sub">erp_bom_sync.py 를 1회 실행하여 영림원 BOM을 가져와주세요.<br><br>
+        <code style="background:var(--bg3);padding:4px 8px;border-radius:4px">py -3.12 erp_bom_sync.py test</code>
+      </div>
+    </td></tr>`;
+    return;
+  }
+  
+  _bomqRawData = data.rows;
+  console.log(`🔩 BOM 마스터 누적: ${_bomqRawData.length}건`);
+  bomqApplyFilters();
+}
+
+async function bomqRefresh() {
+  console.log("🔄 BOM 강제 갱신");
+  localStorage.removeItem(ERP_CACHE_BOM);
+  _bomqRawData = null;
+  await bomqLoadData(true);
+}
+
+function bomqApplyFilters() {
+  if(!_bomqRawData) return;
+  
+  const f = {
+    pjt: document.getElementById("bomq-pjt").value.trim().toLowerCase(),
+    item: document.getElementById("bomq-item").value.trim().toLowerCase(),
+    cust: document.getElementById("bomq-cust").value.trim().toLowerCase(),
+    maker: document.getElementById("bomq-maker").value.trim().toLowerCase(),
+    pcr: document.getElementById("bomq-pcr").value,
+    priced: document.getElementById("bomq-priced").value,
+    cls: document.getElementById("bomq-class").value.trim().toLowerCase(),
+  };
+  
+  _bomqFiltered = _bomqRawData.filter(r => {
+    if(f.pjt) {
+      const inN = String(r.PJTName||"").toLowerCase().includes(f.pjt);
+      const inNo = String(r.PJTNo||"").toLowerCase().includes(f.pjt);
+      if(!inN && !inNo) return false;
+    }
+    if(f.item) {
+      const inN = String(r.ItemName||"").toLowerCase().includes(f.item);
+      const inNo = String(r.ItemNo||"").toLowerCase().includes(f.item);
+      const inSp = String(r.Spec||"").toLowerCase().includes(f.item);
+      if(!inN && !inNo && !inSp) return false;
+    }
+    if(f.cust && !String(r.CustName||"").toLowerCase().includes(f.cust)) return false;
+    if(f.maker && !String(r.Maker||"").toLowerCase().includes(f.maker)) return false;
+    if(f.pcr && r.ProcurementName !== f.pcr) return false;
+    if(f.priced === "yes") {
+      const p = Number(r.Price || 0);
+      if(p <= 0) return false;
+    } else if(f.priced === "no") {
+      const p = Number(r.Price || 0);
+      if(p > 0) return false;
+    }
+    if(f.cls && !String(r.ItemClass||"").toLowerCase().includes(f.cls)) return false;
+    return true;
+  });
+  
+  _bomqSortData();
+  bomqRender();
+  bomqUpdateCards();
+  bomqUpdateFilterSummary();
+}
+
+function _bomqSortData() {
+  if(!_bomqSort.length) return;
+  _bomqFiltered.sort((a, b) => {
+    for(const [field, dir] of _bomqSort) {
+      let av = a[field], bv = b[field];
+      if(av == null) av = "";
+      if(bv == null) bv = "";
+      const an = Number(av), bn = Number(bv);
+      let cmp;
+      if(!isNaN(an) && !isNaN(bn) && av !== "" && bv !== "") cmp = an - bn;
+      else cmp = String(av).localeCompare(String(bv), "ko");
+      if(cmp !== 0) return dir === "desc" ? -cmp : cmp;
+    }
+    return 0;
+  });
+}
+
+function bomqSortBy(field, evt) {
+  if(_bomqSort.length === 1 && _bomqSort[0][0] === field) {
+    _bomqSort[0][1] = _bomqSort[0][1] === "asc" ? "desc" : "asc";
+  } else {
+    _bomqSort = [[field, "asc"]];
+  }
+  bomqRenderHeader();
+  _bomqSortData();
+  bomqRender();
+}
+
+function bomqRender() {
+  const tbody = document.getElementById("bomq-tbody");
+  const tfoot = document.getElementById("bomq-tfoot");
+  
+  const badge = document.getElementById("badge-erp-bom-m");
+  if(badge) badge.textContent = (_bomqRawData||[]).length.toLocaleString();
+  
+  if(_bomqFiltered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${BOMQ_COLS.length}" class="eq-empty">
+      <div class="eq-empty-ic">🔍</div>
+      <div class="eq-empty-msg">검색 결과가 없습니다</div>
+    </td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+  
+  // 너무 많으면 자르기 (10000+)
+  const MAX_RENDER = 5000;
+  const rowsToRender = _bomqFiltered.length > MAX_RENDER ? _bomqFiltered.slice(0, MAX_RENDER) : _bomqFiltered;
+  const truncated = _bomqFiltered.length > MAX_RENDER;
+  
+  tbody.innerHTML = rowsToRender.map(r => {
+    let row = `<tr>` + BOMQ_COLS.map(c => {
+      const [field, name, type, width, align] = c;
+      let v = _erpFmt(r[field], type);
+      let cls = (type === "money" || type === "num") ? "num" : "";
+      let style = `text-align:${align}`;
+      
+      // 단가 없으면 빨간색
+      if(field === "Price" && (!r[field] || Number(r[field]) === 0)) {
+        return `<td class="${cls}" style="${style};color:#dc2626;font-weight:600" title="단가 미등록">⚠️</td>`;
+      }
+      return `<td class="${cls}" style="${style}" title="${String(r[field]||"").replace(/"/g,'&quot;')}">${v||""}</td>`;
+    }).join("") + `</tr>`;
+    return row;
+  }).join("") + (truncated ? `<tr><td colspan="${BOMQ_COLS.length}" style="text-align:center;padding:14px;color:#dc2626;font-weight:600;background:#fee2e2">⚠️ 결과가 너무 많아 ${MAX_RENDER.toLocaleString()}건만 표시. 필터를 더 좁혀주세요.</td></tr>` : "");
+  
+  tfoot.innerHTML = `<tr>` + BOMQ_COLS.map(c => {
+    const [field, name, type, width, align] = c;
+    let val = "";
+    if(field === "IsBuy") val = `합계 ${_bomqFiltered.length.toLocaleString()}건`;
+    return `<td style="text-align:${align}">${val}</td>`;
+  }).join("") + `</tr>`;
+}
+
+function bomqUpdateLastTime() {
+  const t = document.getElementById("bomq-last");
+  if(!t) return;
+  if(_bomqRawData && _bomqRawData._captured_at) {
+    t.textContent = _erpRelativeTime(_bomqRawData._captured_at);
+  } else {
+    t.textContent = "BOM 데이터 확인 중...";
+  }
+}
+
+function bomqResetFilter() {
+  ["bomq-pjt","bomq-item","bomq-cust","bomq-maker","bomq-class"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  document.getElementById("bomq-pcr").value = "";
+  document.getElementById("bomq-priced").value = "";
+  bomqApplyFilters();
+}
+
+function bomqToggleFilter() {
+  const filter = document.getElementById("bomq-filter");
+  if(!filter) return;
+  filter.classList.toggle("collapsed");
+  const toggle = filter.querySelector(".eq-filter-head-toggle");
+  if(toggle) toggle.textContent = filter.classList.contains("collapsed") ? "펼치기" : "접기";
+}
+
+function bomqUpdateCards() {
+  if(!_bomqFiltered) return;
+  const rows = _bomqFiltered;
+  const total = rows.length;
+  
+  const pjtSet = new Set();
+  const custSet = new Set();
+  let priced = 0;
+  
+  for(const r of rows) {
+    if(r.PJTNo) pjtSet.add(r.PJTNo);
+    if(r.CustName) custSet.add(r.CustName);
+    if(Number(r.Price || 0) > 0) priced++;
+  }
+  
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+  };
+  
+  setTxt("bomq-card-total", total.toLocaleString());
+  setTxt("bomq-card-pjt", pjtSet.size.toLocaleString());
+  setTxt("bomq-card-priced", priced.toLocaleString());
+  setTxt("bomq-card-priced-pct", total > 0 ? Math.round((priced/total)*100) : 0);
+  setTxt("bomq-card-cust", custSet.size.toLocaleString());
+}
+
+function bomqUpdateFilterSummary() {
+  const el = document.getElementById("bomq-filter-summary");
+  if(!el) return;
+  const parts = [];
+  const pjt = document.getElementById("bomq-pjt")?.value.trim();
+  if(pjt) parts.push(`PJT: ${pjt}`);
+  const item = document.getElementById("bomq-item")?.value.trim();
+  if(item) parts.push(`품목: ${item}`);
+  const cust = document.getElementById("bomq-cust")?.value.trim();
+  if(cust) parts.push(`거래처: ${cust}`);
+  el.textContent = parts.length > 0 ? "· " + parts.join(" · ") : "";
+}
+
+function bomqExportExcel() {
+  if(!_bomqFiltered || !_bomqFiltered.length) {
+    alert("내보낼 데이터가 없습니다");
+    return;
+  }
+  if(typeof XLSX === "undefined") {
+    alert("SheetJS가 로드되지 않았습니다");
+    return;
+  }
+  const rows = _bomqFiltered.map(r => {
+    const o = {};
+    for(const c of BOMQ_COLS) o[c[1]] = r[c[0]];
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "BOM마스터");
+  const now = new Date();
+  const fn = `ERP_BOM마스터_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}.xlsx`;
+  XLSX.writeFile(wb, fn);
+}
+
+/* BOM 검색 헬퍼 (다른 탭에서 사용)
+   품목번호로 BOM 마스터에서 정보 찾기 */
+function bomLookup(itemNo, pjtNo) {
+  if(!_bomqRawData) return null;
+  // 1차: 정확한 매치 (itemNo + pjtNo)
+  if(pjtNo) {
+    const exact = _bomqRawData.find(r => r.ItemNo === itemNo && r.PJTNo === pjtNo);
+    if(exact) return exact;
+  }
+  // 2차: itemNo만 매치 (가장 최근)
+  const matches = _bomqRawData.filter(r => r.ItemNo === itemNo);
+  if(matches.length > 0) {
+    // 단가 있는 것 우선
+    const withPrice = matches.find(r => Number(r.Price || 0) > 0);
+    return withPrice || matches[0];
+  }
+  return null;
 }
 
 
 console.log("✅ ERP 조회 모듈 로드 완료");
 
 </script>
+
+
+    <!-- ════════ 📝 ERP 품의 작성 모달 (Phase B-3) ════════ -->
+    <div class="modal" id="poActModal" style="display:none">
+      <div class="modal-content" style="max-width:1400px;width:95vw;max-height:92vh;overflow:auto;background:var(--bg2);border-radius:14px;padding:0">
+        
+        <!-- 모달 헤더 -->
+        <div style="position:sticky;top:0;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:18px 24px;border-radius:14px 14px 0 0;z-index:10;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h2 style="margin:0;font-size:20px;font-weight:700">📝 ERP 품의 작성</h2>
+            <div style="font-size:13px;opacity:0.9;margin-top:3px">선택된 구매요청서로 품의 작성 → ERP 자동 입력</div>
+          </div>
+          <button onclick="poActCloseModal()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600">✕ 닫기</button>
+        </div>
+
+        <!-- 본문 -->
+        <div style="padding:20px 24px">
+          
+          <!-- 요약 카드 -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px">
+            <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:10px;padding:12px 14px">
+              <div style="font-size:12px;color:#1e40af;font-weight:600">📋 선택된 요청</div>
+              <div style="font-size:24px;font-weight:700;color:#1e3a8a"><span id="poact-count-req">-</span><span style="font-size:13px;color:#3730a3">건</span></div>
+            </div>
+            <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:12px 14px">
+              <div style="font-size:12px;color:#15803d;font-weight:600">🟢 BOM 등록</div>
+              <div style="font-size:24px;font-weight:700;color:#14532d"><span id="poact-count-bom-ok">-</span><span style="font-size:13px">건</span></div>
+            </div>
+            <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px 14px">
+              <div style="font-size:12px;color:#b91c1c;font-weight:600">🔴 BOM 미등록</div>
+              <div style="font-size:24px;font-weight:700;color:#7f1d1d"><span id="poact-count-bom-missing">-</span><span style="font-size:13px">건</span></div>
+            </div>
+            <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px">
+              <div style="font-size:12px;color:#92400e;font-weight:600">💰 예상 금액</div>
+              <div style="font-size:20px;font-weight:700;color:#78350f"><span id="poact-total-amount">-</span><span style="font-size:13px">원</span></div>
+            </div>
+          </div>
+
+          <!-- 안내 -->
+          <div id="poact-warning" style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none">
+            <div style="font-weight:600;color:#92400e;margin-bottom:4px">⚠️ BOM 미등록 품목 있음</div>
+            <div style="font-size:13px;color:#713f12">
+              일부 품목이 BOM 마스터에 없습니다. ERP에서 자동으로 단가가 안 채워질 수 있어요.<br>
+              먼저 [+ 자원 등록] 으로 BOM에 등록한 후 전송하세요.
+            </div>
+          </div>
+
+          <!-- 품목 리스트 (메인) -->
+          <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px" id="poact-items-table">
+              <thead style="background:var(--bg3);position:sticky;top:60px">
+                <tr>
+                  <th style="padding:10px 8px;text-align:center;width:50px;border-right:1px solid var(--border)">검증</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border)">요청번호</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border)">프로젝트</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border)">품명</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border)">규격</th>
+                  <th style="padding:10px 8px;text-align:center;border-right:1px solid var(--border);width:60px">수량</th>
+                  <th style="padding:10px 8px;text-align:right;border-right:1px solid var(--border);width:100px">단가</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);width:140px">거래처</th>
+                  <th style="padding:10px 8px;text-align:left;border-right:1px solid var(--border);width:100px">제조사</th>
+                  <th style="padding:10px 8px;text-align:right;width:120px">예상금액</th>
+                </tr>
+              </thead>
+              <tbody id="poact-items-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- 액션 버튼 영역 -->
+          <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:13px;color:var(--t3)">
+              💡 임시저장: SP에 저장만. 일괄 전송: 큐에 들어가 RPA가 ERP 자동 입력
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="eq-btn" onclick="poActCloseModal()">취소</button>
+              <button class="eq-btn warn" onclick="poActSaveDraft()" title="SP queue/pending에 저장만 (ERP 전송 안 함)">💾 임시저장</button>
+              <button class="eq-btn primary" onclick="poActSendToERP()" title="trigger.json 만들어서 RPA가 ERP 자동 입력 시작">🚀 ERP 일괄 전송</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
 
 </body>
 </html>
