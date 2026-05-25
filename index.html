@@ -1252,173 +1252,248 @@
       </div>
     </div>
 
+    <!-- ════════ 📥 ERP 발주품목조회 (v2 모던 리디자인) ════════ -->
     <div class="page" id="tab-erp-po-query">
-  <div class="eq-wrap">
-    
-    <!-- 📋 조회 조건 -->
-    <div class="eq-filter">
-      <div class="eq-filter-row">
-        <span class="eq-label">발주일</span>
-        <input type="date" id="poq-date-fr" class="eq-input date">
-        <span style="color:var(--t3)">~</span>
-        <input type="date" id="poq-date-to" class="eq-input date">
+      <div class="eq-wrap">
         
-        <span class="eq-label" style="margin-left:8px">상태</span>
-        <select id="poq-status" class="eq-input">
-          <option value="">전체</option>
-          <option value="작성">작성</option>
-          <option value="결재중">결재중</option>
-          <option value="완료">완료</option>
-          <option value="중단">중단</option>
-        </select>
-        
-        <span class="eq-label" style="margin-left:8px">내외자</span>
-        <select id="poq-imptype" class="eq-input" style="min-width:80px">
-          <option value="">전체</option>
-          <option value="내수">내수</option>
-          <option value="외자">외자</option>
-        </select>
-        
-        <span class="eq-toggle-extra" onclick="poqToggleExtra()">➕ 추가조건</span>
-      </div>
-      
-      <div class="eq-filter-row">
-        <span class="eq-label">발주번호</span>
-        <input type="text" id="poq-pono" class="eq-input" placeholder="20260501-0001">
-        
-        <span class="eq-label" style="margin-left:8px">거래처</span>
-        <input type="text" id="poq-cust" class="eq-input" placeholder="거래처명 검색" style="min-width:160px">
-        
-        <span class="eq-label" style="margin-left:8px">품목</span>
-        <input type="text" id="poq-item" class="eq-input" placeholder="품명/품번 검색" style="min-width:160px">
-      </div>
-      
-      <div class="eq-extra-panel" id="poq-extra">
-        <div class="eq-filter-row">
-          <span class="eq-label">프로젝트</span>
-          <input type="text" id="poq-pjt" class="eq-input" placeholder="프로젝트명/번호" style="min-width:200px">
-          
-          <span class="eq-label" style="margin-left:8px">부서</span>
-          <input type="text" id="poq-dept" class="eq-input" placeholder="부서명" style="min-width:120px">
-          
-          <span class="eq-label" style="margin-left:8px">담당자</span>
-          <input type="text" id="poq-emp" class="eq-input" placeholder="담당자명" style="min-width:120px">
+        <!-- 헤더 -->
+        <div class="eq-header">
+          <div class="eq-header-title">
+            <h2>📥 ERP 발주품목조회</h2>
+            <span class="eq-header-time" id="poq-last">확인 중...</span>
+          </div>
+          <div class="eq-header-actions">
+            <div class="eq-mode-toggle">
+              <button id="poq-mode-krw" class="on" onclick="poqSetMode('krw')">원화</button>
+              <button id="poq-mode-foreign" onclick="poqSetMode('foreign')">+ 외화</button>
+            </div>
+            <button class="eq-btn primary" onclick="poqQuery()" title="입력 조건으로 필터링 (즉시)">🔄 조회</button>
+            <button class="eq-btn warn" onclick="poqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
+            <button class="eq-btn" onclick="poqExportExcel()">📊 엑셀</button>
+            <button class="eq-btn" onclick="poqPrint()">🖨 인쇄</button>
+            <button class="eq-btn" onclick="poqResetFilter()">↺ 초기화</button>
+          </div>
         </div>
-        <div class="eq-filter-row">
-          <span class="eq-label">납기일</span>
-          <input type="date" id="poq-delv-fr" class="eq-input date">
-          <span style="color:var(--t3)">~</span>
-          <input type="date" id="poq-delv-to" class="eq-input date">
-          
-          <span class="eq-label" style="margin-left:8px">품목분류</span>
-          <input type="text" id="poq-class" class="eq-input" placeholder="대/중/소분류" style="min-width:160px">
-          
-          <span class="eq-label" style="margin-left:8px">중단포함</span>
-          <select id="poq-stop" class="eq-input" style="min-width:90px">
-            <option value="all">전체</option>
-            <option value="active">활성만</option>
-            <option value="stopped">중단만</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    
-    <!-- 🎛️ 도구바 -->
-    <div class="eq-toolbar">
-      <div class="eq-tb-left">
-        <span>📊 <span class="eq-tb-cnt" id="poq-cnt">0</span>건</span>
-        <span style="color:var(--t3)">|</span>
-        <div class="eq-stats">
-          <span>완료 <b class="stat-g" id="poq-st-done">0</b></span>
-          <span>작성 <b class="stat-a" id="poq-st-draft">0</b></span>
-          <span>중단 <b class="stat-r" id="poq-st-stop">0</b></span>
-        </div>
-        <span style="color:var(--t3)">|</span>
-        <span class="eq-tb-time" id="poq-last">마지막 갱신: 확인 중...</span>
-        <div class="eq-mode-toggle">
-          <button id="poq-mode-krw" class="on" onclick="poqSetMode('krw')">원화</button>
-          <button id="poq-mode-foreign" onclick="poqSetMode('foreign')">+ 외화</button>
-        </div>
-      </div>
-      <div class="eq-tb-right">
-        <button class="eq-btn primary" onclick="poqQuery()" title="입력 조건으로 필터링 (즉시)">🔄 조회</button>
-        <button class="eq-btn" onclick="poqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
-        <button class="eq-btn" onclick="poqExportExcel()">📊 엑셀</button>
-        <button class="eq-btn" onclick="poqPrint()">🖨 인쇄</button>
-        <button class="eq-btn" onclick="poqResetFilter()">↺ 초기화</button>
-      </div>
-    </div>
-    
-    <!-- 🗂 데이터 그리드 -->
-    <div class="eq-grid-wrap">
-      <div class="eq-grid-scroll">
-        <table class="eq-grid" id="poq-table">
-          <thead><tr id="poq-thead"></tr></thead>
-          <tbody id="poq-tbody"></tbody>
-          <tfoot><tr id="poq-tfoot"></tr></tfoot>
-        </table>
-      </div>
-    </div>
-    
-  </div>
-</div>
 
+        <!-- 집계 카드 (KPI) -->
+        <div class="eq-cards" id="poq-cards">
+          <div class="eq-card">
+            <div class="eq-card-label">📦 총 건수</div>
+            <div class="eq-card-value"><span id="poq-card-total">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">전체 발주품목 (필터 적용 후)</div>
+          </div>
+          <div class="eq-card c-pu">
+            <div class="eq-card-label">💰 총 금액</div>
+            <div class="eq-card-value"><span id="poq-card-amount">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">원</span></div>
+            <div class="eq-card-sub">VAT 포함 (<b id="poq-card-vat">-</b>억)</div>
+          </div>
+          <div class="eq-card c-g">
+            <div class="eq-card-label">✅ 완료</div>
+            <div class="eq-card-value"><span id="poq-card-done">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">완료율 <b id="poq-card-done-pct">-</b>%</div>
+          </div>
+          <div class="eq-card c-a">
+            <div class="eq-card-label">🚧 진행중</div>
+            <div class="eq-card-value"><span id="poq-card-active">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">작성·결재 (중단 <b id="poq-card-stop">-</b>)</div>
+          </div>
+        </div>
+
+        <!-- 조회 조건 (접기 가능) -->
+        <div class="eq-filter" id="poq-filter">
+          <div class="eq-filter-head" onclick="poqToggleFilter()">
+            <div class="eq-filter-head-title">
+              🔍 조회 조건
+              <span class="eq-filter-head-summary" id="poq-filter-summary"></span>
+            </div>
+            <div class="eq-filter-head-toggle">접기</div>
+          </div>
+          <div class="eq-filter-body">
+            <div class="eq-field">
+              <div class="eq-field-label">📅 발주일</div>
+              <div class="eq-field-input-range">
+                <input type="date" id="poq-date-fr" class="eq-input date">
+                <span class="eq-input-sep">~</span>
+                <input type="date" id="poq-date-to" class="eq-input date">
+              </div>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📅 납기일</div>
+              <div class="eq-field-input-range">
+                <input type="date" id="poq-delv-fr" class="eq-input date">
+                <span class="eq-input-sep">~</span>
+                <input type="date" id="poq-delv-to" class="eq-input date">
+              </div>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📊 상태</div>
+              <select id="poq-status" class="eq-input">
+                <option value="">전체</option>
+                <option value="작성">작성</option>
+                <option value="결재중">결재중</option>
+                <option value="완료">완료</option>
+                <option value="중단">중단</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🌐 내외자</div>
+              <select id="poq-imptype" class="eq-input">
+                <option value="">전체</option>
+                <option value="내수">내수</option>
+                <option value="외자">외자</option>
+              </select>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🔢 발주번호</div>
+              <input type="text" id="poq-pono" class="eq-input" placeholder="20260501-0001">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏢 거래처</div>
+              <input type="text" id="poq-cust" class="eq-input" placeholder="거래처명 검색">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📦 품목</div>
+              <input type="text" id="poq-item" class="eq-input" placeholder="품명·품번 검색">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🎯 프로젝트</div>
+              <input type="text" id="poq-pjt" class="eq-input" placeholder="프로젝트명·번호">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏛️ 부서</div>
+              <input type="text" id="poq-dept" class="eq-input" placeholder="부서명">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">👤 담당자</div>
+              <input type="text" id="poq-emp" class="eq-input" placeholder="담당자명">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏷️ 품목분류</div>
+              <input type="text" id="poq-class" class="eq-input" placeholder="대·중·소분류">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">⛔ 중단포함</div>
+              <select id="poq-stop" class="eq-input">
+                <option value="all">전체</option>
+                <option value="active">활성만</option>
+                <option value="stopped">중단만</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 데이터 그리드 (가로/세로 스크롤 + 헤더 고정) -->
+        <div class="eq-grid-wrap">
+          <div class="eq-grid-scroll">
+            <table class="eq-grid" id="poq-table">
+              <thead><tr id="poq-thead"></tr></thead>
+              <tbody id="poq-tbody"></tbody>
+              <tfoot><tr id="poq-tfoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <!-- ════════ 📥 ERP 입고정산조회 (v2 모던 리디자인) ════════ -->
     <div class="page" id="tab-erp-dlv-query">
-  <div class="eq-wrap">
-    
-    <div class="eq-filter">
-      <div class="eq-filter-row">
-        <span class="eq-label">입고일</span>
-        <input type="date" id="dlvq-date-fr" class="eq-input date">
-        <span style="color:var(--t3)">~</span>
-        <input type="date" id="dlvq-date-to" class="eq-input date">
+      <div class="eq-wrap">
         
-        <span class="eq-label" style="margin-left:8px">거래처</span>
-        <input type="text" id="dlvq-cust" class="eq-input" placeholder="거래처명" style="min-width:160px">
+        <!-- 헤더 -->
+        <div class="eq-header">
+          <div class="eq-header-title">
+            <h2>📥 ERP 입고정산조회</h2>
+            <span class="eq-header-time" id="dlvq-last">확인 중...</span>
+          </div>
+          <div class="eq-header-actions">
+            <button class="eq-btn primary" onclick="dlvqQuery()" title="입력 조건으로 필터링 (즉시)">🔄 조회</button>
+            <button class="eq-btn warn" onclick="dlvqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
+            <button class="eq-btn" onclick="dlvqExportExcel()">📊 엑셀</button>
+            <button class="eq-btn" onclick="dlvqPrint()">🖨 인쇄</button>
+            <button class="eq-btn" onclick="dlvqResetFilter()">↺ 초기화</button>
+          </div>
+        </div>
+
+        <!-- 집계 카드 (KPI) -->
+        <div class="eq-cards" id="dlvq-cards">
+          <div class="eq-card">
+            <div class="eq-card-label">📦 총 건수</div>
+            <div class="eq-card-value"><span id="dlvq-card-total">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">건</span></div>
+            <div class="eq-card-sub">전체 입고품목 (필터 적용 후)</div>
+          </div>
+          <div class="eq-card c-pu">
+            <div class="eq-card-label">💰 총 입고액</div>
+            <div class="eq-card-value"><span id="dlvq-card-amount">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">원</span></div>
+            <div class="eq-card-sub">VAT 포함 (<b id="dlvq-card-vat">-</b>억)</div>
+          </div>
+          <div class="eq-card c-g">
+            <div class="eq-card-label">🏢 거래처</div>
+            <div class="eq-card-value"><span id="dlvq-card-cust">-</span><span style="font-size:13px;color:var(--t3);font-weight:600">개사</span></div>
+            <div class="eq-card-sub">고유 거래처 수</div>
+          </div>
+          <div class="eq-card c-a">
+            <div class="eq-card-label">📅 최근 입고</div>
+            <div class="eq-card-value" style="font-size:18px"><span id="dlvq-card-recent">-</span></div>
+            <div class="eq-card-sub">가장 최근 입고일</div>
+          </div>
+        </div>
+
+        <!-- 조회 조건 (접기 가능) -->
+        <div class="eq-filter" id="dlvq-filter">
+          <div class="eq-filter-head" onclick="dlvqToggleFilter()">
+            <div class="eq-filter-head-title">
+              🔍 조회 조건
+              <span class="eq-filter-head-summary" id="dlvq-filter-summary"></span>
+            </div>
+            <div class="eq-filter-head-toggle">접기</div>
+          </div>
+          <div class="eq-filter-body">
+            <div class="eq-field">
+              <div class="eq-field-label">📅 입고일</div>
+              <div class="eq-field-input-range">
+                <input type="date" id="dlvq-date-fr" class="eq-input date">
+                <span class="eq-input-sep">~</span>
+                <input type="date" id="dlvq-date-to" class="eq-input date">
+              </div>
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🏢 거래처</div>
+              <input type="text" id="dlvq-cust" class="eq-input" placeholder="거래처명 검색">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">📦 품목</div>
+              <input type="text" id="dlvq-item" class="eq-input" placeholder="품명·품번 검색">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🎯 프로젝트</div>
+              <input type="text" id="dlvq-pjt" class="eq-input" placeholder="프로젝트명·번호">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">🔢 발주번호</div>
+              <input type="text" id="dlvq-pono" class="eq-input" placeholder="발주번호">
+            </div>
+            <div class="eq-field">
+              <div class="eq-field-label">👤 담당자</div>
+              <input type="text" id="dlvq-emp" class="eq-input" placeholder="담당자명">
+            </div>
+          </div>
+        </div>
+
+        <!-- 데이터 그리드 -->
+        <div class="eq-grid-wrap">
+          <div class="eq-grid-scroll">
+            <table class="eq-grid" id="dlvq-table">
+              <thead><tr id="dlvq-thead"></tr></thead>
+              <tbody id="dlvq-tbody"></tbody>
+              <tfoot><tr id="dlvq-tfoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
         
-        <span class="eq-label" style="margin-left:8px">품목</span>
-        <input type="text" id="dlvq-item" class="eq-input" placeholder="품명/품번" style="min-width:160px">
-      </div>
-      
-      <div class="eq-filter-row">
-        <span class="eq-label">프로젝트</span>
-        <input type="text" id="dlvq-pjt" class="eq-input" placeholder="프로젝트명/번호" style="min-width:200px">
-        
-        <span class="eq-label" style="margin-left:8px">발주번호</span>
-        <input type="text" id="dlvq-pono" class="eq-input" placeholder="발주번호">
-        
-        <span class="eq-label" style="margin-left:8px">담당자</span>
-        <input type="text" id="dlvq-emp" class="eq-input" placeholder="담당자명" style="min-width:120px">
       </div>
     </div>
-    
-    <div class="eq-toolbar">
-      <div class="eq-tb-left">
-        <span>📊 <span class="eq-tb-cnt" id="dlvq-cnt">0</span>건</span>
-        <span style="color:var(--t3)">|</span>
-        <span class="eq-tb-time" id="dlvq-last">마지막 갱신: 확인 중...</span>
-      </div>
-      <div class="eq-tb-right">
-        <button class="eq-btn primary" onclick="dlvqQuery()" title="입력 조건으로 필터링 (즉시)">🔄 조회</button>
-        <button class="eq-btn" onclick="dlvqRefreshCurrentYear()" title="현재 연도 데이터를 SharePoint에서 다시 받아옵니다">⚡ 새데이터</button>
-        <button class="eq-btn" onclick="dlvqExportExcel()">📊 엑셀</button>
-        <button class="eq-btn" onclick="dlvqPrint()">🖨 인쇄</button>
-        <button class="eq-btn" onclick="dlvqResetFilter()">↺ 초기화</button>
-      </div>
-    </div>
-    
-    <div class="eq-grid-wrap">
-      <div class="eq-grid-scroll">
-        <table class="eq-grid" id="dlvq-table">
-          <thead><tr id="dlvq-thead"></tr></thead>
-          <tbody id="dlvq-tbody"></tbody>
-          <tfoot><tr id="dlvq-tfoot"></tr></tfoot>
-        </table>
-      </div>
-    </div>
-    
-  </div>
-</div>
+
 
 
 
@@ -26981,243 +27056,309 @@ function printQuote() {
       @media print{body{padding:8mm}}
     
 
-/* ═══════ 📥 ERP 조회 모듈 v2 스타일 ═══════ */
-/* ═══════ ERP 조회 페이지 공통 스타일 ═══════ */
-.eq-wrap { padding: 12px 16px; }
+/* ═══════ 📥 ERP 조회 모듈 v2 스타일 (모던 리디자인) ═══════ */
 
-/* 조회조건 패널 */
+/* ─── 페이지 컨테이너 ─── */
+.eq-wrap {
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: calc(100vh - 56px);
+  box-sizing: border-box;
+}
+
+/* ─── 헤더 (제목 + 액션 버튼) ─── */
+.eq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.eq-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.eq-header-title h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--t);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+.eq-header-time {
+  font-size: 12px;
+  color: var(--t3);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg3);
+  border-radius: 20px;
+  font-weight: 600;
+}
+.eq-header-time::before { content: "🕐"; font-size: 11px; }
+.eq-header-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+/* ─── 집계 카드 (KPI) ─── */
+.eq-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.eq-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.eq-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.eq-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--p);
+}
+.eq-card.c-g::before { background: var(--g); }
+.eq-card.c-a::before { background: var(--a); }
+.eq-card.c-r::before { background: var(--r); }
+.eq-card.c-pu::before { background: var(--pu); }
+.eq-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.eq-card-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--t);
+  font-family: var(--m);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.eq-card-sub {
+  font-size: 11px;
+  color: var(--t2);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.eq-card-sub b { color: var(--t); font-family: var(--m); }
+
+/* ─── 조회조건 패널 (접기 가능) ─── */
 .eq-filter {
   background: var(--bg2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
 }
-.eq-filter-row {
+.eq-filter-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  padding: 11px 16px;
+  background: var(--bg3);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
 }
-.eq-filter-row:last-child { margin-bottom: 0; }
-.eq-label {
+.eq-filter.collapsed .eq-filter-head {
+  border-bottom: none;
+}
+.eq-filter-head-title {
   font-size: 13px;
+  font-weight: 800;
+  color: var(--t);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eq-filter-head-summary {
+  font-size: 12px;
+  color: var(--t2);
+  font-weight: 600;
+  margin-left: 10px;
+}
+.eq-filter-head-toggle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--p);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg2);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.eq-filter-head-toggle:hover {
+  background: var(--pd);
+  border-color: var(--p);
+}
+.eq-filter.collapsed .eq-filter-head-toggle::before { content: "▼ "; }
+.eq-filter:not(.collapsed) .eq-filter-head-toggle::before { content: "▲ "; }
+
+.eq-filter-body {
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 14px;
+  max-height: 500px;
+  transition: max-height 0.25s, padding 0.25s;
+  overflow: hidden;
+}
+.eq-filter.collapsed .eq-filter-body {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: none;
+}
+
+.eq-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.eq-field-label {
+  font-size: 11px;
   font-weight: 700;
   color: var(--t2);
-  min-width: 75px;
-  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.eq-field-input,
+.eq-field-input-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .eq-input {
-  padding: 6px 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
   border: 1px solid var(--border2);
-  border-radius: 6px;
-  font-family: var(--s);
+  border-radius: 7px;
   font-size: 13px;
   background: var(--bg2);
   color: var(--t);
-  min-width: 130px;
+  font-family: var(--s);
+  outline: none;
+  transition: all 0.15s;
 }
 .eq-input:focus {
   border-color: var(--p);
-  outline: none;
+  box-shadow: 0 0 0 3px var(--pd);
 }
-.eq-input.date { min-width: 130px; }
-.eq-toggle-extra {
-  font-size: 12px;
-  color: var(--p);
-  cursor: pointer;
-  user-select: none;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 5px;
-  transition: background .15s;
-}
-.eq-toggle-extra:hover { background: var(--pd); }
-.eq-extra-panel {
-  border-top: 1px dashed var(--border);
-  padding-top: 10px;
-  margin-top: 8px;
-  display: none;
-}
-.eq-extra-panel.on { display: block; }
+.eq-input.date { font-family: var(--m); font-size: 12px; }
+.eq-input.date::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
+.eq-input-sep { color: var(--t3); font-weight: 600; font-size: 12px; }
 
-/* 우측 도구바 */
+/* ─── 도구바 ─── */
 .eq-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
+  padding: 8px 0;
 }
 .eq-tb-left {
-  font-size: 13px;
-  color: var(--t2);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--t2);
+  font-weight: 600;
 }
 .eq-tb-cnt {
   font-weight: 800;
   color: var(--p);
   font-family: var(--m);
-}
-.eq-tb-time {
-  color: var(--t3);
-  font-size: 12px;
+  font-size: 14px;
 }
 .eq-tb-right {
   display: flex;
   gap: 6px;
 }
+
+/* 버튼 */
 .eq-btn {
-  padding: 7px 14px;
+  padding: 7px 13px;
   border: 1px solid var(--border2);
-  border-radius: 7px;
   background: var(--bg2);
-  font-family: var(--s);
-  font-size: 13px;
+  color: var(--t);
+  border-radius: 7px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: var(--t2);
   cursor: pointer;
-  transition: all .15s;
+  font-family: var(--s);
+  transition: all 0.12s;
+  white-space: nowrap;
 }
-.eq-btn:hover { background: var(--bg3); border-color: var(--p); color: var(--p); }
+.eq-btn:hover {
+  background: var(--bg3);
+  border-color: var(--border2);
+  transform: translateY(-1px);
+}
+.eq-btn:active { transform: translateY(0); }
 .eq-btn.primary {
   background: var(--p);
-  color: #fff;
+  color: white;
   border-color: var(--p);
 }
-.eq-btn.primary:hover { background: #1559b8; color: #fff; }
-.eq-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.eq-btn.primary:hover { background: #1561c0; }
+.eq-btn.warn {
+  background: var(--ad);
+  color: var(--a);
+  border-color: rgba(217,95,0,0.2);
 }
+.eq-btn.warn:hover { background: rgba(217,95,0,0.15); }
 
-/* 데이터 그리드 */
-.eq-grid-wrap {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.eq-grid-scroll {
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: calc(100vh - 280px);
-}
-.eq-grid {
-  width: max-content;
-  min-width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
-}
-.eq-grid thead th {
-  background: var(--bg3);
-  color: var(--t2);
-  font-weight: 700;
-  font-size: 12px;
-  padding: 8px 10px;
-  border-bottom: 2px solid var(--border2);
-  border-right: 1px solid var(--border);
-  text-align: left;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  cursor: pointer;
-  user-select: none;
-}
-.eq-grid thead th:hover { background: var(--pd); color: var(--p); }
-.eq-grid thead th.sort-asc::after { content: " ▲"; color: var(--p); font-size: 10px; }
-.eq-grid thead th.sort-desc::after { content: " ▼"; color: var(--p); font-size: 10px; }
-.eq-grid thead th.sort-1::after { content: " ▼¹"; color: var(--p); font-size: 10px; }
-.eq-grid thead th.sort-2::after { content: " ▲²"; color: var(--p); font-size: 10px; }
-.eq-grid tbody td {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  color: var(--t);
-  white-space: nowrap;
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.eq-grid tbody tr:hover td { background: var(--pd); }
-.eq-grid tbody tr.stopped td {
-  color: var(--t3);
-  background: rgba(200,32,30,0.03);
-  text-decoration: line-through;
-}
-.eq-grid tbody tr.stopped:hover td { background: rgba(200,32,30,0.08); }
-.eq-grid .num { text-align: right; font-family: var(--m); }
-.eq-grid .num.neg { color: var(--r); }
-.eq-grid .status-cell { font-weight: 700; }
-.eq-grid .status-완료 { color: var(--g); }
-.eq-grid .status-작성 { color: var(--a); }
-.eq-grid .status-중단 { color: var(--r); }
-.eq-grid .status-결재 { color: var(--p); }
-.eq-grid tfoot td {
-  background: var(--bg3);
-  font-weight: 800;
-  padding: 9px 10px;
-  border-top: 2px solid var(--border2);
-  border-right: 1px solid var(--border);
-  font-family: var(--m);
-  color: var(--p);
-}
-
-/* 빈 상태 */
-.eq-empty {
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--t3);
-}
-.eq-empty-ic { font-size: 40px; margin-bottom: 8px; }
-.eq-empty-msg { font-size: 14px; font-weight: 600; }
-.eq-empty-sub { font-size: 12px; margin-top: 4px; color: var(--t3); }
-
-/* 로딩 */
-.eq-loading {
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--p);
-}
-.eq-spinner {
-  display: inline-block;
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--bg3);
-  border-top-color: var(--p);
-  border-radius: 50%;
-  animation: eqSpin .8s linear infinite;
-}
-@keyframes eqSpin { to { transform: rotate(360deg); } }
-
-/* 외화 토글 영역 (메인은 원화 표시, 토글 시 외화 추가 컬럼) */
+/* 원화/외화 토글 */
 .eq-mode-toggle {
   display: inline-flex;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 2px;
-  margin-left: 6px;
 }
 .eq-mode-toggle button {
   border: none;
   background: transparent;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   border-radius: 5px;
   color: var(--t3);
   font-family: var(--s);
+  transition: all 0.12s;
 }
 .eq-mode-toggle button.on {
   background: var(--bg2);
@@ -27225,18 +27366,203 @@ function printQuote() {
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-/* 검색 통계 */
-.eq-stats {
+/* ─── 데이터 그리드 (가로 스크롤 + 헤더 고정) ─── */
+.eq-grid-wrap {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
   display: flex;
-  gap: 14px;
-  font-size: 12px;
-  color: var(--t2);
-  font-family: var(--m);
+  flex-direction: column;
+  min-height: 0;
 }
-.eq-stats b { color: var(--t); }
-.eq-stats .stat-r { color: var(--r); }
-.eq-stats .stat-g { color: var(--g); }
-.eq-stats .stat-a { color: var(--a); }
+.eq-grid-scroll {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) var(--bg3);
+}
+.eq-grid-scroll::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+.eq-grid-scroll::-webkit-scrollbar-track {
+  background: var(--bg3);
+}
+.eq-grid-scroll::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 6px;
+  border: 2px solid var(--bg3);
+}
+.eq-grid-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--t3);
+}
+.eq-grid-scroll::-webkit-scrollbar-corner {
+  background: var(--bg3);
+}
+
+.eq-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  font-family: var(--s);
+}
+.eq-grid thead th {
+  background: linear-gradient(180deg, #f8fafc 0%, #f0f3f8 100%);
+  color: var(--t);
+  font-weight: 800;
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--border2);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: -0.2px;
+  transition: all 0.12s;
+}
+.eq-grid thead th:hover {
+  background: var(--pd);
+  color: var(--p);
+}
+.eq-grid thead th.sort-asc::after { content: " ↑"; color: var(--p); font-weight: 900; }
+.eq-grid thead th.sort-desc::after { content: " ↓"; color: var(--p); font-weight: 900; }
+.eq-grid thead th.sort-1::after { content: " ↓¹"; color: var(--p); font-weight: 900; }
+.eq-grid thead th.sort-2::after { content: " ↑²"; color: var(--p); font-weight: 900; }
+
+.eq-grid tbody td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  color: var(--t);
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+}
+.eq-grid tbody tr {
+  transition: background 0.1s;
+}
+.eq-grid tbody tr:hover td { background: rgba(26,111,212,0.04); }
+.eq-grid tbody tr.stopped td {
+  color: var(--t3);
+  background: rgba(200,32,30,0.025);
+  text-decoration: line-through;
+  text-decoration-color: rgba(200,32,30,0.3);
+}
+.eq-grid tbody tr.stopped:hover td { background: rgba(200,32,30,0.06); }
+.eq-grid tbody tr:nth-child(even) td { background-color: rgba(0,0,0,0.012); }
+.eq-grid tbody tr:nth-child(even):hover td { background-color: rgba(26,111,212,0.06); }
+.eq-grid tbody tr.stopped:nth-child(even) td { background-color: rgba(200,32,30,0.04); }
+
+.eq-grid .num {
+  text-align: right;
+  font-family: var(--m);
+  font-size: 12px;
+  font-feature-settings: "tnum";
+}
+.eq-grid .num.neg { color: var(--r); }
+.eq-grid .num.large { font-weight: 600; }
+
+/* 상태 뱃지 */
+.eq-grid .status-cell {
+  font-weight: 700;
+}
+.eq-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+.eq-status-badge.s-완료 { background: var(--gd); color: var(--g); }
+.eq-status-badge.s-작성 { background: var(--ad); color: var(--a); }
+.eq-status-badge.s-결재 { background: var(--pd); color: var(--p); }
+.eq-status-badge.s-중단 { background: var(--rd); color: var(--r); }
+
+/* 거래처/품명 강조 */
+.eq-grid td.cell-cust { font-weight: 700; color: var(--t); }
+.eq-grid td.cell-item { color: var(--t); }
+.eq-grid td.cell-pjt {
+  font-family: var(--m);
+  font-size: 11.5px;
+  color: var(--pu);
+  font-weight: 600;
+}
+
+/* footer (합계 행) */
+.eq-grid tfoot td {
+  background: linear-gradient(180deg, var(--bg3) 0%, #e8edf3 100%);
+  font-weight: 800;
+  padding: 10px 12px;
+  border-top: 2px solid var(--border2);
+  border-right: 1px solid var(--border);
+  font-family: var(--m);
+  color: var(--p);
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+}
+
+/* 빈 상태 */
+.eq-empty {
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--t3);
+}
+.eq-empty-ic {
+  font-size: 64px;
+  margin-bottom: 12px;
+  filter: grayscale(40%);
+  opacity: 0.5;
+}
+.eq-empty-msg {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--t2);
+  margin-bottom: 6px;
+}
+.eq-empty-sub {
+  font-size: 12.5px;
+  color: var(--t3);
+  line-height: 1.55;
+}
+
+/* 로딩 상태 */
+.eq-loading {
+  padding: 60px 20px;
+  text-align: center;
+}
+.eq-spinner {
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--bg3);
+  border-top-color: var(--p);
+  border-radius: 50%;
+  animation: eqSpin 0.7s linear infinite;
+}
+@keyframes eqSpin { to { transform: rotate(360deg); } }
+
+/* 반응형 */
+@media (max-width: 1200px) {
+  .eq-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+  .eq-cards { grid-template-columns: 1fr 1fr; }
+  .eq-card-value { font-size: 20px; }
+  .eq-toolbar { flex-direction: column; align-items: stretch; }
+  .eq-tb-right { justify-content: flex-end; flex-wrap: wrap; }
+}
+
 
 </style>
     </head><body>${area.innerHTML}</body></html>`);
@@ -37831,25 +38157,33 @@ function _erpLoadCache(key) {
   }
 }
 
-/* localStorage에 캐시 저장 (용량 초과 시 자동 정리) */
+/* localStorage에 캐시 저장 (용량 초과 시 조용히 스킵) */
 function _erpSaveCache(key, data) {
+  // 미리 크기 추정 (4MB 넘으면 시도조차 안 함)
+  const estimatedSize = JSON.stringify(data).length;
+  if(estimatedSize > 4 * 1024 * 1024) {
+    console.log(`💡 ERP 캐시 스킵 (${key}): 데이터 너무 큼 (${(estimatedSize/1024/1024).toFixed(1)}MB) - 메모리에만 유지`);
+    return false;
+  }
+  
   try {
     localStorage.setItem(key, JSON.stringify(data));
     return true;
   } catch(e) {
-    // QuotaExceeded: 가장 오래된 캐시부터 삭제 후 재시도
+    // QuotaExceeded: 다른 캐시 정리 후 재시도
     if(e.name === "QuotaExceededError" || e.code === 22) {
-      console.warn("ERP localStorage 용량 초과 - 오래된 캐시 정리");
       _erpPurgeOldCache();
       try {
         localStorage.setItem(key, JSON.stringify(data));
+        console.log(`✅ ERP 캐시 정리 후 저장 성공: ${key}`);
         return true;
       } catch(e2) {
-        console.error("ERP 캐시 저장 재시도 실패:", e2.message);
+        // 재시도도 실패 = 데이터가 너무 큼. 조용히 스킵 (메모리에는 있으니 동작 OK)
+        console.log(`💡 ERP 캐시 스킵 (${key}): 용량 초과 - 메모리에만 유지`);
         return false;
       }
     }
-    console.error("ERP 캐시 저장 실패:", e.message);
+    console.warn(`ERP 캐시 저장 실패 (${key}):`, e.message);
     return false;
   }
 }
@@ -38393,6 +38727,10 @@ function poqApplyFilters() {
   
   // 렌더
   poqRender();
+  
+  // 집계 카드 + 필터 요약 업데이트
+  poqUpdateCards();
+  poqUpdateFilterSummary();
 }
 
 /* 정렬 적용 */
@@ -38824,6 +39162,10 @@ function dlvqApplyFilters() {
   
   _dlvqSortData();
   dlvqRender();
+  
+  // 집계 카드 + 필터 요약 업데이트
+  dlvqUpdateCards();
+  dlvqUpdateFilterSummary();
 }
 
 function _dlvqSortData() {
@@ -38965,6 +39307,171 @@ function dlvqPrint() {
     <script>window.print();<\/script>
   </body></html>`);
   w.document.close();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   📊 새 디자인 보조 함수들 (v2 모던 리디자인)
+   - poqToggleFilter / dlvqToggleFilter: 조회조건 접기/펼치기
+   - poqUpdateCards / dlvqUpdateCards: KPI 집계 카드 업데이트
+   - poqUpdateFilterSummary / dlvqUpdateFilterSummary: 접혔을 때 요약
+   - _erpFmtCount / _erpFmtMoney: 한국어 숫자 포매팅 헬퍼
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 큰 숫자 포매팅: 12345678 → "1,234만" / 123456789 → "1.2억" */
+function _erpFmtBigNum(n) {
+  n = Number(n) || 0;
+  const abs = Math.abs(n);
+  if(abs >= 1e12) return (n/1e12).toFixed(1) + "조";
+  if(abs >= 1e8)  return (n/1e8).toFixed(1) + "억";
+  if(abs >= 1e4)  return Math.round(n/1e4).toLocaleString() + "만";
+  return n.toLocaleString();
+}
+
+/* 발주품목조회 - 조회조건 접기 토글 */
+function poqToggleFilter() {
+  const filter = document.getElementById("poq-filter");
+  if(!filter) return;
+  filter.classList.toggle("collapsed");
+  const toggle = filter.querySelector(".eq-filter-head-toggle");
+  if(toggle) {
+    toggle.textContent = filter.classList.contains("collapsed") ? "펼치기" : "접기";
+  }
+}
+
+/* 입고정산조회 - 조회조건 접기 토글 */
+function dlvqToggleFilter() {
+  const filter = document.getElementById("dlvq-filter");
+  if(!filter) return;
+  filter.classList.toggle("collapsed");
+  const toggle = filter.querySelector(".eq-filter-head-toggle");
+  if(toggle) {
+    toggle.textContent = filter.classList.contains("collapsed") ? "펼치기" : "접기";
+  }
+}
+
+/* 발주품목 - KPI 카드 업데이트 */
+function poqUpdateCards() {
+  if(!_poqFiltered) return;
+  const rows = _poqFiltered;
+  const total = rows.length;
+  
+  // 금액 합계
+  let amount = 0, vat = 0;
+  let cntDone = 0, cntActive = 0, cntStop = 0;
+  
+  for(const r of rows) {
+    amount += Number(r.TotDomAmt || 0);
+    vat += Number(r.DomVAT || 0);
+    
+    const status = r.SMCurrStatusName || "";
+    const isStopped = (r.IsStop === true || r.IsStop === "TRUE");
+    
+    if(isStopped) {
+      cntStop++;
+    } else if(status === "완료") {
+      cntDone++;
+    } else if(status === "작성" || status === "결재중" || status === "결재") {
+      cntActive++;
+    }
+  }
+  
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+  };
+  
+  setTxt("poq-card-total", total.toLocaleString());
+  setTxt("poq-card-amount", _erpFmtBigNum(amount));
+  setTxt("poq-card-vat", (vat/1e8).toFixed(1));
+  setTxt("poq-card-done", cntDone.toLocaleString());
+  setTxt("poq-card-done-pct", total > 0 ? Math.round(cntDone/total*100) : 0);
+  setTxt("poq-card-active", cntActive.toLocaleString());
+  setTxt("poq-card-stop", cntStop.toLocaleString());
+}
+
+/* 입고정산 - KPI 카드 업데이트 */
+function dlvqUpdateCards() {
+  if(!_dlvqFiltered) return;
+  const rows = _dlvqFiltered;
+  const total = rows.length;
+  
+  let amount = 0, vat = 0;
+  const custSet = new Set();
+  let maxDate = "";
+  
+  for(const r of rows) {
+    amount += Number(r.TotDelvInDomAmt || 0);
+    vat += Number(r.DelvInDomVAT || 0);
+    if(r.CustName) custSet.add(r.CustName);
+    const d = (r.DelvInDate || "").substr(0, 10);
+    if(d && d > maxDate) maxDate = d;
+  }
+  
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+  };
+  
+  setTxt("dlvq-card-total", total.toLocaleString());
+  setTxt("dlvq-card-amount", _erpFmtBigNum(amount));
+  setTxt("dlvq-card-vat", (vat/1e8).toFixed(1));
+  setTxt("dlvq-card-cust", custSet.size.toLocaleString());
+  setTxt("dlvq-card-recent", maxDate || "-");
+}
+
+/* 발주품목 - 접힌 상태에서 필터 요약 표시 */
+function poqUpdateFilterSummary() {
+  const el = document.getElementById("poq-filter-summary");
+  if(!el) return;
+  
+  const parts = [];
+  const dateFr = document.getElementById("poq-date-fr")?.value;
+  const dateTo = document.getElementById("poq-date-to")?.value;
+  if(dateFr || dateTo) {
+    const f = dateFr ? dateFr.replace(/^\d{4}-/, "") : "처음";
+    const t = dateTo ? dateTo.replace(/^\d{4}-/, "") : "오늘";
+    parts.push(`발주일 ${f}~${t}`);
+  }
+  
+  const cust = document.getElementById("poq-cust")?.value.trim();
+  if(cust) parts.push(`거래처: ${cust}`);
+  
+  const item = document.getElementById("poq-item")?.value.trim();
+  if(item) parts.push(`품목: ${item}`);
+  
+  const pjt = document.getElementById("poq-pjt")?.value.trim();
+  if(pjt) parts.push(`PJT: ${pjt}`);
+  
+  const status = document.getElementById("poq-status")?.value;
+  if(status) parts.push(`상태: ${status}`);
+  
+  el.textContent = parts.length > 0 ? "· " + parts.join(" · ") : "";
+}
+
+/* 입고정산 - 접힌 상태에서 필터 요약 표시 */
+function dlvqUpdateFilterSummary() {
+  const el = document.getElementById("dlvq-filter-summary");
+  if(!el) return;
+  
+  const parts = [];
+  const dateFr = document.getElementById("dlvq-date-fr")?.value;
+  const dateTo = document.getElementById("dlvq-date-to")?.value;
+  if(dateFr || dateTo) {
+    const f = dateFr ? dateFr.replace(/^\d{4}-/, "") : "처음";
+    const t = dateTo ? dateTo.replace(/^\d{4}-/, "") : "오늘";
+    parts.push(`입고일 ${f}~${t}`);
+  }
+  
+  const cust = document.getElementById("dlvq-cust")?.value.trim();
+  if(cust) parts.push(`거래처: ${cust}`);
+  
+  const item = document.getElementById("dlvq-item")?.value.trim();
+  if(item) parts.push(`품목: ${item}`);
+  
+  const pjt = document.getElementById("dlvq-pjt")?.value.trim();
+  if(pjt) parts.push(`PJT: ${pjt}`);
+  
+  el.textContent = parts.length > 0 ? "· " + parts.join(" · ") : "";
 }
 
 console.log("✅ ERP 조회 모듈 로드 완료");
