@@ -4077,6 +4077,13 @@ if (typeof toast === "undefined") {
 const DAILY_REPORT_FILE_PATH = "🏭 구매/📋 일일업무보고/구매팀_업무보고.xlsx";
 const DAILY_REPORT_FOLDER = "🏭 구매/📋 일일업무보고";
 
+// 🆕 일일업무보고에서 사용하는 헬퍼 (구매에는 없음)
+if (typeof escVal === "undefined") {
+  window.escVal = function(v) {
+    return String(v ?? "").replace(/"/g, "&quot;");
+  };
+}
+
 // 🆕 결정 권한: BH(전무) + 변도영(대표이사)만
 const DAILY_DECISION_MAKERS = ["baekhoon@enjet.co.kr", "dybyun@enjet.co.kr"];
 
@@ -4178,15 +4185,39 @@ async function loadDailyReportExcel() {
     
     // ⭐ 오늘 날짜 우선, 없으면 가장 최근 날짜 자동 선택 (한국 시간 기준)
     const dates = getAvailableDates();
-    if (dates.length > 0) {
-      const now = new Date();
-      const todayYYMMDD = String(now.getFullYear()).slice(2) +
-                         String(now.getMonth() + 1).padStart(2, "0") +
-                         String(now.getDate()).padStart(2, "0");
-      const selectDate = dates.includes(todayYYMMDD) ? todayYYMMDD : dates[0];
+    const now = new Date();
+    const todayYYMMDD = String(now.getFullYear()).slice(2) +
+                       String(now.getMonth() + 1).padStart(2, "0") +
+                       String(now.getDate()).padStart(2, "0");
+    
+    // ⭐ 오늘 시트가 없으면 자동 생성 (어제 시트 진행중 업무 이어받기)
+    const todaySheetName = makeSheetName(dailyData.currentAuthor, todayYYMMDD);
+    if (!dailyData.sheets[todaySheetName]) {
+      // 어제 시트에서 진행중 업무 복사
+      const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const yYymmdd = String(yesterday.getFullYear()).slice(2) +
+                     String(yesterday.getMonth() + 1).padStart(2, "0") +
+                     String(yesterday.getDate()).padStart(2, "0");
+      const yesterdaySheet = makeSheetName(dailyData.currentAuthor, yYymmdd);
+      let baseTasks = [];
+      if (dailyData.sheets[yesterdaySheet]) {
+        baseTasks = dailyData.sheets[yesterdaySheet]
+          .filter(t => t.status !== "완료")
+          .map(t => ({ ...t, todayPlan: "" }));
+        baseTasks.forEach((t, i) => t.no = i + 1);
+      }
+      dailyData.sheets[todaySheetName] = baseTasks;
+      dailyData.modified = true;
+      console.log(`📋 오늘 시트 자동 생성: ${todaySheetName} (이어받음: ${baseTasks.length}건)`);
+      renderDailyDateOptions();  // 옵션 다시 채움
+    }
+    
+    // 오늘 시트로 자동 선택
+    const updatedDates = getAvailableDates();
+    const selectDate = updatedDates.includes(todayYYMMDD) ? todayYYMMDD : updatedDates[0];
+    if (selectDate) {
       document.getElementById("dailyDate").value = selectDate;
       dailyData.currentDate = selectDate;
-      // ⭐ 달력 picker도 동기화
       syncDatePickerFromYYMMDD(selectDate);
     }
     
@@ -4621,10 +4652,30 @@ function renderDailyTaskCard(task, idx) {
   const commentCount = (task.comments || []).length;
   const hasCommentIcon = commentCount > 0 ? `💬${commentCount}` : '';
   
-  // 🆕 연결된 구매활동 배지
-  const linkedBadge = task.linkedActivity 
-    ? `<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();go('purchase-log',document.querySelector('.ni[onclick*=purchase-log]'))" title="구매활동 보기: ${task.linkedActivity.pjcode}">🔗 ${task.linkedActivity.pjcode || '?'}</span>`
-    : '';
+  // 🆕 연결된 구매활동 배지 (ERP 자동 vs 수동 PDF 업로드)
+  let linkedBadge = "";
+  let sourceBadge = "";
+  if (task.linkedActivity) {
+    const la = task.linkedActivity;
+    
+    // 프로젝트코드 배지 - 구매활동으로 이동
+    linkedBadge = `<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();go('purchase-log',document.querySelector('.ni[onclick*=purchase-log]'))" title="구매활동 보기: ${la.pjcode}">🔗 ${la.pjcode || '?'}</span>`;
+    
+    // 소스 구분 배지: ERP 자동 vs PDF 업로드
+    if (la.source === "erp") {
+      // ERP 자동 등록 - 보라색 강조
+      const qtyText = la.qty > 0 ? ` (${la.qty}건)` : "";
+      const erpTitle = la.erpApproNo ? `영림원 품의: ${la.erpApproNo}${qtyText}` : "ERP 자동 등록";
+      sourceBadge = `<span style="background:#ede9fe;color:#6d28d9;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd" title="${erpTitle}">⚡ ERP${la.erpApproNo ? ' '+la.erpApproNo : ''}${qtyText}</span>`;
+    } else if (la.fileName) {
+      // PDF 수동 업로드 - 회색
+      const qtyText = la.qty > 0 ? ` (${la.qty}건)` : "";
+      sourceBadge = `<span style="background:#f3f4f6;color:#4b5563;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #d1d5db" title="${la.fileName}${qtyText}">📎 PDF${qtyText}</span>`;
+    } else if (la.qty > 0) {
+      // 수량만 있는 경우
+      sourceBadge = `<span style="background:#f3f4f6;color:#4b5563;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600">📋 ${la.qty}건</span>`;
+    }
+  }
   
   // 🆕 자동 추가 마커
   const autoMarker = task.autoAdded
@@ -4653,8 +4704,9 @@ function renderDailyTaskCard(task, idx) {
         ${isUrgent ? `<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">🔴 ${escHtml(task.urgent)}</span>` : ''}
         ${isOverdue ? `<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">⏰ 기한초과</span>` : ''}
         
-        <!-- 🆕 연결된 구매활동 + 자동 마커 -->
+        <!-- 🆕 연결된 구매활동 + 소스(ERP/PDF) + 자동 마커 -->
         ${linkedBadge}
+        ${sourceBadge}
         ${autoMarker}
         
         <!-- 요청업무 (메인) -->
@@ -18203,6 +18255,12 @@ function openSettleModal(id) {
     setField("stl-f-vat", "");
     setField("stl-f-total", "");
     setField("stl-f-status", "완료");
+    
+    // 🆕 기안자(drafter) 자동 채우기 - 로그인 사용자
+    if (typeof getLoggedInUserName === "function") {
+      const userName = getLoggedInUserName();
+      if (userName) setField("stl-f-drafter", userName);
+    }
   }
   
   modal.style.display = "flex";
@@ -18288,6 +18346,22 @@ async function saveSettle() {
     _pstlData = _pstlData.map(x => x.id === _stlEditId ? data : x);
   } else {
     _pstlData.push(data);
+    
+    // 🆕 신규 회계전표 → 일일업무보고 자동 추가 (완료 처리)
+    if(typeof addToDailyReport === "function") {
+      const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+      const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
+      addToDailyReport({
+        type: "settle_upload",
+        pjcode: data.salesCode || "",
+        company: data.vendor || "",
+        itemName: data.docNo || data.stCode || "회계전표",
+        fileName: data.docNo || data.stCode || data.accNo || `회계_${data.amount}원`,
+        refId: `settle_${data.id}`,
+        refDate: data.createdAt,
+        author: _author,
+      });
+    }
   }
   
   closeSettleModal();
@@ -31178,6 +31252,32 @@ function openSLModal(act) {
     const _pr=document.getElementById("sl-f-priority"); if(_pr) _pr.value="일반";
     document.getElementById("sl-f-start").value=new Date().toISOString().split("T")[0];
     document.getElementById("sl-f-end").value="";
+    
+    // 🆕 구매담당자 자동 채우기: 로그인한 사용자 이름
+    try {
+      let mgrName = "";
+      if (typeof acct !== "undefined" && acct) {
+        // 1순위: acct.name (예: "정진영")
+        if (acct.name) mgrName = acct.name.trim();
+        // 2순위: 이메일 → 매핑 테이블
+        if (!mgrName && acct.username) {
+          const _email = acct.username.toLowerCase().trim();
+          if (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined" && DAILY_AUTHOR_BY_EMAIL[_email]) {
+            mgrName = DAILY_AUTHOR_BY_EMAIL[_email];
+          } else {
+            // 매핑 없으면 이메일 앞부분
+            mgrName = _email.split("@")[0];
+          }
+        }
+      }
+      const _sm = document.getElementById("sl-f-salesmgr");
+      if (_sm && mgrName) {
+        _sm.value = mgrName;
+        console.log(`✏️ 구매담당자 자동 입력: ${mgrName}`);
+      }
+    } catch(e) {
+      console.warn("구매담당자 자동 입력 실패:", e);
+    }
     // 🔧 파일 input + AI 파싱 상태 초기화
     const _f=document.getElementById("sl-f-prfile"); if(_f) _f.value="";
     const _fi=document.getElementById("sl-f-prfile-info"); if(_fi) { _fi.style.display="none"; _fi.textContent=""; }
@@ -31417,7 +31517,9 @@ async function saveSLActivity() {
     priority:    document.getElementById("sl-f-priority")?.value || "일반",
     // 영업 모달 호환 필드 (영업 코드 호환 위해 유지)
     custMgr:   requesterVal || reqdeptVal,  // 구매에서는 custMgr 자리에 요청담당자 저장
-    salesMgr:  document.getElementById("sl-f-salesmgr").value.trim(),
+    // 🆕 구매담당자: 입력 안 했으면 로그인 사용자 자동
+    salesMgr:  document.getElementById("sl-f-salesmgr").value.trim() 
+               || (typeof getLoggedInUserName === "function" ? getLoggedInUserName() : ""),
     start:     document.getElementById("sl-f-start").value,
     end:       document.getElementById("sl-f-end").value,
     startTime: document.getElementById("sl-f-stime")?.value || "09:00",
@@ -31428,6 +31530,15 @@ async function saveSLActivity() {
     teamsEventId: slEditId ? (slData.find(x=>x.id===slEditId)?.teamsEventId||null) : null,
     createdAt: slEditId ? (slData.find(x=>x.id===slEditId)?.createdAt||new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    // 🆕 생성/수정자 추적 (일일업무보고 자동 귀속용)
+    createdByEmail: slEditId 
+      ? (slData.find(x=>x.id===slEditId)?.createdByEmail || ((typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : ""))
+      : ((typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : ""),
+    createdByName: slEditId 
+      ? (slData.find(x=>x.id===slEditId)?.createdByName || ((typeof acct !== "undefined" && acct) ? (acct.name||"") : ""))
+      : ((typeof acct !== "undefined" && acct) ? (acct.name||"") : ""),
+    updatedByEmail: ((typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : ""),
+    updatedByName: ((typeof acct !== "undefined" && acct) ? (acct.name||"") : ""),
   };
 
   closeSLModal();
@@ -31490,6 +31601,28 @@ async function saveSLActivity() {
   else slData.push(act);
   renderSLAll();
   await saveSLToSP();
+
+  // 🆕 일일업무보고에 자동 추가 (수동 구매활동 생성)
+  // 생성자/수정자가 정진영/홍용원이면 그 사람 일일보고에, BH가 만들면 추가 안 함
+  if (typeof addToDailyReport === "function") {
+    try {
+      const actorEmail = (slEditId ? act.updatedByEmail : act.createdByEmail) || "";
+      const actorAuthor = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") 
+        ? DAILY_AUTHOR_BY_EMAIL[actorEmail.toLowerCase()] : null;
+      
+      addToDailyReport({
+        type: slEditId ? "activity_update" : "activity_new",
+        pjcode: act.pjcode || "",
+        company: act.company || "",
+        itemName: act.salesPjName || act.note || "구매활동",
+        refId: `activity_${act.id}_${slEditId ? 'upd' : 'new'}_${Date.now()}`,
+        refDate: act.updatedAt || act.createdAt,
+        author: actorAuthor,  // 정진영/홍용원이면 그 사람, 아니면 null → 스킵
+      });
+    } catch(e) {
+      console.warn("[일일업무보고] 자동 추가 실패:", e.message);
+    }
+  }
 
   // 🆕 AI 파싱 결과가 있으면 → 품목별 PR 자동 생성 (신규/수정 모드 모두)
   // 수정 모드에서도 PDF 재첨부 + AI 파싱하면 새 PR 생성 가능
@@ -31620,6 +31753,24 @@ async function saveSLActivity() {
                        `구매요청서DB 탭에서 확인하세요.`;
         console.log(summary);
       }, 100);
+      
+      // 🆕 PR 자동 생성 완료 → 일일업무보고 자동 추가 (완료 처리)
+      if(typeof addToDailyReport === "function" && newPRs.length > 0) {
+        const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+        const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
+        const prFileName = act.prFileName || `${projectName}_구매요청서`;
+        addToDailyReport({
+          type: "pr_upload",
+          pjcode: act.pjcode || projectNo,
+          company: act.company || "",
+          itemName: projectName,           // 프로젝트명만
+          fileName: prFileName,             // PDF 파일명
+          qty: newPRs.length,               // 🆕 PR 품목 수
+          refId: `pr_${act.id}_${newPRs[0].prCode}`,
+          refDate: new Date().toISOString(),
+          author: _author,
+        });
+      }
       
     } catch(e) {
       console.error("PR 자동 생성 실패:", e);
@@ -32562,6 +32713,7 @@ async function addToQuoteDB(entry) {
   // 중복 체크 (docNo 기준)
   const exists = quoteDB.findIndex(q => q.docNo === entry.docNo);
   const label = `${entry.docNo||"-"} · ${entry.company||"-"}${entry.quoteNo?" · "+entry.quoteNo:""}`;
+  const isNew = (exists < 0);
   if(exists >= 0) {
     quoteDB[exists] = {...quoteDB[exists], ...entry, updatedAt: new Date().toISOString()};
     addDBHistory("quote", "수정", label);
@@ -32578,6 +32730,22 @@ async function addToQuoteDB(entry) {
   await saveQuoteDB();
   $("badge-qdb", quoteDB.length);
   if(document.getElementById("tab-quote-db")?.classList.contains("on")) renderQDB();
+  
+  // 🆕 신규 등록 시 일일업무보고에 자동 추가 (로그인 사용자가 정진영/홍용원이면)
+  if(isNew && typeof addToDailyReport === "function") {
+    const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+    const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
+    addToDailyReport({
+      type: "quote_upload",
+      pjcode: entry.pjcode || "",
+      company: entry.company || "",
+      itemName: entry.quoteNo || entry.docNo || "견적서",
+      fileName: entry.fileName || entry.docNo || entry.quoteNo || "",
+      refId: `quote_${entry.docNo || Date.now()}`,
+      refDate: new Date().toISOString(),
+      author: _author,
+    });
+  }
 }
 
 // 견적서 DB KPI + 목록 렌더
@@ -36317,15 +36485,21 @@ async function saveOrderEntry() {
     document.getElementById("orderModal").style.display="none";
     clearDraft("orderModal");
     
-    // 🆕 일일업무보고 자동 추가
+    // 🆕 일일업무보고 자동 추가 (생성자가 정진영/홍용원이면)
     if(typeof addToDailyReport === "function") {
+      const actorEmail = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+      const actorAuthor = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") 
+        ? DAILY_AUTHOR_BY_EMAIL[actorEmail] : null;
       addToDailyReport({
-        type: "order_new",
+        type: "order_upload",
         pjcode: entry.pjcode || entry.salesCode || "",
         company: company,
         itemName: items[0]?.itemName || items[0]?.name || "발주",
+        fileName: entry.poNo || entry.docNo || `발주_${items.length}건`,
+        qty: items.length,  // 🆕 품목 수
         refId: `order_${entry.id}`,
         refDate: entry.createdAt,
+        author: actorAuthor,
       });
     }
     
@@ -39163,7 +39337,31 @@ async function saveDeliveryEntry() {
   if(editId){const idx=_dlvData.findIndex(x=>x.id===editId);if(idx>=0)_dlvData[idx]=entry;else _dlvData.unshift(entry);}
   else _dlvData.unshift(entry);
   addDBHistory("delivery", editId?"수정":"신규 등록", `${date} · ${company} · ${entry.po||summary||"-"}`);
-  try{await saveDeliveryToSP();renderDeliveryDB();document.getElementById("dlvModal").style.display="none";clearDraft("dlvModal");alert("✅ 거래명세서 저장 완료!\n품목 "+items.length+"건 / 공급가 "+_fmtNum(supply)+" + 세액 "+_fmtNum(tax)+" = "+_fmtNum(total)+"원");}
+  try{
+    await saveDeliveryToSP();
+    renderDeliveryDB();
+    document.getElementById("dlvModal").style.display="none";
+    clearDraft("dlvModal");
+    
+    // 🆕 신규일 때만 일일업무보고 추가
+    if(!editId && typeof addToDailyReport === "function") {
+      const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+      const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
+      addToDailyReport({
+        type: "delivery_upload",
+        pjcode: entry.pjcode || "",
+        company: entry.company || "",
+        itemName: entry.po || summary || "거래명세서",
+        fileName: entry.po || summary || `명세서_${items.length}건`,
+        qty: items.length,  // 🆕 품목 수
+        refId: `delivery_${entry.id}`,
+        refDate: entry.createdAt,
+        author: _author,
+      });
+    }
+    
+    alert("✅ 거래명세서 저장 완료!\n품목 "+items.length+"건 / 공급가 "+_fmtNum(supply)+" + 세액 "+_fmtNum(tax)+" = "+_fmtNum(total)+"원");
+  }
   catch(e){alert("저장 실패: "+e.message);}
 }
 
@@ -39189,7 +39387,31 @@ async function saveTaxEntry() {
   if(editId){const idx=_taxData.findIndex(x=>x.id===editId);if(idx>=0)_taxData[idx]=entry;else _taxData.unshift(entry);}
   else _taxData.unshift(entry);
   addDBHistory("tax", editId?"수정":"신규 등록", `${date} · ${company} · ${entry.approval||summary||"-"}`);
-  try{await saveTaxToSP();renderTaxDB();document.getElementById("taxModal").style.display="none";clearDraft("taxModal");alert("✅ 세금계산서 저장 완료!\n품목 "+items.length+"건 / 공급가 "+_fmtNum(supply)+" + 세액 "+_fmtNum(vat)+" = "+_fmtNum(total)+"원");}
+  try{
+    await saveTaxToSP();
+    renderTaxDB();
+    document.getElementById("taxModal").style.display="none";
+    clearDraft("taxModal");
+    
+    // 🆕 신규일 때만 일일업무보고 추가
+    if(!editId && typeof addToDailyReport === "function") {
+      const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+      const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
+      addToDailyReport({
+        type: "tax_upload",
+        pjcode: entry.pjcode || "",
+        company: entry.company || "",
+        itemName: entry.approval || summary || "세금계산서",
+        fileName: entry.approval || summary || `세금_${items.length}건`,
+        qty: items.length,  // 🆕 품목 수
+        refId: `tax_${entry.id}`,
+        refDate: entry.createdAt,
+        author: _author,
+      });
+    }
+    
+    alert("✅ 세금계산서 저장 완료!\n품목 "+items.length+"건 / 공급가 "+_fmtNum(supply)+" + 세액 "+_fmtNum(vat)+" = "+_fmtNum(total)+"원");
+  }
   catch(e){alert("저장 실패: "+e.message);}
 }
 
@@ -43683,15 +43905,22 @@ async function autoCreateActivitiesFromErp() {
       createdCount++;
       console.log(`✨ 신규 구매활동 생성: ${pjcode} (${company}) - ${info.approReqNo}`);
       
-      // 🆕 일일업무보고에 자동 추가
+      // 🆕 일일업무보고에 자동 추가 (로그인한 사용자가 정진영/홍용원이면)
       if(typeof addToDailyReport === "function") {
+        const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+        const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") 
+          ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
         addToDailyReport({
           type: "erp_done",
           pjcode: pjcode,
           company: company,
           itemName: erpPq.itemName,
+          fileName: info.approReqNo,        // 🆕 영림원 품의번호 (파일명 자리)
+          qty: erpPq.qty,                    // 🆕 부품 수량
+          erpApproNo: info.approReqNo,      // 🆕 영림원 품의번호
           refId: `erp_${info.approReqNo}`,
           refDate: info.processedAt,
+          author: _author,
         });
       }
     } else {
@@ -43702,15 +43931,22 @@ async function autoCreateActivitiesFromErp() {
         updatedCount++;
         console.log(`📌 기존 활동에 품의 추가: ${pjcode} ← ${info.approReqNo}`);
         
-        // 🆕 일일업무보고에도 자동 추가
+        // 🆕 일일업무보고에도 자동 추가 (로그인한 사용자가 정진영/홍용원이면)
         if(typeof addToDailyReport === "function") {
+          const _email = (typeof acct !== "undefined" && acct) ? (acct.username||"").toLowerCase() : "";
+          const _author = (typeof DAILY_AUTHOR_BY_EMAIL !== "undefined") 
+            ? DAILY_AUTHOR_BY_EMAIL[_email] : null;
           addToDailyReport({
             type: "erp_done",
             pjcode: pjcode,
             company: company,
             itemName: erpPq.itemName,
+            fileName: info.approReqNo,     // 🆕 영림원 품의번호
+            qty: erpPq.qty,                 // 🆕 부품 수량
+            erpApproNo: info.approReqNo,   // 🆕 영림원 품의번호
             refId: `erp_${info.approReqNo}`,
             refDate: info.processedAt,
+            author: _author,
           });
         }
       }
@@ -43783,9 +44019,51 @@ function showErpAutoToast(msg) {
 // 🆕 구매활동 변경 → 일일업무보고 자동 행 추가
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+// 로그인한 사용자의 이메일 → 일일보고 작성자 이름 매핑
+const DAILY_AUTHOR_BY_EMAIL = {
+  "jyjung@enjet.co.kr": "정진영",
+  "ywhong@enjet.co.kr": "홍용원",
+  // 그 외 이메일(baekhoon 등)은 어느 보고서에도 자동 등록 안 함
+};
+
+// 🆕 로그인한 사용자의 이름 가져오기 (모달 담당자 자동 입력용)
+function getLoggedInUserName() {
+  try {
+    if (typeof acct !== "undefined" && acct) {
+      if (acct.name) return acct.name.trim();
+      if (acct.username) {
+        const email = acct.username.toLowerCase().trim();
+        if (DAILY_AUTHOR_BY_EMAIL[email]) return DAILY_AUTHOR_BY_EMAIL[email];
+        return email.split("@")[0];
+      }
+    }
+  } catch(e) {}
+  return "";
+}
+
+// 현재 로그인 사용자가 일일보고 작성자인지 확인
+function getCurrentDailyAuthor() {
+  // 1) MSAL 계정 (acct) 에서 이메일
+  let email = "";
+  try {
+    if (typeof acct !== "undefined" && acct) {
+      email = (acct.username || acct.name || "").toLowerCase().trim();
+    }
+  } catch(e) {}
+  
+  // 2) 폴백: window.userEmail
+  if (!email && typeof userEmail !== "undefined" && userEmail) {
+    email = userEmail.toLowerCase().trim();
+  }
+  
+  return DAILY_AUTHOR_BY_EMAIL[email] || null;  // null이면 작성자 아님
+}
+
 // 일일업무보고에 자동 행 추가
-// event: { type: 'erp_done'|'activity_new'|'activity_update'|'order_new'|'delivery_new'|'tax_new',
-//          pjcode, company, itemName, refId, refDate }
+// event: { type, pjcode, company, itemName, refId, refDate, author? }
+// - event.author 명시되면 그 사람한테 추가
+// - 없으면 로그인한 사용자가 정진영/홍용원이면 그 사람한테
+// - 그 외 (BH 등) → 추가 안 함 (관리자는 본인 일일보고 없음)
 function addToDailyReport(event) {
   if(typeof dailyData === "undefined" || !dailyData) {
     console.warn("⚠️ dailyData 없음 - 일일업무보고 자동 추가 스킵");
@@ -43798,8 +44076,16 @@ function addToDailyReport(event) {
                 String(now.getMonth() + 1).padStart(2, "0") +
                 String(now.getDate()).padStart(2, "0");
   
-  // 현재 작성자 - 둘 다 있으면 정진영(첫 번째)에 자동 추가
-  const author = dailyData.currentAuthor || "정진영";
+  // ⭐ 작성자 결정:
+  //   1. event.author 명시되면 그 사람
+  //   2. 로그인한 사용자가 정진영/홍용원이면 그 사람
+  //   3. 그 외(BH 등) → 스킵 (현재 보고 있는 사람한테 안 넣음 - 잘못된 귀속 방지)
+  let author = event.author || getCurrentDailyAuthor();
+  if (!author) {
+    console.log(`📋 일일보고 자동추가 스킵: 작성자 미정 (event=${event.type}, pjcode=${event.pjcode})`);
+    return;
+  }
+  
   const sheetName = typeof makeSheetName === "function" 
     ? makeSheetName(author, yymmdd)
     : `구매팀(${author})-${yymmdd}`;
@@ -43818,18 +44104,65 @@ function addToDailyReport(event) {
     return;
   }
   
-  // 이벤트 타입별 라벨/카테고리
+  // 이벤트 타입별 라벨/카테고리/액션
+  // doc_action: 진행계획 칸에 들어갈 텍스트 ("견적서 업로드 완료 - 파일명")
   const eventLabels = {
-    "erp_done":       { category: "품의", icon: "✅", action: "ERP 품의 생성" },
-    "activity_new":   { category: "거래처", icon: "🆕", action: "신규 구매활동" },
-    "activity_update":{ category: "거래처", icon: "📝", action: "활동 업데이트" },
-    "order_new":      { category: "발주", icon: "📦", action: "발주서 등록" },
-    "delivery_new":   { category: "납기", icon: "🚚", action: "거래명세서 등록" },
-    "tax_new":        { category: "기타", icon: "🧾", action: "세금계산서 등록" },
+    // 문서 업로드 (모두 완료 처리)
+    "pr_upload":       { category: "품의", icon: "📝", action: "구매요청서", doneText: "구매요청서 업로드 완료" },
+    "quote_upload":    { category: "거래처", icon: "📄", action: "견적서", doneText: "견적서 업로드 완료" },
+    "order_upload":    { category: "발주", icon: "📦", action: "발주서", doneText: "발주서 업로드 완료" },
+    "delivery_upload": { category: "납기", icon: "🚚", action: "거래명세서", doneText: "거래명세서 업로드 완료" },
+    "tax_upload":      { category: "기타", icon: "🧾", action: "세금계산서", doneText: "세금계산서 업로드 완료" },
+    "settle_upload":   { category: "기타", icon: "💼", action: "회계전표", doneText: "회계전표 업로드 완료" },
+    // ERP 전송 (완료 처리)
+    "erp_done":        { category: "품의", icon: "✅", action: "ERP 품의 전송", doneText: "ERP 품의 전송 완료" },
+    // 기존 (호환)
+    "activity_new":    { category: "거래처", icon: "🆕", action: "신규 구매활동", doneText: "구매활동 생성 완료" },
+    "activity_update": { category: "거래처", icon: "📝", action: "활동 업데이트", doneText: "구매활동 업데이트 완료" },
+    "order_new":       { category: "발주", icon: "📦", action: "발주서 등록", doneText: "발주서 등록 완료" },
+    "delivery_new":    { category: "납기", icon: "🚚", action: "거래명세서 등록", doneText: "거래명세서 등록 완료" },
+    "tax_new":         { category: "기타", icon: "🧾", action: "세금계산서 등록", doneText: "세금계산서 등록 완료" },
   };
-  const evt = eventLabels[event.type] || { category: "기타", icon: "📌", action: "활동" };
+  const evt = eventLabels[event.type] || { category: "기타", icon: "📌", action: "활동", doneText: "업데이트 완료" };
   
-  // 새 업무 행 (이슈/검토는 빈 칸)
+  // ⭐ 진행계획 칸 텍스트: 
+  //   - 일반 업로드: "견적서 업로드 완료 - 파일명.pdf"
+  //   - ERP 전송: "ERP 품의 전송 완료 - 품의번호 (수량: 5건)"
+  //   - 수동 PR: "구매요청서 업로드 완료 - 파일명.pdf (수량: 5건)"
+  const fileName = event.fileName || event.itemName || "";
+  const qty = event.qty || 0;  // 🆕 부품 수량 (PR/ERP 트리거에서 전달)
+  const qtyText = qty > 0 ? ` (부품수: ${qty}건)` : "";
+  
+  let todayPlanText = evt.doneText;
+  if (fileName) {
+    todayPlanText = `${evt.doneText} - ${fileName}`;
+  }
+  todayPlanText += qtyText;
+  
+  // 완료 처리되는 이벤트 (모두 완료로)
+  const isDoneEvent = [
+    "pr_upload", "quote_upload", "order_upload", "delivery_upload", 
+    "tax_upload", "settle_upload", "erp_done",
+    "order_new", "delivery_new", "tax_new"
+  ].includes(event.type);
+  
+  const status = event.status || (isDoneEvent ? "완료" : "진행중");
+  
+  // 🆕 소스 종류 (수동 업로드 vs ERP 자동)
+  const isErpSource = (event.type === "erp_done");
+  const sourceIcon = isErpSource ? "🔗 ERP" : "📎 PDF";
+  
+  // ⭐ taskDesc: ERP 자동인지 표시
+  let descPrefix = evt.icon;
+  if (isErpSource) descPrefix = "🔗"; // 링크 아이콘으로 강조
+  
+  const taskDescParts = [
+    `${descPrefix} [${event.pjcode || "?"}] ${evt.action}`,
+    event.company ? `- ${event.company}` : "",
+    qty > 0 ? `(${qty}건)` : "",
+  ].filter(Boolean);
+  
+  // 새 업무 행
   const newTask = {
     no: dailyData.sheets[sheetName].length + 1,
     category: evt.category,
@@ -43838,11 +44171,11 @@ function addToDailyReport(event) {
     requestDate: yymmdd,
     dueDate: "",
     urgent: "",
-    taskDesc: `${evt.icon} [${event.pjcode || "?"}] ${evt.action} - ${event.itemName || ""} ${event.company ? "("+event.company+")" : ""}`.trim(),
-    todayPlan: "",     // 빈 칸 (사용자가 채움)
+    taskDesc: taskDescParts.join(" ").trim(),
+    todayPlan: todayPlanText,  // ⭐ "견적서 업로드 완료 - 파일명 (부품수: 5건)"
     issue: "",         // 빈 칸 (사용자가 채움)
     decision: "",      // 빈 칸
-    status: "진행중",
+    status: status,    // ⭐ 자동 완료 처리
     comments: [],
     // 🆕 연결된 구매활동 정보
     linkedActivity: {
@@ -43852,6 +44185,11 @@ function addToDailyReport(event) {
       refId: event.refId,
       refDate: event.refDate || new Date().toISOString(),
       type: event.type,
+      qty: qty,                       // 🆕 수량
+      source: isErpSource ? "erp" : "manual",  // 🆕 ERP 자동 vs 수동
+      erpApproNo: event.erpApproNo || "",      // 🆕 영림원 품의번호
+      erpUrl: event.erpUrl || "",              // 🆕 영림원 링크 (있으면)
+      fileName: fileName,
     },
     refId: event.refId,  // 중복 체크용
     autoAdded: true,
