@@ -22,7 +22,30 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f4f6fa;--bg2:#fff;--bg3:#eef1f6;--border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.13);--p:#1a6fd4;--pd:rgba(26,111,212,0.08);--g:#00875a;--gd:rgba(0,135,90,0.08);--a:#d95f00;--ad:rgba(217,95,0,0.08);--r:#c8201e;--rd:rgba(200,32,30,0.08);--y:#9a6400;--yd:rgba(154,100,0,0.09);--pu:#6b35b8;--pud:rgba(107,53,184,0.08);--t:#111827;--t2:#4b5563;--t3:#9ca3af;--m:"JetBrains Mono",monospace;--s:"Pretendard",sans-serif}
+:root{--bg:#f4f6fa;--bg2:#fff;--bg3:#eef1f6;--border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.13);--p:#1a6fd4;--pd:rgba(26,111,212,0.08);--g:#00875a;--gd:rgba(0,135,90,0.08);--a:#d95f00;--ad:rgba(217,95,0,0.08);--r:#c8201e;--rd:rgba(200,32,30,0.08);--y:#9a6400;--yd:rgba(154,100,0,0.09);--pu:#6b35b8;--pud:rgba(107,53,184,0.08);--t:#111827;--t1:#111827;--t2:#4b5563;--t3:#9ca3af;--shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);--m:"JetBrains Mono",monospace;--s:"Pretendard",sans-serif}
+
+/* 🆕 일일업무보고용 KPI/SECTION 클래스 (HR 대시보드 동일) */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:18px; }
+.kpi-grid .kpi { background:#fff; border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); position:relative; overflow:hidden; border-left:4px solid var(--p); display:block; }
+.kpi-grid .kpi.green { border-left-color:var(--g); }
+.kpi-grid .kpi.orange { border-left-color:var(--y); }
+.kpi-grid .kpi.red { border-left-color:var(--r); }
+.kpi-grid .kpi.purple { border-left-color:var(--pu); }
+.kpi-grid .kpi-label { font-size:11px; color:var(--t3); font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px; }
+.kpi-grid .kpi-val { font-size:24px; font-weight:800; line-height:1; color:var(--t1); }
+.kpi-grid .kpi-unit { font-size:13px; color:var(--t3); font-weight:500; margin-left:3px; }
+.kpi-grid .kpi-sub { font-size:11px; color:var(--t3); margin-top:4px; }
+
+#tab-pdaily .section { background:#fff; border-radius:14px; padding:18px; box-shadow:var(--shadow); margin-bottom:16px; }
+#tab-pdaily .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+#tab-pdaily .section-title { font-size:14px; font-weight:800; color:var(--t1); display:flex; align-items:center; gap:8px; }
+#tab-pdaily .section-icon { font-size:20px; }
+#tab-pdaily .section-sub { font-size:11px; color:var(--t3); font-weight:500; margin-top:2px; }
+#tab-pdaily .main { max-width:1400px; margin:0 auto; padding:0; }
+#tab-pdaily .btn { padding:7px 14px; border-radius:8px; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:13px; font-weight:600; transition:all 0.15s; font-family:var(--s); }
+#tab-pdaily .btn:hover { transform:translateY(-1px); box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+#tab-pdaily .btn.sm { padding:6px 10px; font-size:12px; }
+#tab-pdaily .btn.outline { background:transparent; }
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:var(--s);background:var(--bg);color:var(--t);font-size:16px}
 .layout{display:flex;min-height:100vh}
 .sb{width:196px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;flex-shrink:0}
@@ -4908,7 +4931,10 @@ function renderDailyComments(task, idx, canDecide) {
 
 // 댓글 추가 (🆕 누구나 작성 가능)
 function addDailyComment(idx) {
-  if (!userEmail) {
+  const _myEmail = (typeof userEmail !== "undefined" && userEmail) 
+    ? userEmail 
+    : (typeof acct !== "undefined" && acct ? acct.username : "");
+  if (!_myEmail) {
     toast("⚠️ 로그인 후 댓글 작성 가능합니다", "error");
     return;
   }
@@ -5046,7 +5072,15 @@ async function getTeamsUserId(email) {
 async function getOrCreateTeamsChat(recipientEmail) {
   try {
     const token = await getToken();
-    const myId = await getTeamsUserId(userEmail);
+    // 🆕 userEmail 안전장치 - MSAL acct에서 가져옴
+    const myEmail = (typeof userEmail !== "undefined" && userEmail) 
+      ? userEmail 
+      : (typeof acct !== "undefined" && acct ? acct.username : "");
+    if (!myEmail) {
+      console.warn("[Teams] 본인 이메일 못 찾음 - 로그인 상태 확인 필요");
+      return null;
+    }
+    const myId = await getTeamsUserId(myEmail);
     const recipientId = await getTeamsUserId(recipientEmail);
     
     if (!myId || !recipientId) {
@@ -5817,7 +5851,7 @@ function showDailyDecisionModal(task, idx, isEdit) {
           
           <!-- 결정자 정보 -->
           <div style="background:#ecfdf5;border:1px solid #10b981;border-radius:8px;padding:10px;margin-bottom:16px;font-size:12px">
-            <div><b>결정자:</b> ${escHtml(userName || userEmail || "")}</div>
+            <div><b>결정자:</b> ${escHtml((typeof userName !== "undefined" && userName) || (typeof userEmail !== "undefined" && userEmail) || (typeof acct !== "undefined" && acct ? (acct.name || acct.username) : "") || "")}</div>
             <div><b>결정 시각:</b> ${new Date().toLocaleString("ko-KR")}</div>
           </div>
           
@@ -5850,7 +5884,7 @@ function confirmDailyDecision(idx) {
   const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
   const task = dailyData.sheets[sheetName][idx];
   task.decision = decision;
-  task.decidedBy = userName || userEmail || "";
+  task.decidedBy = (typeof userName !== "undefined" && userName) || (typeof userEmail !== "undefined" && userEmail) || (typeof acct !== "undefined" && acct ? (acct.name || acct.username) : "") || "";
   task.decidedAt = new Date().toLocaleString("ko-KR");
   
   // 상태도 자동으로 진행중으로 (BH가 결정했으니까 다시 일해라)
@@ -44139,14 +44173,15 @@ function addToDailyReport(event) {
   }
   todayPlanText += qtyText;
   
-  // 완료 처리되는 이벤트 (모두 완료로)
+  // ⭐ 모든 자동 추가 = 완료 처리 (구매활동에서 이미 한 행위이므로)
   const isDoneEvent = [
     "pr_upload", "quote_upload", "order_upload", "delivery_upload", 
     "tax_upload", "settle_upload", "erp_done",
+    "activity_new", "activity_update",  // 🆕 활동 생성/수정도 완료
     "order_new", "delivery_new", "tax_new"
   ].includes(event.type);
   
-  const status = event.status || (isDoneEvent ? "완료" : "진행중");
+  const status = event.status || (isDoneEvent ? "완료" : "완료");  // 🆕 디폴트도 완료 (자동 추가는 무조건)
   
   // 🆕 소스 종류 (수동 업로드 vs ERP 자동)
   const isErpSource = (event.type === "erp_done");
