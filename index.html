@@ -4613,6 +4613,16 @@ function renderDailyTaskCard(task, idx) {
   const hasDecisionIcon = task.decision ? '✅' : '';
   const commentCount = (task.comments || []).length;
   const hasCommentIcon = commentCount > 0 ? `💬${commentCount}` : '';
+  
+  // 🆕 연결된 구매활동 배지
+  const linkedBadge = task.linkedActivity 
+    ? `<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();go('purchase-log',document.querySelector('.ni[onclick*=purchase-log]'))" title="구매활동 보기: ${task.linkedActivity.pjcode}">🔗 ${task.linkedActivity.pjcode || '?'}</span>`
+    : '';
+  
+  // 🆕 자동 추가 마커
+  const autoMarker = task.autoAdded
+    ? `<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700" title="구매활동에서 자동 추가됨">🤖 자동</span>`
+    : '';
   const infoIcons = [hasPlanIcon, hasIssueIcon, hasDecisionIcon, hasCommentIcon].filter(Boolean).join(' ');
   
   return `
@@ -4635,6 +4645,10 @@ function renderDailyTaskCard(task, idx) {
         <!-- 긴급/기한 배지 -->
         ${isUrgent ? `<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">🔴 ${escHtml(task.urgent)}</span>` : ''}
         ${isOverdue ? `<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">⏰ 기한초과</span>` : ''}
+        
+        <!-- 🆕 연결된 구매활동 + 자동 마커 -->
+        ${linkedBadge}
+        ${autoMarker}
         
         <!-- 요청업무 (메인) -->
         <div style="flex:1;font-size:13px;font-weight:600;color:#1f2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 8px" title="${escVal(task.taskDesc)}">
@@ -36283,7 +36297,26 @@ async function saveOrderEntry() {
   else _ordData.unshift(entry);
   const _label = `${date} · ${company} · ${entry.po||summary||"-"}`;
   addDBHistory("order", editId?"수정":"신규 등록", _label);
-  try{await saveOrderToSP();renderOrderDB();document.getElementById("orderModal").style.display="none";clearDraft("orderModal");alert("✅ 발주서 저장 완료!\n품목 "+items.length+"건 / 총액 "+_fmtNum(total)+"원");}
+  try{
+    await saveOrderToSP();
+    renderOrderDB();
+    document.getElementById("orderModal").style.display="none";
+    clearDraft("orderModal");
+    
+    // 🆕 일일업무보고 자동 추가
+    if(typeof addToDailyReport === "function") {
+      addToDailyReport({
+        type: "order_new",
+        pjcode: entry.pjcode || entry.salesCode || "",
+        company: company,
+        itemName: items[0]?.itemName || items[0]?.name || "발주",
+        refId: `order_${entry.id}`,
+        refDate: entry.createdAt,
+      });
+    }
+    
+    alert("✅ 발주서 저장 완료!\n품목 "+items.length+"건 / 총액 "+_fmtNum(total)+"원");
+  }
   catch(e){alert("저장 실패: "+e.message);}
 }
 
@@ -43628,7 +43661,6 @@ async function autoCreateActivitiesFromErp() {
         files: {},
         teamsEventId: null,
         createdAt: now.toISOString(),
-        // ⭐ ERP에서 생성된 품의 자료
         erpPqList: [erpPq],
         autoCreatedFromErp: true,
         _scheduleIds: {}
@@ -43636,15 +43668,37 @@ async function autoCreateActivitiesFromErp() {
       slData.unshift(activity);
       createdCount++;
       console.log(`✨ 신규 구매활동 생성: ${pjcode} (${company}) - ${info.approReqNo}`);
+      
+      // 🆕 일일업무보고에 자동 추가
+      if(typeof addToDailyReport === "function") {
+        addToDailyReport({
+          type: "erp_done",
+          pjcode: pjcode,
+          company: company,
+          itemName: erpPq.itemName,
+          refId: `erp_${info.approReqNo}`,
+          refDate: info.processedAt,
+        });
+      }
     } else {
-      // ⭐ 기존 활동에 구매품의 누적
       if(!activity.erpPqList) activity.erpPqList = [];
-      // 중복 체크 (같은 approReqNo)
       const exists = activity.erpPqList.find(p => p.approReqNo === info.approReqNo);
       if(!exists) {
         activity.erpPqList.push(erpPq);
         updatedCount++;
         console.log(`📌 기존 활동에 품의 추가: ${pjcode} ← ${info.approReqNo}`);
+        
+        // 🆕 일일업무보고에도 자동 추가
+        if(typeof addToDailyReport === "function") {
+          addToDailyReport({
+            type: "erp_done",
+            pjcode: pjcode,
+            company: company,
+            itemName: erpPq.itemName,
+            refId: `erp_${info.approReqNo}`,
+            refDate: info.processedAt,
+          });
+        }
       }
     }
     
@@ -43709,6 +43763,115 @@ function showErpAutoToast(msg) {
   toast.onclick = () => toast.remove();
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 8000);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 구매활동 변경 → 일일업무보고 자동 행 추가
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 일일업무보고에 자동 행 추가
+// event: { type: 'erp_done'|'activity_new'|'activity_update'|'order_new'|'delivery_new'|'tax_new',
+//          pjcode, company, itemName, refId, refDate }
+function addToDailyReport(event) {
+  if(typeof dailyData === "undefined" || !dailyData) {
+    console.warn("⚠️ dailyData 없음 - 일일업무보고 자동 추가 스킵");
+    return;
+  }
+  
+  // 오늘 날짜 (한국시간)
+  const now = new Date();
+  const yymmdd = String(now.getFullYear()).slice(2) +
+                String(now.getMonth() + 1).padStart(2, "0") +
+                String(now.getDate()).padStart(2, "0");
+  
+  // 현재 작성자 - 둘 다 있으면 정진영(첫 번째)에 자동 추가
+  const author = dailyData.currentAuthor || "정진영";
+  const sheetName = typeof makeSheetName === "function" 
+    ? makeSheetName(author, yymmdd)
+    : `구매팀(${author})-${yymmdd}`;
+  
+  // 시트 없으면 자동 생성
+  if(!dailyData.sheets) dailyData.sheets = {};
+  if(!dailyData.sheets[sheetName]) {
+    dailyData.sheets[sheetName] = [];
+    console.log(`📋 신규 시트 자동 생성: ${sheetName}`);
+  }
+  
+  // 중복 체크: 같은 refId가 이미 있으면 스킵
+  const exists = dailyData.sheets[sheetName].find(t => t.refId === event.refId);
+  if(exists) {
+    console.log(`⏭️ 이미 등록됨: ${event.refId}`);
+    return;
+  }
+  
+  // 이벤트 타입별 라벨/카테고리
+  const eventLabels = {
+    "erp_done":       { category: "품의", icon: "✅", action: "ERP 품의 생성" },
+    "activity_new":   { category: "거래처", icon: "🆕", action: "신규 구매활동" },
+    "activity_update":{ category: "거래처", icon: "📝", action: "활동 업데이트" },
+    "order_new":      { category: "발주", icon: "📦", action: "발주서 등록" },
+    "delivery_new":   { category: "납기", icon: "🚚", action: "거래명세서 등록" },
+    "tax_new":        { category: "기타", icon: "🧾", action: "세금계산서 등록" },
+  };
+  const evt = eventLabels[event.type] || { category: "기타", icon: "📌", action: "활동" };
+  
+  // 새 업무 행 (이슈/검토는 빈 칸)
+  const newTask = {
+    no: dailyData.sheets[sheetName].length + 1,
+    category: evt.category,
+    requester: author,
+    assignee: author,
+    requestDate: yymmdd,
+    dueDate: "",
+    urgent: "",
+    taskDesc: `${evt.icon} [${event.pjcode || "?"}] ${evt.action} - ${event.itemName || ""} ${event.company ? "("+event.company+")" : ""}`.trim(),
+    todayPlan: "",     // 빈 칸 (사용자가 채움)
+    issue: "",         // 빈 칸 (사용자가 채움)
+    decision: "",      // 빈 칸
+    status: "진행중",
+    comments: [],
+    // 🆕 연결된 구매활동 정보
+    linkedActivity: {
+      pjcode: event.pjcode,
+      company: event.company,
+      itemName: event.itemName,
+      refId: event.refId,
+      refDate: event.refDate || new Date().toISOString(),
+      type: event.type,
+    },
+    refId: event.refId,  // 중복 체크용
+    autoAdded: true,
+    addedAt: new Date().toISOString(),
+  };
+  
+  dailyData.sheets[sheetName].push(newTask);
+  dailyData.modified = true;
+  
+  console.log(`📋 일일업무보고 자동 추가: ${sheetName} ← ${newTask.taskDesc}`);
+  
+  // 작은 토스트
+  if(typeof showErpAutoToast === "function") {
+    showErpAutoToast(`📋 일일업무보고 자동 추가\n${newTask.taskDesc}`);
+  }
+  
+  // 일일업무보고 탭 보고 있으면 즉시 갱신
+  if(typeof renderDailyTasks === "function" && dailyData.currentAuthor === author && dailyData.currentDate === yymmdd) {
+    renderDailyTasks();
+  }
+  
+  // 자동 저장 (디바운스)
+  if(window._dailyAutoSaveTimer) clearTimeout(window._dailyAutoSaveTimer);
+  window._dailyAutoSaveTimer = setTimeout(async () => {
+    if(typeof saveDailyReport === "function") {
+      try {
+        await saveDailyReport();
+        console.log("📋 일일업무보고 자동 저장 완료");
+      } catch(e) {
+        console.warn("일일업무보고 자동 저장 실패:", e);
+      }
+    }
+  }, 5000);
+}
 
 async function reqqRefreshCurrentYear() {
   console.log(`🔄 구매요청 현재 연도(${ERP_CURRENT_YEAR}) 강제 갱신`);
