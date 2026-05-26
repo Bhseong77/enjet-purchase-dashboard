@@ -4420,6 +4420,11 @@ function syncDatePickerFromYYMMDD(yymmdd) {
 }
 
 function renderDailyTasks() {
+  // ⭐ sheets가 있는데 loaded 가 false면 강제로 true (안전장치)
+  if (!dailyData.loaded && Object.keys(dailyData.sheets || {}).length > 0) {
+    dailyData.loaded = true;
+    console.log("⚙️ dailyData.loaded 자동 복구");
+  }
   if (!dailyData.loaded) return;
   
   const author = dailyData.currentAuthor;
@@ -5646,6 +5651,12 @@ function updateDailyTask(idx, field, value) {
 
 // 업무 추가
 function addDailyTask() {
+  // ⭐ loaded 강제 (안전장치)
+  if (!dailyData.loaded) {
+    dailyData.loaded = true;
+    console.log("⚙️ addDailyTask에서 loaded 강제");
+  }
+  
   const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
   if (!dailyData.currentDate) {
     toast("날짜를 먼저 선택하거나 [+ 오늘 보고서 작성]을 클릭하세요", "error");
@@ -5656,7 +5667,7 @@ function addDailyTask() {
   const tasks = dailyData.sheets[sheetName];
   const newTask = {
     no: tasks.length + 1,
-    category: "총무",
+    category: "품의",  // 🆕 구매팀 기본 카테고리
     requester: "성백훈",
     assignee: dailyData.currentAuthor,
     requestDate: new Date().toISOString().substring(0, 10),
