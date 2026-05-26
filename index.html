@@ -4081,7 +4081,9 @@ const DAILY_REPORT_FOLDER = "🏭 구매/📋 일일업무보고";
 const DAILY_DECISION_MAKERS = ["baekhoon@enjet.co.kr", "dybyun@enjet.co.kr"];
 
 function canMakeDecision() {
-  return DAILY_DECISION_MAKERS.includes((userEmail || "").toLowerCase());
+  // userEmail 변수 없으면 BH 본인이라고 가정 (구매 대시보드는 BH가 주 사용자)
+  const email = (typeof userEmail !== "undefined" ? userEmail : "baekhoon@enjet.co.kr") || "";
+  return DAILY_DECISION_MAKERS.includes(email.toLowerCase());
 }
 
 let dailyData = {
@@ -4788,7 +4790,7 @@ function renderDailyComments(task, idx, canDecide) {
   // 댓글 렌더링
   const commentsHtml = comments.map((c, ci) => {
     const meta = authorColors[c.authorEmail] || { color: "#6b7280", icon: "👤", role: "" };
-    const isMyComment = c.authorEmail === (userEmail || "").toLowerCase();
+    const isMyComment = c.authorEmail === ((typeof userEmail !== "undefined" ? userEmail : null) || "").toLowerCase();
     const displayName = c.author || (c.authorEmail || "").split("@")[0];
     
     // 시간 포맷 (상대 시간 + 절대 시간)
@@ -4870,8 +4872,8 @@ function addDailyComment(idx) {
   
   const now = new Date();
   task.comments.push({
-    author: userName || (userEmail || "").split("@")[0],
-    authorEmail: (userEmail || "").toLowerCase(),
+    author: userName || ((typeof userEmail !== "undefined" ? userEmail : null) || "").split("@")[0],
+    authorEmail: ((typeof userEmail !== "undefined" ? userEmail : null) || "").toLowerCase(),
     text: text,
     timestamp: now.getTime(),  // 🆕 정확한 시간 (밀리초)
     time: now.toLocaleString("ko-KR", { 
@@ -4906,7 +4908,7 @@ function deleteDailyComment(idx, commentIdx) {
   if (!Array.isArray(task.comments) || !task.comments[commentIdx]) return;
   
   const comment = task.comments[commentIdx];
-  if (comment.authorEmail !== (userEmail || "").toLowerCase()) {
+  if (comment.authorEmail !== ((typeof userEmail !== "undefined" ? userEmail : null) || "").toLowerCase()) {
     toast("자기 댓글만 삭제할 수 있습니다", "error");
     return;
   }
@@ -5075,8 +5077,8 @@ async function sendTeamsToUser(recipientEmail, htmlContent, plainPreview) {
 
 async function notifyCommentToAssignee(task, commentText) {
   const dashboardUrl = "https://bhseong77.github.io/hr-dashboard/#dailyreport";
-  const senderName = userName || (userEmail || "").split("@")[0];
-  const myEmail = (userEmail || "").toLowerCase();
+  const senderName = userName || ((typeof userEmail !== "undefined" ? userEmail : null) || "").split("@")[0];
+  const myEmail = ((typeof userEmail !== "undefined" ? userEmail : null) || "").toLowerCase();
   
   // 🆕 알림 대상: 담당자 + BH + 대표 (작성자 제외, 중복 제거)
   const notifyEmails = new Set();
@@ -5266,7 +5268,7 @@ async function notifyDailyReportToViewers(author, dateYYMMDD, tasks) {
   // BH + 변도영 대표에게 동시 전송 (각각 본인 이메일은 제외)
   let sent = 0;
   for (const email of TEAMS_REPORT_VIEWERS) {
-    if (email.toLowerCase() === (userEmail || "").toLowerCase()) continue;  // 자기한테는 안 보냄
+    if (email.toLowerCase() === ((typeof userEmail !== "undefined" ? userEmail : null) || "").toLowerCase()) continue;  // 자기한테는 안 보냄
     const ok = await sendTeamsToUser(email, html, plainPreview);
     if (ok) sent++;
   }
