@@ -5791,55 +5791,84 @@ function confirmDailyDecision(idx) {
 
 // 오늘 보고서 작성
 function createTodayReport() {
-  // ⭐ 한국시간(로컬) 기준 오늘 - toISOString()은 UTC라 새벽엔 어제가 됨
-  const yymmdd = getKSTTodayYYMMDD();
-  const sheetName = makeSheetName(dailyData.currentAuthor, yymmdd);
+  console.log("🔵 createTodayReport 시작");
+  console.log("dailyData:", typeof dailyData, dailyData);
   
-  if (dailyData.sheets[sheetName]) {
-    // 이미 있음 → 그냥 선택
-    dailyData.currentDate = yymmdd;
-    document.getElementById("dailyDate").value = yymmdd;
-    renderDailyDateOptions();
-    document.getElementById("dailyDate").value = yymmdd;
-    syncDatePickerFromYYMMDD(yymmdd);
-    renderDailyTasks();
-    toast("📋 오늘 보고서로 이동", "info");
+  // ⭐ 안전장치: dailyData 없으면 자동 초기화
+  if (typeof dailyData === "undefined" || !dailyData) {
+    alert("⚠️ dailyData가 없습니다. 새로고침 후 메뉴 다시 클릭해주세요.");
     return;
   }
   
-  // ⭐ 어제 보고서가 있으면 그걸 복사 (한국시간 기준)
-  const today = new Date();
-  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-  const yYymmdd = String(yesterday.getFullYear()).slice(2) +
-                 String(yesterday.getMonth() + 1).padStart(2, "0") +
-                 String(yesterday.getDate()).padStart(2, "0");
-  const yesterdaySheet = makeSheetName(dailyData.currentAuthor, yYymmdd);
-  
-  let baseTasks = [];
-  if (dailyData.sheets[yesterdaySheet]) {
-    // 어제 완료되지 않은 업무 복사 (이어서 진행)
-    baseTasks = dailyData.sheets[yesterdaySheet]
-      .filter(t => t.status !== "완료")
-      .map(t => ({
-        ...t,
-        todayPlan: "",   // 오늘 진행 계획은 비워둠
-      }));
-    // NO 재정렬
-    baseTasks.forEach((t, i) => t.no = i + 1);
+  // 작성자가 없으면 기본값 자동 설정
+  if (!dailyData.currentAuthor) {
+    dailyData.currentAuthor = "정진영";  // 기본 작성자
+    const authorSelect = document.getElementById("dailyAuthor");
+    if (authorSelect) authorSelect.value = "정진영";
+    console.log("🔵 작성자 자동 설정: 정진영");
   }
   
-  dailyData.sheets[sheetName] = baseTasks;
-  dailyData.currentDate = yymmdd;
-  dailyData.modified = true;
+  // sheets가 없으면 빈 객체로 초기화
+  if (!dailyData.sheets) {
+    dailyData.sheets = {};
+    console.log("🔵 sheets 초기화");
+  }
   
-  renderDailyDateOptions();
-  document.getElementById("dailyDate").value = yymmdd;
-  renderDailyTasks();
-  
-  if (baseTasks.length > 0) {
-    toast(`✅ 오늘 보고서 생성 (어제 진행중 ${baseTasks.length}건 이어받음)`, "success");
-  } else {
-    toast(`✅ 오늘 보고서 생성됨. [+ 업무 추가]로 시작하세요`, "success");
+  try {
+    // ⭐ 한국시간(로컬) 기준 오늘 - toISOString()은 UTC라 새벽엔 어제가 됨
+    const yymmdd = getKSTTodayYYMMDD();
+    const sheetName = makeSheetName(dailyData.currentAuthor, yymmdd);
+    console.log("🔵 today YYMMDD:", yymmdd, " sheet:", sheetName);
+    
+    if (dailyData.sheets[sheetName]) {
+      // 이미 있음 → 그냥 선택
+      dailyData.currentDate = yymmdd;
+      document.getElementById("dailyDate").value = yymmdd;
+      renderDailyDateOptions();
+      document.getElementById("dailyDate").value = yymmdd;
+      if (typeof syncDatePickerFromYYMMDD === "function") syncDatePickerFromYYMMDD(yymmdd);
+      renderDailyTasks();
+      toast("📋 오늘 보고서로 이동", "info");
+      return;
+    }
+    
+    // ⭐ 어제 보고서가 있으면 그걸 복사 (한국시간 기준)
+    const today = new Date();
+    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+    const yYymmdd = String(yesterday.getFullYear()).slice(2) +
+                   String(yesterday.getMonth() + 1).padStart(2, "0") +
+                   String(yesterday.getDate()).padStart(2, "0");
+    const yesterdaySheet = makeSheetName(dailyData.currentAuthor, yYymmdd);
+    
+    let baseTasks = [];
+    if (dailyData.sheets[yesterdaySheet]) {
+      baseTasks = dailyData.sheets[yesterdaySheet]
+        .filter(t => t.status !== "완료")
+        .map(t => ({
+          ...t,
+          todayPlan: "",
+        }));
+      baseTasks.forEach((t, i) => t.no = i + 1);
+    }
+    
+    dailyData.sheets[sheetName] = baseTasks;
+    dailyData.currentDate = yymmdd;
+    dailyData.modified = true;
+    console.log("🔵 새 시트 생성:", sheetName);
+    
+    renderDailyDateOptions();
+    document.getElementById("dailyDate").value = yymmdd;
+    renderDailyTasks();
+    
+    if (baseTasks.length > 0) {
+      toast(`✅ 오늘 보고서 생성 (어제 진행중 ${baseTasks.length}건 이어받음)`, "success");
+    } else {
+      toast(`✅ 오늘 보고서 생성됨. [+ 업무 추가]로 시작하세요`, "success");
+    }
+    console.log("🔵 createTodayReport 완료");
+  } catch (e) {
+    console.error("❌ createTodayReport 에러:", e);
+    alert("❌ 보고서 생성 실패:\n" + e.message + "\n\nF12 콘솔에서 자세히 확인하세요.");
   }
 }
 
