@@ -4067,6 +4067,21 @@
 const DAILY_REPORT_FILE_PATH = "🏭 구매/📋 일일업무보고/구매팀 업무보고.xlsx";
 const DAILY_REPORT_FOLDER = "🏭 구매/📋 일일업무보고";
 
+// 🆕 일일업무보고용 toast (구매에는 toast 없음)
+if (typeof toast === "undefined") {
+  window.toast = function(msg, type) {
+    const existingToasts = document.querySelectorAll(".daily-toast");
+    existingToasts.forEach(t => t.remove());
+    const el = document.createElement("div");
+    el.className = "daily-toast";
+    const bgColor = type === "error" ? "#dc2626" : type === "success" ? "#10b981" : "#3b82f6";
+    el.style.cssText = `position:fixed;top:80px;right:20px;background:${bgColor};color:white;padding:12px 18px;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:99999;font-size:14px;font-weight:600;animation:slideIn 0.3s ease`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  };
+}
+
 // 🆕 결정 권한: BH(전무) + 변도영(대표이사)만
 const DAILY_DECISION_MAKERS = ["baekhoon@enjet.co.kr", "dybyun@enjet.co.kr"];
 
@@ -4101,34 +4116,34 @@ async function renderDailyReport() {
   
   // 권한 표시
   if (canMakeDecision()) {
-    $("dailyDecisionHint").textContent = "✅ 결정 권한 있음";
-    $("dailyDecisionHint").style.color = "#10b981";
+    document.getElementById("dailyDecisionHint").textContent = "✅ 결정 권한 있음";
+    document.getElementById("dailyDecisionHint").style.color = "#10b981";
   } else {
-    $("dailyDecisionHint").textContent = "조회만 가능";
-    $("dailyDecisionHint").style.color = "#9ca3af";
+    document.getElementById("dailyDecisionHint").textContent = "조회만 가능";
+    document.getElementById("dailyDecisionHint").style.color = "#9ca3af";
   }
 }
 
 async function loadDailyReportExcel() {
-  if (!driveId) {
+  if (!spDrive) {
     toast("SharePoint 연결 안 됨", "error");
     return;
   }
   
-  $("dailyFileStatus").innerHTML = "📂 파일 로드 중...";
+  document.getElementById("dailyFileStatus").innerHTML = "📂 파일 로드 중...";
   console.log("[일일보고] 로드 시작:", DAILY_REPORT_FILE_PATH);
   
   try {
     const token = await getToken();
     
     // 파일 메타
-    const metaR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(DAILY_REPORT_FILE_PATH)}`, {
+    const metaR = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(DAILY_REPORT_FILE_PATH)}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     
     if (!metaR.ok) {
       console.warn("[일일보고] 파일 없음");
-      $("dailyFileStatus").innerHTML = `❌ 파일 없음. SharePoint에 <code>구매팀 업무보고.xlsx</code> 업로드 필요`;
+      document.getElementById("dailyFileStatus").innerHTML = `❌ 파일 없음. SharePoint에 <code>구매팀 업무보고.xlsx</code> 업로드 필요`;
       return;
     }
     
@@ -4136,7 +4151,7 @@ async function loadDailyReportExcel() {
     dailyData.fileId = meta.id;
     
     // 다운로드
-    const dlR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${meta.id}/content`, {
+    const dlR = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/items/${meta.id}/content`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!dlR.ok) throw new Error(`다운로드 실패`);
@@ -4159,7 +4174,7 @@ async function loadDailyReportExcel() {
     const totalTasks = Object.values(dailyData.sheets).reduce((s, t) => s + t.length, 0);
     
     const lastMod = meta.lastModifiedDateTime ? new Date(meta.lastModifiedDateTime).toLocaleDateString("ko-KR") : "-";
-    $("dailyFileStatus").innerHTML = `📄 ${meta.name} · ${totalSheets}개 보고서 · ${totalTasks}건 업무 · 갱신: ${lastMod}`;
+    document.getElementById("dailyFileStatus").innerHTML = `📄 ${meta.name} · ${totalSheets}개 보고서 · ${totalTasks}건 업무 · 갱신: ${lastMod}`;
     
     // 날짜 옵션 채우기
     renderDailyDateOptions();
@@ -4172,7 +4187,7 @@ async function loadDailyReportExcel() {
                          String(now.getMonth() + 1).padStart(2, "0") +
                          String(now.getDate()).padStart(2, "0");
       const selectDate = dates.includes(todayYYMMDD) ? todayYYMMDD : dates[0];
-      $("dailyDate").value = selectDate;
+      document.getElementById("dailyDate").value = selectDate;
       dailyData.currentDate = selectDate;
       // ⭐ 달력 picker도 동기화
       syncDatePickerFromYYMMDD(selectDate);
@@ -4182,7 +4197,7 @@ async function loadDailyReportExcel() {
     console.log(`[일일보고] ✅ ${totalSheets}개 시트, ${totalTasks}건 업무 로드`);
   } catch (e) {
     console.error("[일일보고] 로드 실패:", e);
-    $("dailyFileStatus").innerHTML = `❌ ${e.message}`;
+    document.getElementById("dailyFileStatus").innerHTML = `❌ ${e.message}`;
   }
 }
 
@@ -4310,7 +4325,7 @@ function getAvailableDates() {
 }
 
 function renderDailyDateOptions() {
-  const sel = $("dailyDate");
+  const sel = document.getElementById("dailyDate");
   if (!sel) return;
   
   const dates = getAvailableDates();
@@ -4341,7 +4356,7 @@ function getWeekday(yymmdd) {
 }
 
 function onDailyAuthorChange() {
-  dailyData.currentAuthor = $("dailyAuthor").value;
+  dailyData.currentAuthor = document.getElementById("dailyAuthor").value;
   renderDailyDateOptions();
   const dates = getAvailableDates();
   // 오늘 날짜 우선
@@ -4351,13 +4366,13 @@ function onDailyAuthorChange() {
                      String(now.getDate()).padStart(2, "0");
   const selectDate = dates.includes(todayYYMMDD) ? todayYYMMDD : (dates[0] || "");
   dailyData.currentDate = selectDate;
-  $("dailyDate").value = selectDate;
+  document.getElementById("dailyDate").value = selectDate;
   syncDatePickerFromYYMMDD(selectDate);
   renderDailyTasks();
 }
 
 function onDailyDateChange() {
-  dailyData.currentDate = $("dailyDate").value;
+  dailyData.currentDate = document.getElementById("dailyDate").value;
   // ⭐ 달력도 동기화
   syncDatePickerFromYYMMDD(dailyData.currentDate);
   renderDailyTasks();
@@ -4365,7 +4380,7 @@ function onDailyDateChange() {
 
 // ⭐ 달력 picker로 날짜 선택 시
 function onDailyDatePickerChange() {
-  const v = $("dailyDatePicker").value; // YYYY-MM-DD
+  const v = document.getElementById("dailyDatePicker").value; // YYYY-MM-DD
   if (!v) return;
   // YYMMDD 형식으로 변환
   const yymmdd = v.substring(2,4) + v.substring(5,7) + v.substring(8,10);
@@ -4374,7 +4389,7 @@ function onDailyDatePickerChange() {
   const dates = getAvailableDates();
   if (dates.includes(yymmdd)) {
     dailyData.currentDate = yymmdd;
-    $("dailyDate").value = yymmdd;
+    document.getElementById("dailyDate").value = yymmdd;
     renderDailyTasks();
   } else {
     if (confirm(`${v}에 보고서가 없습니다.\n새 시트로 시작하시겠습니까?`)) {
@@ -4386,7 +4401,7 @@ function onDailyDatePickerChange() {
       }
       dailyData.currentDate = yymmdd;
       renderDailyDateOptions();  // 옵션 다시 채우기
-      $("dailyDate").value = yymmdd;
+      document.getElementById("dailyDate").value = yymmdd;
       renderDailyTasks();
       toast("📝 새 보고서 시트 생성됨 - 저장 필요", "success");
     } else {
@@ -4398,7 +4413,7 @@ function onDailyDatePickerChange() {
 
 // YYMMDD를 달력 picker에 동기화
 function syncDatePickerFromYYMMDD(yymmdd) {
-  const picker = $("dailyDatePicker");
+  const picker = document.getElementById("dailyDatePicker");
   if (!picker) return;
   if (!yymmdd || yymmdd.length !== 6) {
     picker.value = "";
@@ -4413,18 +4428,18 @@ function renderDailyTasks() {
   const author = dailyData.currentAuthor;
   const date = dailyData.currentDate;
   
-  const dateLabel = $("dailyDateLabel");
+  const dateLabel = document.getElementById("dailyDateLabel");
   if (!date) {
     if (dateLabel) dateLabel.textContent = "날짜를 선택하세요";
-    $("dailyTasksList").innerHTML = `
+    document.getElementById("dailyTasksList").innerHTML = `
       <div style="text-align:center;padding:40px;color:var(--t3)">
         보고서를 선택하거나 <button class="btn sm" onclick="createTodayReport()" style="background:#ea580c;color:#fff;margin-left:8px">+ 오늘 보고서 작성</button>
       </div>`;
-    $("dailyAttachmentsSection").style.display = "none";
+    document.getElementById("dailyAttachmentsSection").style.display = "none";
     
     // KPI 0으로
     ['dailyKpiTotal','dailyKpiDone','dailyKpiInProgress','dailyKpiIssue'].forEach(id => {
-      if ($(id)) $(id).innerHTML = '0<span class="kpi-unit">건</span>';
+      if (document.getElementById(id)) document.getElementById(id).innerHTML = '0<span class="kpi-unit">건</span>';
     });
     return;
   }
@@ -4437,14 +4452,14 @@ function renderDailyTasks() {
   }
   
   // 첨부파일 섹션 표시
-  $("dailyAttachmentsSection").style.display = "block";
-  $("dailyAttachmentsPath").textContent = `📂 ${DAILY_REPORT_FOLDER}/20${date.substring(0,2)}${date.substring(2,4)}${date.substring(4,6)}/`;
+  document.getElementById("dailyAttachmentsSection").style.display = "block";
+  document.getElementById("dailyAttachmentsPath").textContent = `📂 ${DAILY_REPORT_FOLDER}/20${date.substring(0,2)}${date.substring(2,4)}${date.substring(4,6)}/`;
   loadDailyAttachments();
   
   // 필터 적용
-  const search = ($("dailySearch")?.value || "").toLowerCase().trim();
-  const catFilter = $("dailyCategoryFilter")?.value || "";
-  const statusFilter = $("dailyStatusFilter")?.value || "";
+  const search = (document.getElementById("dailySearch")?.value || "").toLowerCase().trim();
+  const catFilter = document.getElementById("dailyCategoryFilter")?.value || "";
+  const statusFilter = document.getElementById("dailyStatusFilter")?.value || "";
   
   let filtered = [...tasks];
   if (catFilter) filtered = filtered.filter(t => t.category === catFilter);
@@ -4461,13 +4476,13 @@ function renderDailyTasks() {
   const inProgress = tasks.filter(t => t.status === "진행중").length;
   const issue = tasks.filter(t => t.status === "이슈확인" && !t.decision).length;
   
-  $("dailyKpiTotal").innerHTML = `${total}<span class="kpi-unit">건</span>`;
-  $("dailyKpiDone").innerHTML = `${done}<span class="kpi-unit">건</span>`;
-  $("dailyKpiInProgress").innerHTML = `${inProgress}<span class="kpi-unit">건</span>`;
-  $("dailyKpiIssue").innerHTML = `${issue}<span class="kpi-unit">건</span>`;
+  document.getElementById("dailyKpiTotal").innerHTML = `${total}<span class="kpi-unit">건</span>`;
+  document.getElementById("dailyKpiDone").innerHTML = `${done}<span class="kpi-unit">건</span>`;
+  document.getElementById("dailyKpiInProgress").innerHTML = `${inProgress}<span class="kpi-unit">건</span>`;
+  document.getElementById("dailyKpiIssue").innerHTML = `${issue}<span class="kpi-unit">건</span>`;
   
   // 업무 카드 렌더링
-  const list = $("dailyTasksList");
+  const list = document.getElementById("dailyTasksList");
   if (filtered.length === 0) {
     list.innerHTML = `
       <div style="text-align:center;padding:40px;color:var(--t3)">
@@ -4547,7 +4562,7 @@ function toggleDailyGroup(statusKey) {
 // 🆕 KPI 클릭 → 빠른 필터 (영업모듈 qf 패턴)
 function quickFilterDailyStatus(status) {
   // 진행상태 필터 적용
-  const sf = $("dailyStatusFilter");
+  const sf = document.getElementById("dailyStatusFilter");
   if (sf) sf.value = status;
   
   // 해당 그룹 펼치기 (다른 그룹은 접기)
@@ -4830,7 +4845,7 @@ function addDailyComment(idx) {
     return;
   }
   
-  const input = $(`commentInput_${idx}`);
+  const input = document.getElementById(`commentInput_${idx}`);
   if (!input) return;
   const text = input.value.trim();
   if (!text) {
@@ -4860,10 +4875,10 @@ function addDailyComment(idx) {
   input.value = "";
   
   // 저장 버튼 강조
-  if ($("dailySaveBtn")) {
-    $("dailySaveBtn").style.background = "#ea580c";
-    $("dailySaveBtn").style.color = "#fff";
-    $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+  if (document.getElementById("dailySaveBtn")) {
+    document.getElementById("dailySaveBtn").style.background = "#ea580c";
+    document.getElementById("dailySaveBtn").style.color = "#fff";
+    document.getElementById("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
   }
   
   renderDailyTasks();
@@ -4892,10 +4907,10 @@ function deleteDailyComment(idx, commentIdx) {
   task.comments.splice(commentIdx, 1);
   dailyData.modified = true;
   
-  if ($("dailySaveBtn")) {
-    $("dailySaveBtn").style.background = "#ea580c";
-    $("dailySaveBtn").style.color = "#fff";
-    $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+  if (document.getElementById("dailySaveBtn")) {
+    document.getElementById("dailySaveBtn").style.background = "#ea580c";
+    document.getElementById("dailySaveBtn").style.color = "#fff";
+    document.getElementById("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
   }
   
   renderDailyTasks();
@@ -5461,7 +5476,7 @@ function updateTodayReportButtonStatus() {
 
 // 날짜 옵션 라벨에 공휴일/연차 표시
 function renderDailyDateOptionsEnhanced() {
-  const sel = $("dailyDate");
+  const sel = document.getElementById("dailyDate");
   if (!sel) return;
   
   const dates = getAvailableDates();
@@ -5607,9 +5622,9 @@ function updateDailyTask(idx, field, value) {
   
   dailyData.sheets[sheetName][idx][field] = value;
   dailyData.modified = true;
-  $("dailySaveBtn").style.background = "#ea580c";
-  $("dailySaveBtn").style.color = "#fff";
-  $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+  document.getElementById("dailySaveBtn").style.background = "#ea580c";
+  document.getElementById("dailySaveBtn").style.color = "#fff";
+  document.getElementById("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
   
   // 상태 변경 시 카드 색상 갱신
   if (field === "status" || field === "category" || field === "decision") {
@@ -5740,18 +5755,18 @@ function showDailyDecisionModal(task, idx, isEdit) {
       </div>
     </div>
   `;
-  const existing = $("dailyDecisionModal");
+  const existing = document.getElementById("dailyDecisionModal");
   if (existing) existing.remove();
   document.body.insertAdjacentHTML("beforeend", modal);
 }
 
 function closeDailyDecisionModal() {
-  const m = $("dailyDecisionModal");
+  const m = document.getElementById("dailyDecisionModal");
   if (m) m.remove();
 }
 
 function confirmDailyDecision(idx) {
-  const decision = $("decisionInput").value.trim();
+  const decision = document.getElementById("decisionInput").value.trim();
   if (!decision) {
     toast("결정 내용을 입력하세요", "error");
     return;
@@ -5783,9 +5798,9 @@ function createTodayReport() {
   if (dailyData.sheets[sheetName]) {
     // 이미 있음 → 그냥 선택
     dailyData.currentDate = yymmdd;
-    $("dailyDate").value = yymmdd;
+    document.getElementById("dailyDate").value = yymmdd;
     renderDailyDateOptions();
-    $("dailyDate").value = yymmdd;
+    document.getElementById("dailyDate").value = yymmdd;
     syncDatePickerFromYYMMDD(yymmdd);
     renderDailyTasks();
     toast("📋 오늘 보고서로 이동", "info");
@@ -5818,7 +5833,7 @@ function createTodayReport() {
   dailyData.modified = true;
   
   renderDailyDateOptions();
-  $("dailyDate").value = yymmdd;
+  document.getElementById("dailyDate").value = yymmdd;
   renderDailyTasks();
   
   if (baseTasks.length > 0) {
@@ -5840,14 +5855,14 @@ async function saveDailyReport() {
     return;
   }
   
-  $("dailySaveBtn").innerHTML = "💾 저장 중...";
-  $("dailySaveBtn").disabled = true;
+  document.getElementById("dailySaveBtn").innerHTML = "💾 저장 중...";
+  document.getElementById("dailySaveBtn").disabled = true;
   
   try {
     const token = await getToken();
     
     // 현재 엑셀 다운로드
-    const dlR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${dailyData.fileId}/content`, {
+    const dlR = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/items/${dailyData.fileId}/content`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const buf = await dlR.arrayBuffer();
@@ -5934,7 +5949,7 @@ async function saveDailyReport() {
     // 엑셀 저장
     const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     
-    const upR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${dailyData.fileId}/content`, {
+    const upR = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/items/${dailyData.fileId}/content`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -5946,10 +5961,10 @@ async function saveDailyReport() {
     if (!upR.ok) throw new Error(`업로드 실패 (${upR.status})`);
     
     dailyData.modified = false;
-    $("dailySaveBtn").style.background = "";
-    $("dailySaveBtn").style.color = "";
-    $("dailySaveBtn").innerHTML = "💾 저장";
-    $("dailySaveBtn").disabled = false;
+    document.getElementById("dailySaveBtn").style.background = "";
+    document.getElementById("dailySaveBtn").style.color = "";
+    document.getElementById("dailySaveBtn").innerHTML = "💾 저장";
+    document.getElementById("dailySaveBtn").disabled = false;
     
     toast("✅ SharePoint 엑셀에 저장 완료!", "success");
     console.log("[일일보고] ✅ 저장 완료");
@@ -5969,8 +5984,8 @@ async function saveDailyReport() {
   } catch (e) {
     console.error("[일일보고] 저장 실패:", e);
     toast(`❌ 저장 실패: ${e.message}`, "error");
-    $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
-    $("dailySaveBtn").disabled = false;
+    document.getElementById("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+    document.getElementById("dailySaveBtn").disabled = false;
   }
 }
 
@@ -5991,11 +6006,11 @@ async function loadDailyAttachments() {
   
   try {
     const token = await getToken();
-    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(folder)}:/children`, {
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(folder)}:/children`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     
-    const list = $("dailyAttachmentsList");
+    const list = document.getElementById("dailyAttachmentsList");
     if (!r.ok) {
       list.innerHTML = `<div style="color:#9ca3af;font-size:12px;padding:8px">📂 폴더 없음 (파일 업로드 시 자동 생성됩니다)</div>`;
       return;
@@ -6039,7 +6054,7 @@ function formatFileSize(bytes) {
 }
 
 async function uploadDailyFiles() {
-  const input = $("dailyFileInput");
+  const input = document.getElementById("dailyFileInput");
   const files = input.files;
   if (!files || files.length === 0) return;
   
@@ -6056,7 +6071,7 @@ async function uploadDailyFiles() {
     
     // 폴더 생성 (없으면)
     try {
-      await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(DAILY_REPORT_FOLDER)}:/children`, {
+      await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(DAILY_REPORT_FOLDER)}:/children`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -6069,7 +6084,7 @@ async function uploadDailyFiles() {
     
     let successCount = 0;
     for (const file of files) {
-      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(folder + "/" + file.name)}:/content`, {
+      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(folder + "/" + file.name)}:/content`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
         body: file
@@ -34757,6 +34772,24 @@ function go(id, el) {
   if(tabEl) tabEl.classList.add("on");
   if(el) el.classList.add("on");
   $("ptitle", TITLES[id]||id);
+  
+  // 🆕 일일업무보고 탭 진입 시 엑셀 자동 로드
+  if(id === "pdaily") {
+    if(typeof loadDailyReportExcel === "function") {
+      // 처음 진입이면 무조건 로드
+      if(!window._dailyLoaded) {
+        window._dailyLoaded = true;
+        console.log("📋 일일업무보고 탭 진입 - 엑셀 자동 로드");
+        loadDailyReportExcel().catch(e => {
+          console.error("일일업무보고 로드 실패:", e);
+          const status = document.getElementById("dailyFileStatus");
+          if(status) status.innerHTML = `❌ 로드 실패: ${e.message}`;
+        });
+      }
+    } else {
+      console.error("❌ loadDailyReportExcel 함수 없음");
+    }
+  }
 
   // 🆕 구매활동 탭 진입 시 캘린더 자동 동기화 + DB 로드 (요청/구매 일정/품목 카운트 보이도록)
   if(id === "sl-list" || id === "purchase-activity") {
