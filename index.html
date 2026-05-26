@@ -3946,9 +3946,10 @@
       </div>
 
 <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-<!-- 🆕 구매팀 일일업무보고 (HR에서 복사 + 구매용 변환) -->
-<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
 
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 🆕 구매팀 일일업무보고 -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
     <!-- 🆕 TAB: 일일업무보고 -->
     <div id="tab-pdaily" class="page">
       <div class="main">
@@ -4051,11 +4052,20 @@
     </div>
 
 <script>
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🆕 구매팀 일일업무보고 JS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 일일업무보고 toast (구매에는 없음)
+if (typeof toast === "undefined") {
+  window.toast = function(msg, type) {
+    document.querySelectorAll(".daily-toast").forEach(t => t.remove());
+    const el = document.createElement("div");
+    el.className = "daily-toast";
+    const bgColor = type === "error" ? "#dc2626" : type === "success" ? "#10b981" : "#3b82f6";
+    el.style.cssText = "position:fixed;top:80px;right:20px;background:"+bgColor+";color:white;padding:12px 18px;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:99999;font-size:14px;font-weight:600";
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  };
+}
 
-// 공휴일 (HR에서 복사)
 
 
 // 🆕 일일업무보고 시스템
@@ -4066,21 +4076,6 @@
 
 const DAILY_REPORT_FILE_PATH = "🏭 구매/📋 일일업무보고/구매팀 업무보고.xlsx";
 const DAILY_REPORT_FOLDER = "🏭 구매/📋 일일업무보고";
-
-// 🆕 일일업무보고용 toast (구매에는 toast 없음)
-if (typeof toast === "undefined") {
-  window.toast = function(msg, type) {
-    const existingToasts = document.querySelectorAll(".daily-toast");
-    existingToasts.forEach(t => t.remove());
-    const el = document.createElement("div");
-    el.className = "daily-toast";
-    const bgColor = type === "error" ? "#dc2626" : type === "success" ? "#10b981" : "#3b82f6";
-    el.style.cssText = `position:fixed;top:80px;right:20px;background:${bgColor};color:white;padding:12px 18px;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:99999;font-size:14px;font-weight:600;animation:slideIn 0.3s ease`;
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
-  };
-}
 
 // 🆕 결정 권한: BH(전무) + 변도영(대표이사)만
 const DAILY_DECISION_MAKERS = ["baekhoon@enjet.co.kr", "dybyun@enjet.co.kr"];
@@ -5791,84 +5786,55 @@ function confirmDailyDecision(idx) {
 
 // 오늘 보고서 작성
 function createTodayReport() {
-  console.log("🔵 createTodayReport 시작");
-  console.log("dailyData:", typeof dailyData, dailyData);
+  // ⭐ 한국시간(로컬) 기준 오늘 - toISOString()은 UTC라 새벽엔 어제가 됨
+  const yymmdd = getKSTTodayYYMMDD();
+  const sheetName = makeSheetName(dailyData.currentAuthor, yymmdd);
   
-  // ⭐ 안전장치: dailyData 없으면 자동 초기화
-  if (typeof dailyData === "undefined" || !dailyData) {
-    alert("⚠️ dailyData가 없습니다. 새로고침 후 메뉴 다시 클릭해주세요.");
+  if (dailyData.sheets[sheetName]) {
+    // 이미 있음 → 그냥 선택
+    dailyData.currentDate = yymmdd;
+    document.getElementById("dailyDate").value = yymmdd;
+    renderDailyDateOptions();
+    document.getElementById("dailyDate").value = yymmdd;
+    syncDatePickerFromYYMMDD(yymmdd);
+    renderDailyTasks();
+    toast("📋 오늘 보고서로 이동", "info");
     return;
   }
   
-  // 작성자가 없으면 기본값 자동 설정
-  if (!dailyData.currentAuthor) {
-    dailyData.currentAuthor = "정진영";  // 기본 작성자
-    const authorSelect = document.getElementById("dailyAuthor");
-    if (authorSelect) authorSelect.value = "정진영";
-    console.log("🔵 작성자 자동 설정: 정진영");
+  // ⭐ 어제 보고서가 있으면 그걸 복사 (한국시간 기준)
+  const today = new Date();
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  const yYymmdd = String(yesterday.getFullYear()).slice(2) +
+                 String(yesterday.getMonth() + 1).padStart(2, "0") +
+                 String(yesterday.getDate()).padStart(2, "0");
+  const yesterdaySheet = makeSheetName(dailyData.currentAuthor, yYymmdd);
+  
+  let baseTasks = [];
+  if (dailyData.sheets[yesterdaySheet]) {
+    // 어제 완료되지 않은 업무 복사 (이어서 진행)
+    baseTasks = dailyData.sheets[yesterdaySheet]
+      .filter(t => t.status !== "완료")
+      .map(t => ({
+        ...t,
+        todayPlan: "",   // 오늘 진행 계획은 비워둠
+      }));
+    // NO 재정렬
+    baseTasks.forEach((t, i) => t.no = i + 1);
   }
   
-  // sheets가 없으면 빈 객체로 초기화
-  if (!dailyData.sheets) {
-    dailyData.sheets = {};
-    console.log("🔵 sheets 초기화");
-  }
+  dailyData.sheets[sheetName] = baseTasks;
+  dailyData.currentDate = yymmdd;
+  dailyData.modified = true;
   
-  try {
-    // ⭐ 한국시간(로컬) 기준 오늘 - toISOString()은 UTC라 새벽엔 어제가 됨
-    const yymmdd = getKSTTodayYYMMDD();
-    const sheetName = makeSheetName(dailyData.currentAuthor, yymmdd);
-    console.log("🔵 today YYMMDD:", yymmdd, " sheet:", sheetName);
-    
-    if (dailyData.sheets[sheetName]) {
-      // 이미 있음 → 그냥 선택
-      dailyData.currentDate = yymmdd;
-      document.getElementById("dailyDate").value = yymmdd;
-      renderDailyDateOptions();
-      document.getElementById("dailyDate").value = yymmdd;
-      if (typeof syncDatePickerFromYYMMDD === "function") syncDatePickerFromYYMMDD(yymmdd);
-      renderDailyTasks();
-      toast("📋 오늘 보고서로 이동", "info");
-      return;
-    }
-    
-    // ⭐ 어제 보고서가 있으면 그걸 복사 (한국시간 기준)
-    const today = new Date();
-    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-    const yYymmdd = String(yesterday.getFullYear()).slice(2) +
-                   String(yesterday.getMonth() + 1).padStart(2, "0") +
-                   String(yesterday.getDate()).padStart(2, "0");
-    const yesterdaySheet = makeSheetName(dailyData.currentAuthor, yYymmdd);
-    
-    let baseTasks = [];
-    if (dailyData.sheets[yesterdaySheet]) {
-      baseTasks = dailyData.sheets[yesterdaySheet]
-        .filter(t => t.status !== "완료")
-        .map(t => ({
-          ...t,
-          todayPlan: "",
-        }));
-      baseTasks.forEach((t, i) => t.no = i + 1);
-    }
-    
-    dailyData.sheets[sheetName] = baseTasks;
-    dailyData.currentDate = yymmdd;
-    dailyData.modified = true;
-    console.log("🔵 새 시트 생성:", sheetName);
-    
-    renderDailyDateOptions();
-    document.getElementById("dailyDate").value = yymmdd;
-    renderDailyTasks();
-    
-    if (baseTasks.length > 0) {
-      toast(`✅ 오늘 보고서 생성 (어제 진행중 ${baseTasks.length}건 이어받음)`, "success");
-    } else {
-      toast(`✅ 오늘 보고서 생성됨. [+ 업무 추가]로 시작하세요`, "success");
-    }
-    console.log("🔵 createTodayReport 완료");
-  } catch (e) {
-    console.error("❌ createTodayReport 에러:", e);
-    alert("❌ 보고서 생성 실패:\n" + e.message + "\n\nF12 콘솔에서 자세히 확인하세요.");
+  renderDailyDateOptions();
+  document.getElementById("dailyDate").value = yymmdd;
+  renderDailyTasks();
+  
+  if (baseTasks.length > 0) {
+    toast(`✅ 오늘 보고서 생성 (어제 진행중 ${baseTasks.length}건 이어받음)`, "success");
+  } else {
+    toast(`✅ 오늘 보고서 생성됨. [+ 업무 추가]로 시작하세요`, "success");
   }
 }
 
@@ -6193,8 +6159,631 @@ function showLongTermView() {
         <td style="font-size:11px;color:#6b7280">${expandDate(lt.last._date)}</td>
         <td style="text-align:center;font-weight:700">${lt.count}회</td>
         <td>${statusBadge}</td>
-</script>
+      </tr>`;
+  }
+  
+  const modal = `
+    <div id="longTermModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeLongTermModal()">
+      <div style="background:#fff;border-radius:14px;max-width:1100px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)">
+        <div style="padding:18px 24px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;opacity:0.9;font-weight:600">📊 장기 추적 모드</div>
+            <div style="font-size:17px;font-weight:800;margin-top:2px">여러 날에 걸친 업무 (2회 이상)</div>
+            <div style="font-size:12px;opacity:0.9;margin-top:4px">${longTermTasks.length}개 업무 · 전체 ${allTasks.length}건 중</div>
+          </div>
+          <button onclick="closeLongTermModal()" style="background:rgba(255,255,255,0.25);color:#fff;border:none;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px">✕</button>
+        </div>
+        
+        <div style="overflow-y:auto;flex:1;padding:0 24px 20px">
+          <table style="width:100%;border-collapse:collapse;margin-top:16px">
+            <thead style="position:sticky;top:0;background:#fff;z-index:1">
+              <tr style="border-bottom:2px solid #e5e7eb;background:#f9fafb">
+                <th style="text-align:left;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">담당자</th>
+                <th style="text-align:left;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">분류</th>
+                <th style="text-align:left;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">요청업무</th>
+                <th style="text-align:left;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">시작</th>
+                <th style="text-align:left;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">최종</th>
+                <th style="text-align:center;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">등장</th>
+                <th style="text-align:left;padding:10px 8px;font-size:11px;font-weight:700;color:#374151">현재 상태</th>
+              </tr>
+            </thead>
+            <tbody style="font-size:12px">
+              ${rowsHtml || '<tr><td colspan="7" style="text-align:center;padding:40px;color:#9ca3af">반복 업무 없음 (모든 업무가 1회만 등장)</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+  const existing = document.getElementById("longTermModal");
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML("beforeend", modal);
+}
 
+function closeLongTermModal() {
+  const m = document.getElementById("longTermModal");
+  if (m) m.remove();
+}
+
+window.renderDailyReport = renderDailyReport;
+window.loadDailyReportExcel = loadDailyReportExcel;
+window.onDailyAuthorChange = onDailyAuthorChange;
+window.onDailyDateChange = onDailyDateChange;
+window.renderDailyTasks = renderDailyTasks;
+window.updateDailyTask = updateDailyTask;
+window.addDailyTask = addDailyTask;
+window.deleteDailyTask = deleteDailyTask;
+window.addDailyDecision = addDailyDecision;
+window.editDailyDecision = editDailyDecision;
+window.closeDailyDecisionModal = closeDailyDecisionModal;
+window.confirmDailyDecision = confirmDailyDecision;
+window.createTodayReport = createTodayReport;
+window.saveDailyReport = saveDailyReport;
+window.uploadDailyFiles = uploadDailyFiles;
+window.openDailyFolder = openDailyFolder;
+window.showLongTermView = showLongTermView;
+window.closeLongTermModal = closeLongTermModal;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 주간/월간 업무 통합 뷰
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 주간 보기 - 이번 주 (월~일) 모든 보고서 통합
+function showWeeklyView() {
+  if (!dailyData.loaded) {
+    toast("데이터 로드 중...", "info");
+    return;
+  }
+  
+  // 현재 선택된 날짜 기준 주의 시작일/종료일
+  const baseDate = dailyData.currentDate
+    ? (function(){
+      const y = 2000 + parseInt(dailyData.currentDate.substring(0,2));
+      const m = parseInt(dailyData.currentDate.substring(2,4)) - 1;
+      const d = parseInt(dailyData.currentDate.substring(4,6));
+      return new Date(y, m, d);
+    })()
+    : new Date();
+  
+  // 월요일 시작
+  const monday = new Date(baseDate);
+  const day = baseDate.getDay();  // 0=일, 1=월, ...
+  const diff = day === 0 ? -6 : 1 - day;
+  monday.setDate(baseDate.getDate() + diff);
+  
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  showPeriodView({
+    title: "📅 주간 업무 보고",
+    subtitle: `${formatDateKo(monday)} ~ ${formatDateKo(sunday)} (월~일)`,
+    color: "#3b82f6",
+    bgColor: "#dbeafe",
+    startDate: monday,
+    endDate: sunday,
+    modalId: "weeklyModal",
+    closeFn: "closeWeeklyView",
+    periodType: "week"
+  });
+}
+
+// 월간 보기 - 이번 달 모든 보고서 통합
+function showMonthlyView() {
+  if (!dailyData.loaded) {
+    toast("데이터 로드 중...", "info");
+    return;
+  }
+  
+  const baseDate = dailyData.currentDate
+    ? (function(){
+      const y = 2000 + parseInt(dailyData.currentDate.substring(0,2));
+      const m = parseInt(dailyData.currentDate.substring(2,4)) - 1;
+      const d = parseInt(dailyData.currentDate.substring(4,6));
+      return new Date(y, m, d);
+    })()
+    : new Date();
+  
+  const firstDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+  const lastDay = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+  
+  showPeriodView({
+    title: "🗓️ 월간 업무 보고",
+    subtitle: `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월 (${formatDateKo(firstDay)} ~ ${formatDateKo(lastDay)})`,
+    color: "#8b5cf6",
+    bgColor: "#ede9fe",
+    startDate: firstDay,
+    endDate: lastDay,
+    modalId: "monthlyModal",
+    closeFn: "closeMonthlyView",
+    periodType: "month"
+  });
+}
+
+function closeWeeklyView() {
+  const m = document.getElementById("weeklyModal");
+  if (m) m.remove();
+}
+
+function closeMonthlyView() {
+  const m = document.getElementById("monthlyModal");
+  if (m) m.remove();
+}
+
+function formatDateKo(d) {
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// 기간 뷰 통합 함수
+function showPeriodView(opts) {
+  const { title, subtitle, color, bgColor, startDate, endDate, modalId, closeFn, periodType } = opts;
+  
+  // YYMMDD 형식으로 변환
+  const dateToYYMMDD = (d) => {
+    return String(d.getFullYear()).substring(2, 4) +
+           String(d.getMonth() + 1).padStart(2, '0') +
+           String(d.getDate()).padStart(2, '0');
+  };
+  
+  const startYYMMDD = dateToYYMMDD(startDate);
+  const endYYMMDD = dateToYYMMDD(endDate);
+  
+  // 해당 기간의 모든 시트 찾기
+  const periodSheets = {};  // { "260522": { 송현주: [tasks], 김한나: [tasks] } }
+  
+  for (const sheetName of Object.keys(dailyData.sheets)) {
+    const date = sheetToDate(sheetName);
+    const author = sheetToAuthor(sheetName);
+    if (!date || !author) continue;
+    
+    if (date >= startYYMMDD && date <= endYYMMDD) {
+      if (!periodSheets[date]) periodSheets[date] = {};
+      periodSheets[date][author] = dailyData.sheets[sheetName];
+    }
+  }
+  
+  // 통계 집계
+  const stats = {
+    totalTasks: 0,
+    done: 0,
+    inProgress: 0,
+    issue: 0,
+    byCategory: {},   // { '총무': 12, '인사': 5, ... }
+    byAuthor: {},     // { '송현주': 30, '김한나': 25 }
+    byDate: {},       // { '260520': 6, '260521': 7, ... }
+    decisions: [],    // 결정사항 모음
+    issues: [],       // 미해결 이슈
+  };
+  
+  // 모든 업무를 평탄화 + 중복 제거 (같은 업무는 한 번만)
+  const allTasksMap = new Map();  // key: author|taskDesc, value: { dates: [], latest: task }
+  
+  for (const date of Object.keys(periodSheets)) {
+    stats.byDate[date] = 0;
+    for (const author of Object.keys(periodSheets[date])) {
+      const tasks = periodSheets[date][author];
+      stats.byDate[date] += tasks.length;
+      stats.byAuthor[author] = (stats.byAuthor[author] || 0) + tasks.length;
+      
+      for (const task of tasks) {
+        const key = `${author}|${task.taskDesc.substring(0, 50)}`;
+        if (!allTasksMap.has(key)) {
+          allTasksMap.set(key, { dates: [], latest: task, author: author });
+        }
+        const entry = allTasksMap.get(key);
+        entry.dates.push(date);
+        // 가장 최근 상태 유지 (날짜 늦은 게 latest)
+        if (date >= sheetToDate(`구매팀(${author})-${entry.latest._date || "000000"}`)) {
+          entry.latest = { ...task, _date: date };
+        }
+        
+        stats.byCategory[task.category] = (stats.byCategory[task.category] || 0) + 1;
+        if (task.status === "완료") stats.done++;
+        else if (task.status === "진행중") stats.inProgress++;
+        else if (task.status === "이슈확인") stats.issue++;
+        
+        if (task.decision) {
+          stats.decisions.push({ ...task, _date: date, _author: author });
+        }
+        if (task.status === "이슈확인" && !task.decision) {
+          stats.issues.push({ ...task, _date: date, _author: author });
+        }
+        
+        stats.totalTasks++;
+      }
+    }
+  }
+  
+  // 고유 업무 목록 (Map → Array)
+  const uniqueTasks = [...allTasksMap.values()];
+  
+  // 분류 정렬 (총무/인사 우선)
+  const categoryOrder = ["품의", "발주", "납기", "거래처", "이슈", "기타"];
+  uniqueTasks.sort((a, b) => {
+    const ca = categoryOrder.indexOf(a.latest.category);
+    const cb = categoryOrder.indexOf(b.latest.category);
+    if (ca !== cb) return (ca === -1 ? 99 : ca) - (cb === -1 ? 99 : cb);
+    return b.dates.length - a.dates.length;  // 등장 횟수 많은 순
+  });
+  
+  // 카테고리 색상
+  const catColors = {
+    "총무": "#0891B2",
+    "인사": "#7C3AED",
+    "공시/기획": "#1A6FD4",
+    "법무": "#DC2626",
+    "기타": "#6B7280",
+  };
+  
+  // 상태 색상
+  const statusColors = {
+    "완료": "#10b981",
+    "진행중": "#3b82f6",
+    "이슈확인": "#dc2626",
+  };
+  
+  // 날짜별 일별 요약 (가로 막대)
+  const sortedDates = Object.keys(stats.byDate).sort();
+  const maxDateCount = Math.max(...Object.values(stats.byDate), 1);
+  
+  // 업무 카드 HTML
+  const tasksHtml = uniqueTasks.length === 0
+    ? `<div style="text-align:center;padding:60px;color:#9ca3af">해당 기간에 업무가 없습니다</div>`
+    : uniqueTasks.map((entry, i) => {
+        const t = entry.latest;
+        const catColor = catColors[t.category] || "#6b7280";
+        const statusColor = statusColors[t.status] || "#6b7280";
+        const datesStr = [...new Set(entry.dates)].sort().map(d => expandDate(d).substring(5)).join(", ");
+        
+        return `
+          <div style="background:#fff;border:1.5px solid #e5e7eb;border-left:4px solid ${catColor};border-radius:8px;padding:14px;margin-bottom:10px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+              <span style="background:${catColor}22;color:${catColor};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">${escHtml(t.category)}</span>
+              <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">${escHtml(t.status)}</span>
+              ${t.urgent && t.urgent !== "-" && t.urgent !== "" ? `<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">🔴 ${escHtml(t.urgent)}</span>` : ''}
+              <span style="font-size:11px;color:#6b7280">👤 ${escHtml(entry.author)}</span>
+              <span style="margin-left:auto;font-size:11px;color:#6b7280">📅 ${entry.dates.length}회 등장: ${datesStr}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;color:#1f2937;margin-bottom:6px">${escHtml(t.taskDesc)}</div>
+            ${t.todayPlan ? `<div style="font-size:12px;color:#4b5563;white-space:pre-wrap;background:#f9fafb;padding:8px;border-radius:6px;margin-top:6px">💬 ${escHtml(t.todayPlan.substring(0, 300))}${t.todayPlan.length > 300 ? '...' : ''}</div>` : ''}
+            ${t.issue ? `<div style="font-size:12px;color:#7f1d1d;background:#fee2e2;padding:8px;border-radius:6px;margin-top:6px"><b>⚠️ 이슈:</b> ${escHtml(t.issue.substring(0, 200))}${t.issue.length > 200 ? '...' : ''}</div>` : ''}
+            ${t.decision ? `<div style="font-size:12px;color:#065f46;background:#d1fae5;padding:8px;border-radius:6px;margin-top:6px"><b>✅ 결정 (${escHtml(t.decidedBy)} · ${escHtml(t.decidedAt)}):</b> ${escHtml(t.decision.substring(0, 300))}${t.decision.length > 300 ? '...' : ''}</div>` : ''}
+          </div>`;
+      }).join("");
+  
+  // 카테고리 요약 차트
+  const catChartHtml = Object.entries(stats.byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, cnt]) => {
+      const pct = stats.totalTasks > 0 ? (cnt / stats.totalTasks * 100).toFixed(1) : 0;
+      const ccol = catColors[cat] || "#6b7280";
+      return `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="min-width:80px;font-size:12px;font-weight:600;color:${ccol}">${escHtml(cat)}</div>
+          <div style="flex:1;background:#f3f4f6;border-radius:4px;height:20px;overflow:hidden">
+            <div style="background:${ccol};height:100%;width:${pct}%;transition:width 0.3s"></div>
+          </div>
+          <div style="min-width:60px;text-align:right;font-size:11px;color:#6b7280">${cnt}건 (${pct}%)</div>
+        </div>`;
+    }).join("");
+  
+  // 작성자별 요약
+  const authorChartHtml = Object.entries(stats.byAuthor)
+    .sort((a, b) => b[1] - a[1])
+    .map(([author, cnt]) => {
+      const pct = stats.totalTasks > 0 ? (cnt / stats.totalTasks * 100).toFixed(1) : 0;
+      const acol = author === "정진영" ? "#0891b2" : "#7c3aed";
+      return `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="min-width:80px;font-size:12px;font-weight:600;color:${acol}">👤 ${escHtml(author)}</div>
+          <div style="flex:1;background:#f3f4f6;border-radius:4px;height:20px;overflow:hidden">
+            <div style="background:${acol};height:100%;width:${pct}%"></div>
+          </div>
+          <div style="min-width:60px;text-align:right;font-size:11px;color:#6b7280">${cnt}건 (${pct}%)</div>
+        </div>`;
+    }).join("");
+  
+  // 일자별 활동 (작은 막대 차트)
+  const dateChartHtml = sortedDates.length === 0
+    ? '<div style="color:#9ca3af;font-size:12px;padding:20px;text-align:center">보고서 없음</div>'
+    : `
+      <div style="display:flex;gap:8px;align-items:flex-end;padding:10px 0;overflow-x:auto">
+        ${sortedDates.map(d => {
+          const cnt = stats.byDate[d];
+          const heightPct = (cnt / maxDateCount * 100);
+          const dayOfWeek = getWeekday(d);
+          const isWeekend = dayOfWeek === "토" || dayOfWeek === "일";
+          return `
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:40px">
+              <div style="font-size:10px;color:#6b7280;margin-bottom:4px">${cnt}건</div>
+              <div style="width:32px;height:${Math.max(heightPct * 0.8, 5)}px;background:${isWeekend ? "#fbbf24" : color};border-radius:3px 3px 0 0;transition:height 0.3s" title="${expandDate(d)}: ${cnt}건"></div>
+              <div style="font-size:9px;color:#6b7280;margin-top:4px">${d.substring(2, 4)}.${d.substring(4, 6)}</div>
+              <div style="font-size:9px;color:${isWeekend ? "#dc2626" : "#9ca3af"};font-weight:600">${dayOfWeek}</div>
+            </div>`;
+        }).join("")}
+      </div>`;
+  
+  // 결정사항 + 미해결 이슈
+  const decisionsHtml = stats.decisions.length === 0
+    ? '<div style="color:#9ca3af;font-size:12px;padding:12px;text-align:center">결정사항 없음</div>'
+    : stats.decisions.slice(0, 5).map(d => `
+        <div style="background:#ecfdf5;border:1px solid #10b981;border-radius:6px;padding:8px;margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:11px;color:#059669;font-weight:700">✅ ${escHtml(d._author)} · ${expandDate(d._date)}</span>
+            <span style="font-size:10px;color:#6b7280">${escHtml(d.decidedBy)}</span>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:#065f46;margin-bottom:2px">${escHtml(d.taskDesc.substring(0, 60))}</div>
+          <div style="font-size:11px;color:#047857;white-space:pre-wrap">${escHtml(d.decision.substring(0, 200))}${d.decision.length > 200 ? '...' : ''}</div>
+        </div>`).join("");
+  
+  const issuesHtml = stats.issues.length === 0
+    ? '<div style="color:#9ca3af;font-size:12px;padding:12px;text-align:center">⚠️ 미해결 이슈 없음</div>'
+    : stats.issues.slice(0, 5).map(it => `
+        <div style="background:#fef2f2;border:1px solid #dc2626;border-radius:6px;padding:8px;margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:11px;color:#dc2626;font-weight:700">⚠️ ${escHtml(it._author)} · ${expandDate(it._date)}</span>
+            <span style="font-size:10px;color:#6b7280">결정 대기</span>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:#7f1d1d;margin-bottom:2px">${escHtml(it.taskDesc.substring(0, 60))}</div>
+          <div style="font-size:11px;color:#991b1b;white-space:pre-wrap">${escHtml(it.issue.substring(0, 200))}${it.issue.length > 200 ? '...' : ''}</div>
+        </div>`).join("");
+  
+  // 모달 HTML
+  const modal = `
+    <div id="${modalId}" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)${closeFn}()">
+      <div style="background:#fff;border-radius:14px;max-width:1200px;width:100%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)">
+        
+        <!-- 헤더 -->
+        <div style="padding:18px 24px;background:linear-gradient(135deg,${color},${color}dd);color:#fff;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;opacity:0.9;font-weight:600">${title}</div>
+            <div style="font-size:18px;font-weight:800;margin-top:2px">${subtitle}</div>
+            <div style="font-size:12px;opacity:0.9;margin-top:4px">총 ${stats.totalTasks}건 (고유 ${uniqueTasks.length}개) · ${sortedDates.length}일 보고서</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button onclick="exportPeriodView('${periodType}','${modalId}')" style="background:rgba(255,255,255,0.25);color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">📥 엑셀 다운</button>
+            <button onclick="${closeFn}()" style="background:rgba(255,255,255,0.25);color:#fff;border:none;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px">✕</button>
+          </div>
+        </div>
+        
+        <!-- KPI 요약 -->
+        <div style="padding:14px 24px;background:${bgColor};border-bottom:1px solid #e5e7eb;display:flex;gap:20px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:10px;color:#6b7280;font-weight:600">전체 업무</div>
+            <div style="font-size:22px;font-weight:800;color:${color}">${stats.totalTasks}건</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#6b7280;font-weight:600">고유 업무</div>
+            <div style="font-size:22px;font-weight:800;color:#1f2937">${uniqueTasks.length}개</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#10b981;font-weight:600">완료</div>
+            <div style="font-size:22px;font-weight:800;color:#10b981">${stats.done}건</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#3b82f6;font-weight:600">진행중</div>
+            <div style="font-size:22px;font-weight:800;color:#3b82f6">${stats.inProgress}건</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#dc2626;font-weight:600">⚠️ 이슈/결정 필요</div>
+            <div style="font-size:22px;font-weight:800;color:#dc2626">${stats.issue}건</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <select id="periodViewFilter" onchange="filterPeriodTasks('${modalId}')" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">
+              <option value="">전체</option>
+              <option value="총무">총무</option>
+              <option value="인사">인사</option>
+              <option value="공시/기획">공시/기획</option>
+              <option value="법무">법무</option>
+              <option value="기타">기타</option>
+            </select>
+            <select id="periodAuthorFilter" onchange="filterPeriodTasks('${modalId}')" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">
+              <option value="">전체 담당자</option>
+              <option value="정진영">송현주</option>
+              <option value="홍용원">김한나</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- 본문: 2단 레이아웃 -->
+        <div style="overflow-y:auto;flex:1;padding:18px 24px">
+          
+          <!-- 차트 영역 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
+              <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:10px">📊 분류별 분포</div>
+              ${catChartHtml || '<div style="color:#9ca3af;font-size:12px">데이터 없음</div>'}
+            </div>
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
+              <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:10px">👥 담당자별</div>
+              ${authorChartHtml || '<div style="color:#9ca3af;font-size:12px">데이터 없음</div>'}
+            </div>
+          </div>
+          
+          <!-- 일자별 활동 -->
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:10px">📅 일자별 활동 (보고된 업무 건수)</div>
+            ${dateChartHtml}
+          </div>
+          
+          <!-- 결정사항 / 미해결 이슈 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px">✅ 결정사항 (${stats.decisions.length}건)</div>
+              ${decisionsHtml}
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#dc2626;margin-bottom:8px">⚠️ 미해결 이슈 (${stats.issues.length}건)</div>
+              ${issuesHtml}
+            </div>
+          </div>
+          
+          <!-- 전체 업무 목록 -->
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px">
+            <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px">📋 전체 업무 목록 (${uniqueTasks.length}개 · 중복 제거)</div>
+            <div id="${modalId}_taskList">
+              ${tasksHtml}
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const existing = $(modalId);
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML("beforeend", modal);
+  
+  // 데이터 저장 (필터/엑셀 다운로드용)
+  window._periodViewData = { uniqueTasks, stats, opts };
+}
+
+// 필터 적용
+function filterPeriodTasks(modalId) {
+  const data = window._periodViewData;
+  if (!data) return;
+  
+  const cat = document.getElementById("periodViewFilter")?.value || "";
+  const author = document.getElementById("periodAuthorFilter")?.value || "";
+  
+  const filtered = data.uniqueTasks.filter(entry => {
+    if (cat && entry.latest.category !== cat) return false;
+    if (author && entry.author !== author) return false;
+    return true;
+  });
+  
+  const catColors = {
+    "총무": "#0891B2",
+    "인사": "#7C3AED",
+    "공시/기획": "#1A6FD4",
+    "법무": "#DC2626",
+    "기타": "#6B7280",
+  };
+  const statusColors = {
+    "완료": "#10b981",
+    "진행중": "#3b82f6",
+    "이슈확인": "#dc2626",
+  };
+  
+  const html = filtered.length === 0
+    ? `<div style="text-align:center;padding:40px;color:#9ca3af">필터 조건에 맞는 업무 없음</div>`
+    : filtered.map(entry => {
+        const t = entry.latest;
+        const catColor = catColors[t.category] || "#6b7280";
+        const statusColor = statusColors[t.status] || "#6b7280";
+        const datesStr = [...new Set(entry.dates)].sort().map(d => expandDate(d).substring(5)).join(", ");
+        
+        return `
+          <div style="background:#fff;border:1.5px solid #e5e7eb;border-left:4px solid ${catColor};border-radius:8px;padding:14px;margin-bottom:10px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+              <span style="background:${catColor}22;color:${catColor};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">${escHtml(t.category)}</span>
+              <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">${escHtml(t.status)}</span>
+              ${t.urgent && t.urgent !== "-" && t.urgent !== "" ? `<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700">🔴 ${escHtml(t.urgent)}</span>` : ''}
+              <span style="font-size:11px;color:#6b7280">👤 ${escHtml(entry.author)}</span>
+              <span style="margin-left:auto;font-size:11px;color:#6b7280">📅 ${entry.dates.length}회: ${datesStr}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;color:#1f2937;margin-bottom:6px">${escHtml(t.taskDesc)}</div>
+            ${t.todayPlan ? `<div style="font-size:12px;color:#4b5563;white-space:pre-wrap;background:#f9fafb;padding:8px;border-radius:6px;margin-top:6px">💬 ${escHtml(t.todayPlan.substring(0, 300))}${t.todayPlan.length > 300 ? '...' : ''}</div>` : ''}
+            ${t.issue ? `<div style="font-size:12px;color:#7f1d1d;background:#fee2e2;padding:8px;border-radius:6px;margin-top:6px"><b>⚠️ 이슈:</b> ${escHtml(t.issue.substring(0, 200))}</div>` : ''}
+            ${t.decision ? `<div style="font-size:12px;color:#065f46;background:#d1fae5;padding:8px;border-radius:6px;margin-top:6px"><b>✅ 결정:</b> ${escHtml(t.decision.substring(0, 200))}</div>` : ''}
+          </div>`;
+      }).join("");
+  
+  document.getElementById(`${modalId}_taskList`).innerHTML = html;
+}
+
+// 엑셀 다운로드
+function exportPeriodView(periodType, modalId) {
+  const data = window._periodViewData;
+  if (!data) return;
+  
+  const rows = [
+    ["분류", "담당자", "요청업무", "상태", "긴급", "등장일자", "최종 진행계획", "이슈", "결정사항", "결정자", "결정시각"]
+  ];
+  
+  for (const entry of data.uniqueTasks) {
+    const t = entry.latest;
+    rows.push([
+      t.category,
+      entry.author,
+      t.taskDesc,
+      t.status,
+      t.urgent,
+      [...new Set(entry.dates)].sort().map(d => expandDate(d)).join(", "),
+      t.todayPlan,
+      t.issue,
+      t.decision,
+      t.decidedBy,
+      t.decidedAt
+    ]);
+  }
+  
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  
+  // 컬럼 너비
+  ws['!cols'] = [
+    { wch: 10 }, { wch: 10 }, { wch: 40 }, { wch: 10 }, { wch: 10 }, 
+    { wch: 30 }, { wch: 50 }, { wch: 40 }, { wch: 40 }, { wch: 12 }, { wch: 20 }
+  ];
+  
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, periodType === "week" ? "주간업무" : "월간업무");
+  
+  const fileName = periodType === "week" 
+    ? `주간업무_${data.opts.startDate.toISOString().substring(0, 10)}.xlsx`
+    : `월간업무_${data.opts.startDate.getFullYear()}_${String(data.opts.startDate.getMonth() + 1).padStart(2, '0')}.xlsx`;
+  
+  XLSX.writeFile(wb, fileName);
+  toast(`✅ ${fileName} 다운로드`, "success");
+}
+
+window.showWeeklyView = showWeeklyView;
+window.showMonthlyView = showMonthlyView;
+window.closeWeeklyView = closeWeeklyView;
+window.closeMonthlyView = closeMonthlyView;
+window.filterPeriodTasks = filterPeriodTasks;
+window.exportPeriodView = exportPeriodView;
+
+
+
+
+
+
+
+// 🆕 강제 재로드 (캐시 무효화 + SharePoint에서 다시 가져오기)
+async function forceReloadTotalmu() {
+  if (!confirm("⚡ 강제 재로드: SharePoint 캐시를 삭제하고 엑셀에서 처음부터 다시 읽습니다.\n\n진행하시겠습니까?")) return;
+  
+  document.getElementById("totalmuFolderStatus").innerHTML = "🔄 캐시 삭제 후 SharePoint에서 재로드 중...";
+  
+  // 메모리 캐시 초기화
+  totalmuCache = {
+    pc: { items: [], lastUpdated: null, fileId: null },
+    sw: { items: [], lastUpdated: null, fileId: null, monthlyCosts: {} },
+    vh: { items: [], lastUpdated: null, fileId: null, monthlyCosts: {} },
+    cc: { items: [], lastUpdated: null, fileId: null }
+  };
+  
+  // SharePoint 캐시 JSON 삭제 시도
+  try {
+    const token = await getToken();
+    await fetch(`https://graph.microsoft.com/v1.0/drives/${spDrive}/root:/${encodeURIComponent(TOTALMU_CACHE_PATH)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log("[총무] 기존 캐시 JSON 삭제 완료");
+  } catch (e) {
+    console.log("[총무] 캐시 JSON 삭제 시도:", e.message);
+  }
+  
+  // 4개 폴더에서 엑셀 다시 로드
+  await loadTotalmuFiles();
+}
+window.forceReloadTotalmu = forceReloadTotalmu;
+
+
+
+</script>
 
       <!-- 견적서 DB 탭 -->
       <!-- 📄 견적서 DB (구매: 거래처로부터 수신) -->
