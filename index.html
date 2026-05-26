@@ -40627,7 +40627,10 @@ async function loadErpProcessingStatus() {
                 approReqNo: result.approReqNo || "",
                 error: result.error || "",
                 processedAt: fdata.processedAt || file.lastModifiedDateTime || "",
-                queueId: fdata.queue_id || file.name.replace(".json", "")
+                queueId: fdata.queue_id || file.name.replace(".json", ""),
+                // ⭐ 활동 자동 생성을 위한 데이터 보관
+                request: req,
+                ui: req.user_inputs || {}
               };
             }
           });
@@ -40643,7 +40646,151 @@ async function loadErpProcessingStatus() {
   
   window._erpProcessed = newStatus;
   console.log(`📊 ERP 처리 상태 로드: ${Object.keys(newStatus).length}건`);
+  
+  // ⭐ ERP 완료된 항목 → 구매활동 자동 생성/매칭
+  await autoCreateActivitiesFromErp();
 }
+
+// ⭐ ERP에서 완료된 품의 → 구매활동(slData)에 자동 등록
+// - PJTNo(프로젝트코드)가 slData에 없으면 → 새 활동 생성
+// - 있으면 → 기존 활동에 구매품의 자료 누적 (pqList)
+async function autoCreateActivitiesFromErp() {
+  if(!window._erpProcessed) return;
+  if(typeof slData === "undefined" || !Array.isArray(slData)) return;
+  
+  // 이미 처리한 큐 ID 캐시 (반복 등록 방지)
+  if(!window._erpAutoRegistered) {
+    try {
+      window._erpAutoRegistered = new Set(JSON.parse(localStorage.getItem("_erpAutoRegistered") || "[]"));
+    } catch(e) {
+      window._erpAutoRegistered = new Set();
+    }
+  }
+  
+  let createdCount = 0;
+  let updatedCount = 0;
+  let needSave = false;
+  
+  for(const [key, info] of Object.entries(window._erpProcessed)) {
+    if(info.status !== "done") continue;
+    if(!info.approReqNo) continue;  // 영림원 품의번호 없으면 스킵
+    if(window._erpAutoRegistered.has(info.queueId)) continue;  // 이미 등록함
+    
+    const req = info.request || {};
+    const ui = info.ui || {};
+    const pjcode = (req.PJTNo || "").trim();
+    const pjname = req.PJTName || "";
+    const company = ui.userCust || req.CustName || "";
+    
+    if(!pjcode) {
+      console.warn(`⚠️ PJTNo 없음 - 활동 생성 스킵: ${key}`);
+      window._erpAutoRegistered.add(info.queueId);
+      continue;
+    }
+    
+    // 같은 pjcode 활동이 이미 있는지 검색
+    let activity = slData.find(a => a.pjcode === pjcode);
+    
+    // 영림원 품의 데이터
+    const erpPq = {
+      id: `erp_pq_${info.approReqNo}`,
+      approReqNo: info.approReqNo,
+      approReqSeq: info.queueId,
+      poReqNo: req.POReqNo,
+      poReqSerl: req.POReqSerl,
+      itemNo: req.ItemNo || "",
+      itemName: req.ItemName || "",
+      spec: req.Spec || "",
+      qty: Number(ui.userQty || req.Qty || 0),
+      price: Number(ui.userPrice || 0),
+      amount: Number(ui.userQty || req.Qty || 0) * Number(ui.userPrice || 0),
+      cust: company,
+      maker: ui.userMaker || "",
+      delvDate: ui.userDelvDate || req.DelvDate || "",
+      memo: ui.userMemo || "",
+      processedAt: info.processedAt,
+      source: "ERP_AUTO"  // 자동 생성 표시
+    };
+    
+    if(!activity) {
+      // ⭐ 신규 활동 생성
+      const now = new Date();
+      activity = {
+        id: `sl_erp_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+        _kind: "purchase",
+        company: company,
+        pjcode: pjcode,
+        salesPjName: pjname,
+        status: "발주",  // ERP 품의 완료 = 발주 단계
+        priority: "일반",
+        custMgr: "",
+        salesMgr: "",
+        start: now.toISOString().slice(0, 10),
+        end: erpPq.delvDate ? `${erpPq.delvDate.substring(0,4)}-${erpPq.delvDate.substring(4,6)}-${erpPq.delvDate.substring(6,8)}` : now.toISOString().slice(0, 10),
+        startTime: "09:00",
+        endTime: "18:00",
+        note: `ERP 자동 생성 (영림원 ${info.approReqNo})`,
+        attendees: "",
+        files: {},
+        teamsEventId: null,
+        createdAt: now.toISOString(),
+        // ⭐ ERP에서 생성된 품의 자료
+        erpPqList: [erpPq],
+        autoCreatedFromErp: true
+      };
+      slData.unshift(activity);
+      createdCount++;
+      console.log(`✨ 신규 구매활동 생성: ${pjcode} (${company}) - ${info.approReqNo}`);
+    } else {
+      // ⭐ 기존 활동에 구매품의 누적
+      if(!activity.erpPqList) activity.erpPqList = [];
+      // 중복 체크 (같은 approReqNo)
+      const exists = activity.erpPqList.find(p => p.approReqNo === info.approReqNo);
+      if(!exists) {
+        activity.erpPqList.push(erpPq);
+        updatedCount++;
+        console.log(`📌 기존 활동에 품의 추가: ${pjcode} ← ${info.approReqNo}`);
+      }
+    }
+    
+    window._erpAutoRegistered.add(info.queueId);
+    needSave = true;
+  }
+  
+  if(needSave) {
+    // 등록 기록 저장
+    try {
+      localStorage.setItem("_erpAutoRegistered", JSON.stringify([...window._erpAutoRegistered]));
+    } catch(e) {}
+    
+    // slData 저장 (구매활동)
+    if(typeof saveSLToSP === "function") {
+      await saveSLToSP();
+    }
+    
+    // UI 갱신
+    if(typeof renderSLAll === "function") renderSLAll();
+    
+    const msg = `🎯 ERP 자동 등록\n\n` +
+                (createdCount > 0 ? `✨ 신규 활동 ${createdCount}건 생성\n` : "") +
+                (updatedCount > 0 ? `📌 기존 활동에 품의 ${updatedCount}건 추가\n` : "") +
+                `\n[📋 구매활동] 탭에서 확인하세요.`;
+    
+    if(createdCount + updatedCount > 0) {
+      // 화면에 작은 토스트 (alert는 흐름 끊으니까)
+      showErpAutoToast(msg);
+    }
+  }
+}
+
+// 작은 알림 토스트
+function showErpAutoToast(msg) {
+  const toast = document.createElement("div");
+  toast.style.cssText = `position:fixed;top:80px;right:20px;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:14px 18px;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:99999;max-width:340px;font-size:13px;white-space:pre-line;cursor:pointer`;
+  toast.textContent = msg;
+  toast.onclick = () => toast.remove();
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 8000);
 
 async function reqqRefreshCurrentYear() {
   console.log(`🔄 구매요청 현재 연도(${ERP_CURRENT_YEAR}) 강제 갱신`);
