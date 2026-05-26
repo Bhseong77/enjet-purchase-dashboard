@@ -996,6 +996,7 @@
       <div class="sb-sec">구매활동</div>
       <div class="ni" onclick="go('purchase-log',this)">📋 구매활동 <span class="nb nbg" id="badge-pa">-</span></div>
       <div class="ni" onclick="go('purchase-todo',this)">✅ 구매Todo <span class="nb nbg" id="badge-todo" style="background:var(--r);color:#fff">0</span></div>
+      <div class="ni" onclick="go('pdaily',this)">📋 일일업무보고 <span class="nb nbg" id="badge-pdaily">-</span></div>
       <!-- DB 접이식 그룹 -->
       <div class="ni sb-group-toggle" id="dbGroupToggle" onclick="toggleDbGroup()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none">
         <span>🗂️ DB</span>
@@ -3944,6 +3945,2213 @@
         </div>
       </div>
 
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 🆕 구매팀 일일업무보고 (HR에서 복사 + 구매용 변환) -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
+    <!-- 🆕 TAB: 일일업무보고 -->
+    <div id="tab-pdaily" class="page">
+      <div class="main">
+        <!-- 헤더 (SharePoint 연결 정보) -->
+        <div style="background:linear-gradient(135deg,#ea580c 0%,#c2410c 100%);padding:18px;border-radius:14px;color:#fff;margin-bottom:18px;box-shadow:var(--shadow)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:11px;opacity:0.85;font-weight:600">📋 구매팀 일일업무보고</div>
+              <div style="font-size:17px;font-weight:800;margin-top:2px">정진영 과장 / 홍용원 사원</div>
+              <div style="font-size:12px;opacity:0.9;margin-top:4px" id="dailyFileStatus">📂 파일 로드 중...</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <a href="https://enjetco.sharepoint.com/sites/06.BackOffice/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2F06%2EBackOffice%2FShared%20Documents%2F%F0%9F%8F%AD%20%EA%B5%AC%EB%A7%A4" target="_blank" 
+                 style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:8px;font-size:12px;font-weight:600;text-decoration:none">
+                 📂 폴더 열기
+              </a>
+              <button class="btn" onclick="loadDailyReportExcel()" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4)">🔄 새로고침</button>
+              <button class="btn" onclick="createTodayReport()" style="background:#fff;color:#c2410c;font-weight:800">+ 오늘 보고서 작성</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 작성일/담당자 선택 -->
+        <div style="background:#fff;border-radius:12px;padding:14px 18px;margin-bottom:18px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div style="font-weight:700;color:#374151">📅 보고서 선택:</div>
+          <select id="dailyAuthor" onchange="onDailyAuthorChange()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;background:#fff;cursor:pointer">
+            <option value="정진영">📊 정진영 과장</option>
+            <option value="홍용원">📈 홍용원 사원</option>
+          </select>
+          <select id="dailyDate" onchange="onDailyDateChange()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;background:#fff;cursor:pointer;min-width:160px">
+            <option value="">-- 날짜 선택 --</option>
+          </select>
+          <input type="date" id="dailyDatePicker" onchange="onDailyDatePickerChange()" 
+                 style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;background:#fff;cursor:pointer"
+                 title="달력에서 날짜 선택">
+          <input type="text" id="dailySearch" placeholder="🔍 업무/이슈 검색" oninput="renderDailyTasks()" 
+                 style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;flex:1;min-width:180px">
+          <button class="btn sm outline" onclick="showLongTermView()">📊 장기 추적 모드</button>
+          <button class="btn sm" onclick="showWeeklyView()" style="background:#3b82f6;color:#fff;font-weight:700">📅 주간 보기</button>
+          <button class="btn sm" onclick="showMonthlyView()" style="background:#8b5cf6;color:#fff;font-weight:700">🗓️ 월간 보기</button>
+        </div>
+        
+        <!-- KPI -->
+        <div class="kpi-grid">
+          <div class="kpi" onclick="quickFilterDailyStatus('')" style="cursor:pointer" title="전체 보기"><div class="kpi-label">전체 업무</div><div class="kpi-val" id="dailyKpiTotal">-</div></div>
+          <div class="kpi green" onclick="quickFilterDailyStatus('완료')" style="cursor:pointer" title="완료 필터"><div class="kpi-label">✅ 완료</div><div class="kpi-val" id="dailyKpiDone">-</div></div>
+          <div class="kpi orange" onclick="quickFilterDailyStatus('진행중')" style="cursor:pointer" title="진행중 필터"><div class="kpi-label">🔵 진행중</div><div class="kpi-val" id="dailyKpiInProgress">-</div></div>
+          <div class="kpi red" onclick="quickFilterDailyStatus('이슈확인')" style="cursor:pointer" title="이슈확인 필터"><div class="kpi-label">⚠️ 이슈/결정 필요</div><div class="kpi-val" id="dailyKpiIssue">-</div><div class="kpi-sub" id="dailyDecisionHint">대표/전무 결정 대기</div></div>
+        </div>
+        
+        <!-- 업무 목록 -->
+        <div class="section">
+          <div class="section-head">
+            <div>
+              <div class="section-title"><span class="section-icon">📋</span>업무 목록</div>
+              <div class="section-sub" id="dailyDateLabel">날짜를 선택하세요</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <select id="dailyCategoryFilter" onchange="renderDailyTasks()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+                <option value="">전체 분류</option>
+                <option value="품의">품의</option>
+                <option value="발주">발주</option>
+                <option value="납기">납기</option>
+                <option value="거래처">거래처</option>
+                <option value="이슈">이슈</option>
+                <option value="기타">기타</option>
+              </select>
+              <select id="dailyStatusFilter" onchange="renderDailyTasks()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+                <option value="">전체 상태</option>
+                <option value="진행중">진행중</option>
+                <option value="이슈확인">이슈확인</option>
+                <option value="완료">완료</option>
+              </select>
+              <button class="btn sm outline" onclick="toggleAllDailyTasks(true)" title="모든 업무 펼치기">⬇ 전체 펼치기</button>
+              <button class="btn sm outline" onclick="toggleAllDailyTasks(false)" title="모든 업무 접기">⬆ 전체 접기</button>
+              <button class="btn sm" onclick="addDailyTask()" style="background:#ea580c;color:#fff;font-weight:700">+ 업무 추가</button>
+              <button class="btn sm outline" onclick="saveDailyReport()" id="dailySaveBtn">💾 저장</button>
+            </div>
+          </div>
+          
+          <div id="dailyTasksList" style="padding:8px"></div>
+        </div>
+        
+        <!-- 보고자료 첨부 영역 -->
+        <div class="section" id="dailyAttachmentsSection" style="display:none">
+          <div class="section-head">
+            <div>
+              <div class="section-title"><span class="section-icon">📎</span>보고자료 첨부</div>
+              <div class="section-sub" id="dailyAttachmentsPath">날짜 폴더에 저장됩니다</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <input type="file" id="dailyFileInput" multiple onchange="uploadDailyFiles()" style="display:none">
+              <button class="btn sm" onclick="$('dailyFileInput').click()" style="background:#ea580c;color:#fff">📤 파일 업로드</button>
+              <button class="btn sm outline" onclick="openDailyFolder()">📂 폴더 열기</button>
+            </div>
+          </div>
+          <div id="dailyAttachmentsList" style="padding:12px"></div>
+        </div>
+      </div>
+    </div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 구매팀 일일업무보고 JS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 공휴일 (HR에서 복사)
+
+
+// 🆕 일일업무보고 시스템
+// SharePoint: 🏭 구매/📋 일일업무보고/구매팀 업무보고.xlsx
+// 시트: 구매팀(송현주)-YYMMDD, 구매팀(김한나)-YYMMDD
+// 첨부: 🏭 구매/📋 일일업무보고/YYYYMMDD/
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const DAILY_REPORT_FILE_PATH = "🏭 구매/📋 일일업무보고/구매팀 업무보고.xlsx";
+const DAILY_REPORT_FOLDER = "🏭 구매/📋 일일업무보고";
+
+// 🆕 결정 권한: BH(전무) + 변도영(대표이사)만
+const DAILY_DECISION_MAKERS = ["baekhoon@enjet.co.kr", "dybyun@enjet.co.kr"];
+
+function canMakeDecision() {
+  return DAILY_DECISION_MAKERS.includes((userEmail || "").toLowerCase());
+}
+
+let dailyData = {
+  loaded: false,
+  fileId: null,
+  sheets: {},          // { "구매팀(송현주)-260522": [tasks...] }
+  currentAuthor: "정진영",
+  currentDate: "",     // "260522" 형식
+  modified: false,
+};
+
+const DAILY_CATEGORIES = ["품의", "발주", "납기", "거래처", "이슈", "기타"];
+const DAILY_STATUSES = [
+  { value: "진행중", color: "#3b82f6", icon: "🔵" },
+  { value: "이슈확인", color: "#dc2626", icon: "⚠️" },
+  { value: "완료", color: "#10b981", icon: "✅" },
+];
+
+async function renderDailyReport() {
+  // 권한 확인 - 모든 직원 조회 가능, 결정은 BH/대표만
+  if (!dailyData.loaded) {
+    await loadDailyReportExcel();
+  } else {
+    renderDailyDateOptions();
+    renderDailyTasks();
+  }
+  
+  // 권한 표시
+  if (canMakeDecision()) {
+    $("dailyDecisionHint").textContent = "✅ 결정 권한 있음";
+    $("dailyDecisionHint").style.color = "#10b981";
+  } else {
+    $("dailyDecisionHint").textContent = "조회만 가능";
+    $("dailyDecisionHint").style.color = "#9ca3af";
+  }
+}
+
+async function loadDailyReportExcel() {
+  if (!driveId) {
+    toast("SharePoint 연결 안 됨", "error");
+    return;
+  }
+  
+  $("dailyFileStatus").innerHTML = "📂 파일 로드 중...";
+  console.log("[일일보고] 로드 시작:", DAILY_REPORT_FILE_PATH);
+  
+  try {
+    const token = await getToken();
+    
+    // 파일 메타
+    const metaR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(DAILY_REPORT_FILE_PATH)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!metaR.ok) {
+      console.warn("[일일보고] 파일 없음");
+      $("dailyFileStatus").innerHTML = `❌ 파일 없음. SharePoint에 <code>구매팀 업무보고.xlsx</code> 업로드 필요`;
+      return;
+    }
+    
+    const meta = await metaR.json();
+    dailyData.fileId = meta.id;
+    
+    // 다운로드
+    const dlR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${meta.id}/content`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!dlR.ok) throw new Error(`다운로드 실패`);
+    
+    const buf = await dlR.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    
+    console.log("[일일보고] 시트:", wb.SheetNames);
+    
+    dailyData.sheets = {};
+    
+    // 각 시트 파싱 (구매팀(송현주)-260522 형식)
+    for (const sn of wb.SheetNames) {
+      const tasks = parseDailySheet(wb.Sheets[sn], sn);
+      dailyData.sheets[sn] = tasks;
+    }
+    
+    dailyData.loaded = true;
+    const totalSheets = wb.SheetNames.length;
+    const totalTasks = Object.values(dailyData.sheets).reduce((s, t) => s + t.length, 0);
+    
+    const lastMod = meta.lastModifiedDateTime ? new Date(meta.lastModifiedDateTime).toLocaleDateString("ko-KR") : "-";
+    $("dailyFileStatus").innerHTML = `📄 ${meta.name} · ${totalSheets}개 보고서 · ${totalTasks}건 업무 · 갱신: ${lastMod}`;
+    
+    // 날짜 옵션 채우기
+    renderDailyDateOptions();
+    
+    // ⭐ 오늘 날짜 우선, 없으면 가장 최근 날짜 자동 선택 (한국 시간 기준)
+    const dates = getAvailableDates();
+    if (dates.length > 0) {
+      const now = new Date();
+      const todayYYMMDD = String(now.getFullYear()).slice(2) +
+                         String(now.getMonth() + 1).padStart(2, "0") +
+                         String(now.getDate()).padStart(2, "0");
+      const selectDate = dates.includes(todayYYMMDD) ? todayYYMMDD : dates[0];
+      $("dailyDate").value = selectDate;
+      dailyData.currentDate = selectDate;
+      // ⭐ 달력 picker도 동기화
+      syncDatePickerFromYYMMDD(selectDate);
+    }
+    
+    renderDailyTasks();
+    console.log(`[일일보고] ✅ ${totalSheets}개 시트, ${totalTasks}건 업무 로드`);
+  } catch (e) {
+    console.error("[일일보고] 로드 실패:", e);
+    $("dailyFileStatus").innerHTML = `❌ ${e.message}`;
+  }
+}
+
+// 🆕 댓글 JSON 파싱 (AH 컬럼)
+function parseCommentsJson(value) {
+  if (!value) return [];
+  try {
+    const str = String(value).trim();
+    if (!str) return [];
+    const parsed = JSON.parse(str);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// 시트 파싱 (헤더 R7, 데이터 R8+)
+function parseDailySheet(ws, sheetName) {
+  const tasks = [];
+  
+  // 🆕 셀 주소 직접 읽기 (가장 안전한 방법)
+  // 데이터는 R8부터, NO는 B열, 분류는 C열, 요청업무는 L열, 상태는 AD열
+  // sheet_to_json 대신 직접 셀 주소로 접근
+  const getCellValue = (col, row) => {
+    const addr = col + row;  // 예: "B8"
+    const cell = ws[addr];
+    if (!cell) return "";
+    return cell.v !== undefined ? cell.v : (cell.w || "");
+  };
+  
+  // 디버그용
+  let debugRows = 0;
+  let debugSkipped = 0;
+  
+  for (let r = 8; r <= 30; r++) {  // R8 ~ R30
+    const no = getCellValue("B", r);
+    if (no === "" || no === null || no === undefined) continue;
+    
+    debugRows++;
+    
+    const category = String(getCellValue("C", r) || "").trim();
+    const taskDesc = String(getCellValue("L", r) || "").trim();
+    
+    // 빈 행 스킵: 대분류가 없거나 요청업무가 "-" 또는 비어있으면 스킵
+    if (!category || !taskDesc || taskDesc === "-") {
+      debugSkipped++;
+      continue;
+    }
+    
+    const task = {
+      no: no,
+      category: category,
+      requester: String(getCellValue("D", r) || "").trim(),
+      assignee: String(getCellValue("E", r) || "").trim(),
+      requestDate: formatDate(getCellValue("F", r)),
+      dueDate: formatDate(getCellValue("H", r)),
+      urgent: String(getCellValue("J", r) || "").trim(),
+      taskDesc: taskDesc,
+      todayPlan: String(getCellValue("R", r) || "").trim(),
+      issue: String(getCellValue("X", r) || "").trim(),
+      status: String(getCellValue("AD", r) || "").trim() || "진행중",
+      decision: String(getCellValue("AE", r) || "").trim(),
+      decidedBy: String(getCellValue("AF", r) || "").trim(),
+      decidedAt: String(getCellValue("AG", r) || "").trim(),
+      comments: parseCommentsJson(getCellValue("AH", r)),  // 🆕 댓글 JSON
+      attachments: [],
+    };
+    
+    tasks.push(task);
+  }
+  
+  if (sheetName && debugRows > 0) {
+    console.log(`[일일보고] ${sheetName}: ${debugRows}행 중 ${debugSkipped}개 빈 행 스킵, ${tasks.length}건 로드`);
+  }
+  
+  return tasks;
+}
+
+function formatDate(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v.substring(0, 10);
+  if (v instanceof Date) return v.toISOString().substring(0, 10);
+  if (typeof v === "number") {
+    // Excel serial date
+    const d = new Date((v - 25569) * 86400 * 1000);
+    return d.toISOString().substring(0, 10);
+  }
+  return String(v).substring(0, 10);
+}
+
+// 시트명 → 날짜 추출 (예: "구매팀(송현주)-260522" → "260522")
+function sheetToDate(sheetName) {
+  const m = sheetName.match(/-(\d{6})$/);
+  return m ? m[1] : "";
+}
+
+// 시트명 → 작성자 추출
+function sheetToAuthor(sheetName) {
+  const m = sheetName.match(/\(([^)]+)\)/);
+  return m ? m[1] : "";
+}
+
+// 작성자 + 날짜 → 시트명
+function makeSheetName(author, dateYYMMDD) {
+  return `구매팀(${author})-${dateYYMMDD}`;
+}
+
+// YYMMDD → "2026-05-22" 형식
+function expandDate(yymmdd) {
+  if (!yymmdd || yymmdd.length !== 6) return yymmdd;
+  return `20${yymmdd.substring(0, 2)}-${yymmdd.substring(2, 4)}-${yymmdd.substring(4, 6)}`;
+}
+
+// 사용 가능한 날짜 목록 (현재 작성자 기준, 최신순)
+function getAvailableDates() {
+  const author = dailyData.currentAuthor;
+  const dates = new Set();
+  for (const sn of Object.keys(dailyData.sheets)) {
+    if (sheetToAuthor(sn) === author) {
+      const d = sheetToDate(sn);
+      if (d) dates.add(d);
+    }
+  }
+  return [...dates].sort().reverse();  // 최신순
+}
+
+function renderDailyDateOptions() {
+  const sel = $("dailyDate");
+  if (!sel) return;
+  
+  const dates = getAvailableDates();
+  
+  while (sel.options.length > 1) sel.remove(1);
+  
+  for (const d of dates) {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = `${expandDate(d)} (${getWeekday(d)})`;
+    sel.appendChild(opt);
+  }
+  
+  if (dates.length > 0 && !dailyData.currentDate) {
+    sel.value = dates[0];
+    dailyData.currentDate = dates[0];
+  }
+}
+
+function getWeekday(yymmdd) {
+  // ⚠️ "2026-05-26" 같은 ISO 형식은 UTC로 파싱돼서 한국시간으론 하루 전이 됨
+  // → Date(year, month, day) 로컬 시간 생성자 사용
+  const y = 2000 + parseInt(yymmdd.substring(0, 2));
+  const m = parseInt(yymmdd.substring(2, 4)) - 1;  // JS month는 0-based
+  const d = parseInt(yymmdd.substring(4, 6));
+  const date = new Date(y, m, d);
+  return ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+}
+
+function onDailyAuthorChange() {
+  dailyData.currentAuthor = $("dailyAuthor").value;
+  renderDailyDateOptions();
+  const dates = getAvailableDates();
+  // 오늘 날짜 우선
+  const now = new Date();
+  const todayYYMMDD = String(now.getFullYear()).slice(2) +
+                     String(now.getMonth() + 1).padStart(2, "0") +
+                     String(now.getDate()).padStart(2, "0");
+  const selectDate = dates.includes(todayYYMMDD) ? todayYYMMDD : (dates[0] || "");
+  dailyData.currentDate = selectDate;
+  $("dailyDate").value = selectDate;
+  syncDatePickerFromYYMMDD(selectDate);
+  renderDailyTasks();
+}
+
+function onDailyDateChange() {
+  dailyData.currentDate = $("dailyDate").value;
+  // ⭐ 달력도 동기화
+  syncDatePickerFromYYMMDD(dailyData.currentDate);
+  renderDailyTasks();
+}
+
+// ⭐ 달력 picker로 날짜 선택 시
+function onDailyDatePickerChange() {
+  const v = $("dailyDatePicker").value; // YYYY-MM-DD
+  if (!v) return;
+  // YYMMDD 형식으로 변환
+  const yymmdd = v.substring(2,4) + v.substring(5,7) + v.substring(8,10);
+  
+  // 시트가 있으면 그 날짜로 선택, 없으면 새 시트 (사용자 확인)
+  const dates = getAvailableDates();
+  if (dates.includes(yymmdd)) {
+    dailyData.currentDate = yymmdd;
+    $("dailyDate").value = yymmdd;
+    renderDailyTasks();
+  } else {
+    if (confirm(`${v}에 보고서가 없습니다.\n새 시트로 시작하시겠습니까?`)) {
+      // 새 시트 만들기
+      const sheetName = makeSheetName(dailyData.currentAuthor, yymmdd);
+      if (!dailyData.sheets[sheetName]) {
+        dailyData.sheets[sheetName] = [];
+        dailyData.modified = true;
+      }
+      dailyData.currentDate = yymmdd;
+      renderDailyDateOptions();  // 옵션 다시 채우기
+      $("dailyDate").value = yymmdd;
+      renderDailyTasks();
+      toast("📝 새 보고서 시트 생성됨 - 저장 필요", "success");
+    } else {
+      // 취소 → 현재 날짜로 복원
+      syncDatePickerFromYYMMDD(dailyData.currentDate);
+    }
+  }
+}
+
+// YYMMDD를 달력 picker에 동기화
+function syncDatePickerFromYYMMDD(yymmdd) {
+  const picker = $("dailyDatePicker");
+  if (!picker) return;
+  if (!yymmdd || yymmdd.length !== 6) {
+    picker.value = "";
+    return;
+  }
+  picker.value = `20${yymmdd.substring(0,2)}-${yymmdd.substring(2,4)}-${yymmdd.substring(4,6)}`;
+}
+
+function renderDailyTasks() {
+  if (!dailyData.loaded) return;
+  
+  const author = dailyData.currentAuthor;
+  const date = dailyData.currentDate;
+  
+  const dateLabel = $("dailyDateLabel");
+  if (!date) {
+    if (dateLabel) dateLabel.textContent = "날짜를 선택하세요";
+    $("dailyTasksList").innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--t3)">
+        보고서를 선택하거나 <button class="btn sm" onclick="createTodayReport()" style="background:#ea580c;color:#fff;margin-left:8px">+ 오늘 보고서 작성</button>
+      </div>`;
+    $("dailyAttachmentsSection").style.display = "none";
+    
+    // KPI 0으로
+    ['dailyKpiTotal','dailyKpiDone','dailyKpiInProgress','dailyKpiIssue'].forEach(id => {
+      if ($(id)) $(id).innerHTML = '0<span class="kpi-unit">건</span>';
+    });
+    return;
+  }
+  
+  const sheetName = makeSheetName(author, date);
+  let tasks = dailyData.sheets[sheetName] || [];
+  
+  if (dateLabel) {
+    dateLabel.innerHTML = `📅 <b>${expandDate(date)} (${getWeekday(date)})</b> · <b>${author}</b> · 시트: <code style="font-size:11px;background:#f3f4f6;padding:2px 6px;border-radius:4px">${sheetName}</code>`;
+  }
+  
+  // 첨부파일 섹션 표시
+  $("dailyAttachmentsSection").style.display = "block";
+  $("dailyAttachmentsPath").textContent = `📂 ${DAILY_REPORT_FOLDER}/20${date.substring(0,2)}${date.substring(2,4)}${date.substring(4,6)}/`;
+  loadDailyAttachments();
+  
+  // 필터 적용
+  const search = ($("dailySearch")?.value || "").toLowerCase().trim();
+  const catFilter = $("dailyCategoryFilter")?.value || "";
+  const statusFilter = $("dailyStatusFilter")?.value || "";
+  
+  let filtered = [...tasks];
+  if (catFilter) filtered = filtered.filter(t => t.category === catFilter);
+  if (statusFilter) filtered = filtered.filter(t => t.status === statusFilter);
+  if (search) {
+    filtered = filtered.filter(t => 
+      (t.taskDesc + t.todayPlan + t.issue + t.category).toLowerCase().includes(search)
+    );
+  }
+  
+  // KPI
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === "완료").length;
+  const inProgress = tasks.filter(t => t.status === "진행중").length;
+  const issue = tasks.filter(t => t.status === "이슈확인" && !t.decision).length;
+  
+  $("dailyKpiTotal").innerHTML = `${total}<span class="kpi-unit">건</span>`;
+  $("dailyKpiDone").innerHTML = `${done}<span class="kpi-unit">건</span>`;
+  $("dailyKpiInProgress").innerHTML = `${inProgress}<span class="kpi-unit">건</span>`;
+  $("dailyKpiIssue").innerHTML = `${issue}<span class="kpi-unit">건</span>`;
+  
+  // 업무 카드 렌더링
+  const list = $("dailyTasksList");
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--t3)">
+        ${tasks.length === 0 ? '업무가 없습니다.' : '필터에 해당하는 업무가 없습니다.'}
+        <br><br>
+        <button class="btn sm" onclick="addDailyTask()" style="background:#ea580c;color:#fff">+ 첫 업무 추가</button>
+      </div>`;
+    return;
+  }
+  
+  // 🆕 진행상태별 그룹핑 (영업모듈 영업활동 패턴)
+  // 진행상태 순서: 이슈확인 → 진행중 → 완료
+  const statusGroups = {
+    "이슈확인": { tasks: [], color: "#dc2626", bgColor: "#FEF2F2", icon: "⚠️", label: "이슈확인 (결정 필요)" },
+    "진행중": { tasks: [], color: "#3b82f6", bgColor: "#EFF6FF", icon: "🔵", label: "진행중" },
+    "완료": { tasks: [], color: "#10b981", bgColor: "#ECFDF5", icon: "✅", label: "완료" },
+  };
+  
+  for (const task of filtered) {
+    const status = statusGroups[task.status] ? task.status : "진행중";
+    statusGroups[status].tasks.push(task);
+  }
+  
+  // 그룹 접기 상태 (기본: 완료 그룹은 접힘)
+  if (!window._dailyGroupCollapsed) {
+    window._dailyGroupCollapsed = new Set(["완료"]);  // 완료는 기본 접힘
+  }
+  
+  let html = "";
+  for (const statusKey of Object.keys(statusGroups)) {
+    const group = statusGroups[statusKey];
+    if (group.tasks.length === 0) continue;
+    
+    const isCollapsed = window._dailyGroupCollapsed.has(statusKey);
+    
+    // 그룹 헤더
+    html += `
+      <div style="margin-bottom:12px">
+        <div onclick="toggleDailyGroup('${statusKey}')" 
+             style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${group.bgColor};border:1.5px solid ${group.color};border-left:5px solid ${group.color};border-radius:8px;cursor:pointer;user-select:none;margin-bottom:6px">
+          <span style="color:${group.color};font-size:13px;transform:${isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)'};transition:transform 0.2s;display:inline-block;width:14px">▶</span>
+          <span style="font-size:18px">${group.icon}</span>
+          <span style="font-size:14px;font-weight:800;color:${group.color}">${group.label}</span>
+          <span style="background:${group.color};color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;min-width:32px;text-align:center">${group.tasks.length}</span>
+          <span style="margin-left:auto;font-size:11px;color:${group.color};font-weight:600">${isCollapsed ? '펼치기' : '접기'}</span>
+        </div>`;
+    
+    if (!isCollapsed) {
+      html += `<div style="padding-left:8px">`;
+      for (const task of group.tasks) {
+        const idx = tasks.indexOf(task);  // 실제 배열 인덱스
+        html += renderDailyTaskCard(task, idx);
+      }
+      html += `</div>`;
+    }
+    
+    html += `</div>`;
+  }
+  
+  list.innerHTML = html;
+  
+  // 🆕 오늘 보고서 작성 버튼 상태 갱신 (깜빡임)
+  try { updateTodayReportButtonStatus(); } catch(e) {}
+}
+
+// 🆕 그룹 접기/펼치기 토글
+function toggleDailyGroup(statusKey) {
+  if (!window._dailyGroupCollapsed) window._dailyGroupCollapsed = new Set();
+  if (window._dailyGroupCollapsed.has(statusKey)) {
+    window._dailyGroupCollapsed.delete(statusKey);
+  } else {
+    window._dailyGroupCollapsed.add(statusKey);
+  }
+  renderDailyTasks();
+}
+
+// 🆕 KPI 클릭 → 빠른 필터 (영업모듈 qf 패턴)
+function quickFilterDailyStatus(status) {
+  // 진행상태 필터 적용
+  const sf = $("dailyStatusFilter");
+  if (sf) sf.value = status;
+  
+  // 해당 그룹 펼치기 (다른 그룹은 접기)
+  if (!window._dailyGroupCollapsed) window._dailyGroupCollapsed = new Set();
+  window._dailyGroupCollapsed = new Set(["이슈확인", "진행중", "완료"]);  // 일단 다 접기
+  if (status) {
+    window._dailyGroupCollapsed.delete(status);  // 클릭한 거만 펼침
+  } else {
+    // 전체 클릭 시 - 완료만 접고 나머지 펼침
+    window._dailyGroupCollapsed = new Set(["완료"]);
+  }
+  
+  renderDailyTasks();
+}
+
+window.toggleDailyGroup = toggleDailyGroup;
+window.quickFilterDailyStatus = quickFilterDailyStatus;
+
+function renderDailyTaskCard(task, idx) {
+  const statusInfo = DAILY_STATUSES.find(s => s.value === task.status) || { color: "#6b7280", icon: "⚪" };
+  const categoryColors = {
+    "총무": "#0891B2",
+    "인사": "#7C3AED",
+    "공시/기획": "#1A6FD4",
+    "법무": "#DC2626",
+    "기타": "#6B7280",
+  };
+  const catColor = categoryColors[task.category] || "#6B7280";
+  
+  // 긴급/기한 처리
+  const today = new Date();
+  const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+  const isOverdue = dueDate && dueDate < today && task.status !== "완료";
+  const isUrgent = task.urgent && task.urgent !== "-" && task.urgent !== "";
+  const isIssue = task.status === "이슈확인";
+  
+  let borderColor = "#e5e7eb";
+  let bgColor = "#fff";
+  let leftBorderColor = catColor;
+  if (isIssue && !task.decision) { borderColor = "#dc2626"; leftBorderColor = "#dc2626"; }
+  else if (isOverdue) { borderColor = "#f59e0b"; leftBorderColor = "#f59e0b"; }
+  
+  const canDecide = canMakeDecision();
+  
+  // 펼침 상태 (전역 Set으로 관리)
+  if (!window._dailyExpanded) window._dailyExpanded = new Set();
+  const cardKey = `${dailyData.currentAuthor}_${dailyData.currentDate}_${idx}`;
+  const isExpanded = window._dailyExpanded.has(cardKey);
+  
+  // 미리보기 텍스트 (한 줄)
+  const hasIssueIcon = task.issue ? '⚠️' : '';
+  const hasPlanIcon = task.todayPlan ? '📝' : '';
+  const hasDecisionIcon = task.decision ? '✅' : '';
+  const commentCount = (task.comments || []).length;
+  const hasCommentIcon = commentCount > 0 ? `💬${commentCount}` : '';
+  const infoIcons = [hasPlanIcon, hasIssueIcon, hasDecisionIcon, hasCommentIcon].filter(Boolean).join(' ');
+  
+  return `
+    <div class="daily-task-card" data-card-key="${cardKey}" style="background:${bgColor};border:1.5px solid ${borderColor};border-left:4px solid ${leftBorderColor};border-radius:8px;margin-bottom:8px;transition:all 0.2s;overflow:hidden">
+      
+      <!-- 🆕 헤더 (항상 보임) - 클릭하면 펼침 -->
+      <div onclick="toggleDailyTask('${cardKey}')" style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none">
+        <!-- 펼침 아이콘 -->
+        <span style="color:#9ca3af;font-size:11px;transform:${isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'};transition:transform 0.2s;display:inline-block;width:12px">▶</span>
+        
+        <!-- NO -->
+        <span style="background:#f3f4f6;color:#374151;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:monospace;min-width:32px;text-align:center">#${task.no}</span>
+        
+        <!-- 분류 -->
+        <span style="background:${catColor}22;color:${catColor};padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap">${escHtml(task.category)}</span>
+        
+        <!-- 상태 -->
+        <span style="background:${statusInfo.color}22;color:${statusInfo.color};padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap">${statusInfo.icon} ${escHtml(task.status)}</span>
+        
+        <!-- 긴급/기한 배지 -->
+        ${isUrgent ? `<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">🔴 ${escHtml(task.urgent)}</span>` : ''}
+        ${isOverdue ? `<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">⏰ 기한초과</span>` : ''}
+        
+        <!-- 요청업무 (메인) -->
+        <div style="flex:1;font-size:13px;font-weight:600;color:#1f2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 8px" title="${escVal(task.taskDesc)}">
+          ${escHtml(task.taskDesc || '(업무 내용 없음)')}
+        </div>
+        
+        <!-- 컨텐츠 표시 아이콘 -->
+        ${infoIcons ? `<span style="font-size:11px;color:#9ca3af" title="진행계획/이슈/결정">${infoIcons}</span>` : ''}
+        
+        <!-- 담당자 -->
+        <span style="font-size:11px;color:#6b7280;white-space:nowrap">👤 ${escHtml(task.assignee)}</span>
+        
+        <!-- 결정 입력 버튼 (이슈+권한있을 때, 펼치지 않아도 보임) -->
+        ${canDecide && isIssue && !task.decision ? `
+          <button onclick="event.stopPropagation();addDailyDecision(${idx})" style="background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">✅ 결정</button>
+        ` : ''}
+        
+        <!-- 삭제 -->
+        <button onclick="event.stopPropagation();deleteDailyTask(${idx})" style="background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="삭제">🗑</button>
+      </div>
+      
+      <!-- 🆕 댓글 영역 (항상 보임, 펼치기 전에) -->
+      ${renderDailyComments(task, idx, canDecide)}
+      
+      <!-- 🆕 펼친 내용 (조건부) -->
+      ${isExpanded ? `
+        <div style="padding:0 14px 14px;border-top:1px solid #f3f4f6;animation:slideDown 0.2s">
+          
+          <!-- 분류/상태/일자 편집 영역 -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 0;font-size:11px;color:#6b7280;align-items:center">
+            <select onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'category',this.value)" style="background:${catColor}22;color:${catColor};padding:4px 8px;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">
+              ${DAILY_CATEGORIES.map(c => `<option ${c === task.category ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+            <select onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'status',this.value)" style="background:${statusInfo.color}22;color:${statusInfo.color};padding:4px 8px;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">
+              ${DAILY_STATUSES.map(s => `<option value="${s.value}" ${s.value === task.status ? 'selected' : ''}>${s.icon} ${s.value}</option>`).join('')}
+            </select>
+            <span>요청자: <input type="text" value="${escVal(task.requester)}" onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'requester',this.value)" style="border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;width:80px"></span>
+            <span>담당: <input type="text" value="${escVal(task.assignee)}" onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'assignee',this.value)" style="border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;width:80px"></span>
+            <span>📅 요청일: <input type="date" value="${task.requestDate}" onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'requestDate',this.value)" style="border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px"></span>
+            <span>⏰ 기한: <input type="date" value="${task.dueDate}" onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'dueDate',this.value)" style="border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px"></span>
+            <span>🔥 긴급: <input type="text" value="${escVal(task.urgent)}" placeholder="-" onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'urgent',this.value)" style="border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;width:90px"></span>
+          </div>
+          
+          <!-- 요청업무 -->
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px">📌 요청업무</div>
+            <textarea onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'taskDesc',this.value)" rows="2" 
+                      style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical" 
+                      placeholder="업무 내용">${escVal(task.taskDesc)}</textarea>
+          </div>
+          
+          <!-- 금일 진행 -->
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px">📝 금일 진행계획/업무</div>
+            <textarea onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'todayPlan',this.value)" rows="3" 
+                      style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical" 
+                      placeholder="오늘 진행한 업무 / 진행 예정 사항">${escVal(task.todayPlan)}</textarea>
+          </div>
+          
+          <!-- 이슈/결정 -->
+          <div style="margin-bottom:${task.decision || (canDecide && isIssue) ? '10px' : '0'}">
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px">⚠️ 이슈/검토/결정 필요사항</div>
+            <textarea onclick="event.stopPropagation()" onchange="updateDailyTask(${idx},'issue',this.value)" rows="2" 
+                      style="width:100%;border:1px solid ${isIssue ? '#dc2626' : '#e5e7eb'};border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical" 
+                      placeholder="이슈 / 검토 / 결정 필요사항">${escVal(task.issue)}</textarea>
+          </div>
+          
+          <!-- 결정 사항 -->
+          ${task.decision ? `
+            <div style="background:#ecfdf5;border:1.5px solid #10b981;border-radius:8px;padding:10px;margin-top:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-size:11px;color:#059669;font-weight:700">✅ 결정사항</span>
+                <span style="font-size:10px;color:#6b7280">${escHtml(task.decidedBy)} · ${escHtml(task.decidedAt)}</span>
+              </div>
+              <div style="font-size:13px;color:#065f46;white-space:pre-wrap">${escHtml(task.decision)}</div>
+              ${canDecide ? `<button onclick="event.stopPropagation();editDailyDecision(${idx})" style="margin-top:6px;background:transparent;border:1px solid #10b981;color:#059669;padding:2px 10px;border-radius:4px;font-size:11px;cursor:pointer">✏️ 결정 수정</button>` : ''}
+            </div>
+          ` : (canDecide && isIssue ? `
+            <div style="margin-top:8px">
+              <button onclick="event.stopPropagation();addDailyDecision(${idx})" style="background:#10b981;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✅ 결정 입력</button>
+            </div>
+          ` : '')}
+          
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// 🆕 카드 펼치기/접기
+function toggleDailyTask(cardKey) {
+  if (!window._dailyExpanded) window._dailyExpanded = new Set();
+  if (window._dailyExpanded.has(cardKey)) {
+    window._dailyExpanded.delete(cardKey);
+  } else {
+    window._dailyExpanded.add(cardKey);
+  }
+  renderDailyTasks();
+}
+
+// 🆕 전체 펼치기/접기
+function toggleAllDailyTasks(expand) {
+  if (!window._dailyExpanded) window._dailyExpanded = new Set();
+  
+  if (expand) {
+    // 전체 펼치기
+    const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+    const tasks = dailyData.sheets[sheetName] || [];
+    for (let i = 0; i < tasks.length; i++) {
+      window._dailyExpanded.add(`${dailyData.currentAuthor}_${dailyData.currentDate}_${i}`);
+    }
+  } else {
+    // 전체 접기
+    window._dailyExpanded.clear();
+  }
+  renderDailyTasks();
+}
+
+window.toggleDailyTask = toggleDailyTask;
+window.toggleAllDailyTasks = toggleAllDailyTasks;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 댓글 시스템 (BH + 변도영 대표만 작성, 모두 조회)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function renderDailyComments(task, idx, canDecide) {
+  const comments = task.comments || [];
+  
+  // 작성자별 색상 매핑
+  const authorColors = {
+    "baekhoon@enjet.co.kr": { color: "#ea580c", icon: "💼", role: "전무" },
+    "dybyun@enjet.co.kr": { color: "#7c3aed", icon: "👔", role: "대표이사" },
+    "hjsong@enjet.co.kr": { color: "#0891b2", icon: "📊", role: "정진영 과장" },
+    "hnkim@enjet.co.kr": { color: "#059669", icon: "📈", role: "홍용원 사원" },
+  };
+  
+  // 댓글 렌더링
+  const commentsHtml = comments.map((c, ci) => {
+    const meta = authorColors[c.authorEmail] || { color: "#6b7280", icon: "👤", role: "" };
+    const isMyComment = c.authorEmail === (userEmail || "").toLowerCase();
+    const displayName = c.author || (c.authorEmail || "").split("@")[0];
+    
+    // 시간 포맷 (상대 시간 + 절대 시간)
+    let timeDisplay = c.time || "";
+    let relativeTime = "";
+    if (c.timestamp) {
+      const diff = Date.now() - c.timestamp;
+      const min = Math.floor(diff / 60000);
+      const hour = Math.floor(diff / 3600000);
+      const day = Math.floor(diff / 86400000);
+      if (min < 1) relativeTime = "방금 전";
+      else if (min < 60) relativeTime = `${min}분 전`;
+      else if (hour < 24) relativeTime = `${hour}시간 전`;
+      else if (day < 7) relativeTime = `${day}일 전`;
+    }
+    
+    return `
+      <div style="display:flex;gap:8px;padding:10px 12px;background:#fff;border-radius:8px;border:1px solid #e5e7eb;align-items:flex-start;margin-bottom:4px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:90px;flex-shrink:0">
+          <div style="background:${meta.color}22;color:${meta.color};padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap">
+            ${meta.icon} ${escHtml(displayName)}
+          </div>
+          ${meta.role ? `<div style="font-size:9px;color:#9ca3af;font-weight:600">${escHtml(meta.role)}</div>` : ''}
+        </div>
+        <div style="flex:1;font-size:13px;color:#1f2937;white-space:pre-wrap;line-height:1.5;word-break:break-word;padding:2px 0">${escHtml(c.text)}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
+          ${relativeTime ? `<div style="font-size:10px;color:#6b7280;font-weight:600">${relativeTime}</div>` : ''}
+          <div style="font-size:9px;color:#9ca3af;white-space:nowrap">${escHtml(timeDisplay)}</div>
+          ${isMyComment ? `<button onclick="event.stopPropagation();deleteDailyComment(${idx},${ci})" style="background:transparent;border:none;color:#dc2626;cursor:pointer;font-size:10px;padding:2px 4px;margin-top:2px" title="내 댓글 삭제">🗑 삭제</button>` : ''}
+        </div>
+      </div>`;
+  }).join("");
+  
+  // 🆕 댓글 입력 UI - 모든 사용자에게 표시
+  const inputHtml = `
+    <div style="display:flex;gap:6px;padding:8px 12px;background:#fff;border-radius:8px;border:1.5px dashed #d1d5db" onclick="event.stopPropagation()">
+      <input type="text" id="commentInput_${idx}" placeholder="💬 댓글 작성 (Enter로 전송)" 
+             onkeypress="if(event.key==='Enter'){event.preventDefault();addDailyComment(${idx})}"
+             onclick="event.stopPropagation()"
+             style="flex:1;border:none;outline:none;font-size:13px;padding:6px 4px;background:transparent">
+      <button onclick="event.stopPropagation();addDailyComment(${idx})" 
+              style="background:#ea580c;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">전송</button>
+    </div>`;
+  
+  // 댓글 영역 전체
+  return `
+    <div onclick="event.stopPropagation()" style="background:#fafbfc;border-top:1px solid #f3f4f6;padding:10px 14px;display:flex;flex-direction:column;gap:6px">
+      ${comments.length > 0 ? `
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#6b7280;font-weight:600;margin-bottom:2px">
+          <span>💬 댓글</span>
+          <span style="background:#e5e7eb;color:#6b7280;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700">${comments.length}</span>
+        </div>
+        ${commentsHtml}
+      ` : ''}
+      ${inputHtml}
+    </div>`;
+}
+
+// 댓글 추가 (🆕 누구나 작성 가능)
+function addDailyComment(idx) {
+  if (!userEmail) {
+    toast("⚠️ 로그인 후 댓글 작성 가능합니다", "error");
+    return;
+  }
+  
+  const input = $(`commentInput_${idx}`);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) {
+    toast("댓글을 입력하세요", "info");
+    return;
+  }
+  
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  if (!dailyData.sheets[sheetName] || !dailyData.sheets[sheetName][idx]) return;
+  
+  const task = dailyData.sheets[sheetName][idx];
+  if (!Array.isArray(task.comments)) task.comments = [];
+  
+  const now = new Date();
+  task.comments.push({
+    author: userName || (userEmail || "").split("@")[0],
+    authorEmail: (userEmail || "").toLowerCase(),
+    text: text,
+    timestamp: now.getTime(),  // 🆕 정확한 시간 (밀리초)
+    time: now.toLocaleString("ko-KR", { 
+      year: "2-digit", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit" 
+    })
+  });
+  
+  dailyData.modified = true;
+  input.value = "";
+  
+  // 저장 버튼 강조
+  if ($("dailySaveBtn")) {
+    $("dailySaveBtn").style.background = "#ea580c";
+    $("dailySaveBtn").style.color = "#fff";
+    $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+  }
+  
+  renderDailyTasks();
+  toast("💬 댓글 추가됨. [💾 저장]으로 SharePoint에 반영하세요", "success");
+  
+  // 🆕 담당자에게 Teams 알림 (비동기, 실패해도 댓글은 정상 추가됨)
+  notifyCommentToAssignee(task, text).catch(e => console.warn("[Teams] 댓글 알림 실패:", e));
+}
+
+// 댓글 삭제 (자기 댓글만)
+function deleteDailyComment(idx, commentIdx) {
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  if (!dailyData.sheets[sheetName] || !dailyData.sheets[sheetName][idx]) return;
+  
+  const task = dailyData.sheets[sheetName][idx];
+  if (!Array.isArray(task.comments) || !task.comments[commentIdx]) return;
+  
+  const comment = task.comments[commentIdx];
+  if (comment.authorEmail !== (userEmail || "").toLowerCase()) {
+    toast("자기 댓글만 삭제할 수 있습니다", "error");
+    return;
+  }
+  
+  if (!confirm("이 댓글을 삭제하시겠습니까?")) return;
+  
+  task.comments.splice(commentIdx, 1);
+  dailyData.modified = true;
+  
+  if ($("dailySaveBtn")) {
+    $("dailySaveBtn").style.background = "#ea580c";
+    $("dailySaveBtn").style.color = "#fff";
+    $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+  }
+  
+  renderDailyTasks();
+  toast("🗑️ 댓글 삭제됨", "success");
+}
+
+window.renderDailyComments = renderDailyComments;
+window.addDailyComment = addDailyComment;
+window.deleteDailyComment = deleteDailyComment;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 Teams 알림 시스템
+// 1. 댓글 작성 → 업무 담당자에게 개인 메시지
+// 2. 일일업무 등록 → BH + 변도영 대표에게 요약 메시지
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 알림 대상자 이메일 매핑
+const TEAMS_RECIPIENTS = {
+  "정진영": "jyjung@enjet.co.kr",
+  "홍용원": "ywhong@enjet.co.kr",
+  "성백훈": "baekhoon@enjet.co.kr",
+  "변도영": "dybyun@enjet.co.kr",
+};
+
+// Teams 알림 결정자 (요약 받을 사람)
+const TEAMS_REPORT_VIEWERS = ["baekhoon@enjet.co.kr", "dybyun@enjet.co.kr"];
+
+// 사용자 이메일 → Microsoft Graph User ID 캐시
+const _teamsUserIdCache = {};
+
+async function getTeamsUserId(email) {
+  if (!email) return null;
+  email = email.toLowerCase().trim();
+  if (_teamsUserIdCache[email]) return _teamsUserIdCache[email];
+  
+  try {
+    const token = await getToken();
+    const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) {
+      if (r.status === 403) {
+        console.warn(`[Teams] 권한 부족 (403): ${email} 조회 실패. User.ReadBasic.All 권한 필요. 로그아웃 후 재로그인 → 권한 동의 필요`);
+        if (!window._teamsPermWarned) {
+          window._teamsPermWarned = true;
+          toast("⚠️ Teams 알림 권한이 부족합니다. 로그아웃 → 재로그인 후 권한 동의해주세요", "error");
+        }
+      } else if (r.status === 404) {
+        console.warn(`[Teams] 사용자 없음 (404): ${email}. 이메일 확인 필요`);
+      } else {
+        console.warn(`[Teams] 사용자 조회 실패 (${email}): ${r.status}`);
+      }
+      return null;
+    }
+    const data = await r.json();
+    _teamsUserIdCache[email] = data.id;
+    return data.id;
+  } catch (e) {
+    console.warn("[Teams] User ID 조회 실패:", e.message);
+    return null;
+  }
+}
+
+// 1:1 채팅 생성 또는 조회
+async function getOrCreateTeamsChat(recipientEmail) {
+  try {
+    const token = await getToken();
+    const myId = await getTeamsUserId(userEmail);
+    const recipientId = await getTeamsUserId(recipientEmail);
+    
+    if (!myId || !recipientId) {
+      console.warn("[Teams] User ID 못 찾음", { myId, recipientId, recipientEmail });
+      return null;
+    }
+    
+    // 1:1 채팅 생성 (이미 있으면 같은 채팅 반환됨)
+    const r = await fetch(`https://graph.microsoft.com/v1.0/chats`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatType: "oneOnOne",
+        members: [
+          {
+            "@odata.type": "#microsoft.graph.aadUserConversationMember",
+            roles: ["owner"],
+            "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${myId}')`
+          },
+          {
+            "@odata.type": "#microsoft.graph.aadUserConversationMember",
+            roles: ["owner"],
+            "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${recipientId}')`
+          }
+        ]
+      })
+    });
+    
+    if (!r.ok) {
+      const err = await r.text();
+      console.warn(`[Teams] 채팅 생성 실패 (${r.status}):`, err.substring(0, 200));
+      return null;
+    }
+    
+    const data = await r.json();
+    return data.id;
+  } catch (e) {
+    console.error("[Teams] 채팅 생성 에러:", e);
+    return null;
+  }
+}
+
+// 채팅에 메시지 전송 (HTML 형식 지원)
+async function sendTeamsMessage(chatId, htmlContent, plainPreview) {
+  try {
+    const token = await getToken();
+    const r = await fetch(`https://graph.microsoft.com/v1.0/chats/${chatId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        body: {
+          contentType: "html",
+          content: htmlContent
+        }
+      })
+    });
+    
+    if (!r.ok) {
+      const err = await r.text();
+      console.warn(`[Teams] 메시지 전송 실패 (${r.status}):`, err.substring(0, 200));
+      return false;
+    }
+    
+    console.log("[Teams] ✅ 메시지 전송:", plainPreview);
+    return true;
+  } catch (e) {
+    console.error("[Teams] 전송 에러:", e);
+    return false;
+  }
+}
+
+// 통합: 이메일로 직접 보내기
+async function sendTeamsToUser(recipientEmail, htmlContent, plainPreview) {
+  const chatId = await getOrCreateTeamsChat(recipientEmail);
+  if (!chatId) {
+    console.warn(`[Teams] ${recipientEmail} 채팅 생성 실패, 메시지 전송 건너뜀`);
+    return false;
+  }
+  return await sendTeamsMessage(chatId, htmlContent, plainPreview);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 1) 댓글 작성 시 담당자에게 알림
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function notifyCommentToAssignee(task, commentText) {
+  const dashboardUrl = "https://bhseong77.github.io/hr-dashboard/#dailyreport";
+  const senderName = userName || (userEmail || "").split("@")[0];
+  const myEmail = (userEmail || "").toLowerCase();
+  
+  // 🆕 알림 대상: 담당자 + BH + 대표 (작성자 제외, 중복 제거)
+  const notifyEmails = new Set();
+  
+  // 1. 업무 담당자
+  const assigneeEmail = TEAMS_RECIPIENTS[task.assignee];
+  if (assigneeEmail) notifyEmails.add(assigneeEmail.toLowerCase());
+  
+  // 2. BH + 변도영 대표 (결정 권한자)
+  for (const email of TEAMS_REPORT_VIEWERS) {
+    notifyEmails.add(email.toLowerCase());
+  }
+  
+  // 3. 작성자 본인 제외
+  notifyEmails.delete(myEmail);
+  
+  if (notifyEmails.size === 0) {
+    console.log("[Teams] 댓글 알림 대상 없음 (자기 자신만)");
+    return;
+  }
+  
+  const html = `
+    <div style="font-family:'맑은 고딕',sans-serif;border-left:4px solid #ea580c;padding:12px 16px;background:#FFF7ED;">
+      <div style="font-size:13px;color:#c2410c;font-weight:bold;margin-bottom:8px">
+        💬 일일업무보고 댓글 도착
+      </div>
+      <div style="font-size:14px;color:#1f2937;margin-bottom:10px">
+        <b>${escHtml(senderName)}</b>님이 댓글을 남기셨습니다.
+      </div>
+      <div style="background:#fff;border:1px solid #fed7aa;border-radius:6px;padding:10px;margin-bottom:10px">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:4px">
+          📌 업무 #${task.no} · ${escHtml(task.category)} · ${escHtml(task.status)} · 담당: ${escHtml(task.assignee)}
+        </div>
+        <div style="font-size:13px;color:#374151;font-weight:600;margin-bottom:8px">
+          ${escHtml(task.taskDesc)}
+        </div>
+        <div style="background:#fef3c7;padding:8px;border-radius:4px;border-left:3px solid #f59e0b">
+          <div style="font-size:11px;color:#92400e;font-weight:600;margin-bottom:4px">💬 댓글</div>
+          <div style="font-size:13px;color:#1f2937;white-space:pre-wrap">${escHtml(commentText)}</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:12px">
+        <a href="${dashboardUrl}" target="_blank" 
+           style="display:inline-block;background:#ea580c;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px">
+          📋 HR 대시보드에서 확인하기
+        </a>
+      </div>
+    </div>
+  `;
+  
+  let sent = 0;
+  for (const email of notifyEmails) {
+    const ok = await sendTeamsToUser(email, html, `댓글: ${commentText.substring(0, 50)}`);
+    if (ok) sent++;
+  }
+  console.log(`[Teams] 댓글 알림 ${sent}/${notifyEmails.size}명에게 전송`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 2) 일일업무 등록 시 BH + 대표에게 요약
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function notifyDailyReportToViewers(author, dateYYMMDD, tasks) {
+  if (tasks.length === 0) return;
+  
+  const dashboardUrl = "https://bhseong77.github.io/hr-dashboard/";
+  const dateLabel = expandDate(dateYYMMDD);
+  const dayOfWeek = getWeekday(dateYYMMDD);
+  
+  // 카테고리별 분류
+  const byCategory = {};
+  let urgentTasks = [];
+  let issueTasks = [];
+  let completedTasks = [];
+  
+  for (const t of tasks) {
+    const cat = t.category || "기타";
+    if (!byCategory[cat]) byCategory[cat] = 0;
+    byCategory[cat]++;
+    
+    if (t.urgent && t.urgent !== "-" && t.urgent !== "") urgentTasks.push(t);
+    if (t.status === "이슈확인" && !t.decision) issueTasks.push(t);
+    if (t.status === "완료") completedTasks.push(t);
+  }
+  
+  const inProgress = tasks.filter(t => t.status === "진행중").length;
+  const issue = tasks.filter(t => t.status === "이슈확인").length;
+  
+  // 카테고리 색상
+  const catColors = {
+    "총무": "#0891B2", "인사": "#7C3AED", "공시/기획": "#1A6FD4",
+    "법무": "#DC2626", "기타": "#6B7280"
+  };
+  
+  // 카테고리별 요약
+  const categoryBadges = Object.entries(byCategory)
+    .map(([cat, cnt]) => {
+      const c = catColors[cat] || "#6B7280";
+      return `<span style="display:inline-block;background:${c}22;color:${c};padding:3px 10px;border-radius:4px;font-size:11px;font-weight:bold;margin-right:4px">${escHtml(cat)} ${cnt}건</span>`;
+    }).join("");
+  
+  // 긴급/이슈 업무 리스트
+  const urgentHtml = urgentTasks.length > 0 ? `
+    <div style="background:#fef2f2;border:1px solid #dc2626;border-radius:6px;padding:10px;margin-bottom:8px">
+      <div style="font-size:12px;color:#dc2626;font-weight:bold;margin-bottom:6px">🔴 긴급 업무 (${urgentTasks.length}건)</div>
+      ${urgentTasks.map(t => `
+        <div style="font-size:12px;color:#7f1d1d;margin-bottom:4px;padding-left:8px;border-left:2px solid #dc2626">
+          • ${escHtml(t.taskDesc.substring(0, 80))}
+          <span style="color:#92400e;font-size:10px;font-weight:600"> [${escHtml(t.urgent)}]</span>
+        </div>
+      `).join("")}
+    </div>
+  ` : "";
+  
+  const issueHtml = issueTasks.length > 0 ? `
+    <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:10px;margin-bottom:8px">
+      <div style="font-size:12px;color:#92400e;font-weight:bold;margin-bottom:6px">⚠️ 결정 필요 (${issueTasks.length}건)</div>
+      ${issueTasks.map(t => `
+        <div style="font-size:12px;color:#7c2d12;margin-bottom:4px;padding-left:8px;border-left:2px solid #f59e0b">
+          • ${escHtml(t.taskDesc.substring(0, 80))}
+        </div>
+      `).join("")}
+    </div>
+  ` : "";
+  
+  // 전체 업무 간략 리스트 (최대 10건)
+  const tasksListHtml = tasks.slice(0, 10).map(t => {
+    const c = catColors[t.category] || "#6B7280";
+    const statusColor = t.status === "완료" ? "#10b981" : (t.status === "이슈확인" ? "#dc2626" : "#3b82f6");
+    return `
+      <div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f3f4f6">
+        <span style="background:${c}22;color:${c};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-right:6px">${escHtml(t.category)}</span>
+        <span style="background:${statusColor}22;color:${statusColor};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-right:6px">${escHtml(t.status)}</span>
+        ${escHtml(t.taskDesc.substring(0, 80))}
+      </div>
+    `;
+  }).join("");
+  
+  const moreText = tasks.length > 10 ? `<div style="font-size:11px;color:#9ca3af;text-align:center;padding-top:6px">...외 ${tasks.length - 10}건</div>` : "";
+  
+  const html = `
+    <div style="font-family:'맑은 고딕',sans-serif;border-left:4px solid #ea580c;padding:14px 18px;background:#FFF7ED">
+      <div style="font-size:14px;color:#c2410c;font-weight:bold;margin-bottom:4px">
+        📋 일일업무보고 등록 알림
+      </div>
+      <div style="font-size:13px;color:#1f2937;margin-bottom:12px">
+        <b>${escHtml(author)}</b> · ${dateLabel} (${dayOfWeek})
+      </div>
+      
+      <!-- KPI -->
+      <div style="background:#fff;border:1px solid #fed7aa;border-radius:6px;padding:10px;margin-bottom:10px">
+        <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:6px">📊 업무 현황</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px">
+          <div><span style="color:#374151;font-weight:bold">전체</span> <span style="color:#ea580c;font-weight:bold">${tasks.length}건</span></div>
+          <div><span style="color:#374151">진행중</span> <span style="color:#3b82f6;font-weight:bold">${inProgress}</span></div>
+          <div><span style="color:#374151">완료</span> <span style="color:#10b981;font-weight:bold">${completedTasks.length}</span></div>
+          ${issue > 0 ? `<div><span style="color:#374151">⚠️ 이슈</span> <span style="color:#dc2626;font-weight:bold">${issue}</span></div>` : ""}
+        </div>
+        <div style="margin-top:8px">
+          ${categoryBadges}
+        </div>
+      </div>
+      
+      <!-- 긴급 + 이슈 -->
+      ${urgentHtml}
+      ${issueHtml}
+      
+      <!-- 업무 목록 -->
+      <div style="background:#fff;border:1px solid #fed7aa;border-radius:6px;padding:10px;margin-bottom:10px">
+        <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:6px">📋 업무 목록</div>
+        ${tasksListHtml}
+        ${moreText}
+      </div>
+      
+      <!-- 링크 -->
+      <div style="text-align:center;margin-top:12px">
+        <a href="${dashboardUrl}" target="_blank" 
+           style="display:inline-block;background:#ea580c;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px">
+          📋 HR 대시보드 열기
+        </a>
+      </div>
+    </div>
+  `;
+  
+  const plainPreview = `${author}의 ${dateLabel} 업무보고 (${tasks.length}건)`;
+  
+  // BH + 변도영 대표에게 동시 전송 (각각 본인 이메일은 제외)
+  let sent = 0;
+  for (const email of TEAMS_REPORT_VIEWERS) {
+    if (email.toLowerCase() === (userEmail || "").toLowerCase()) continue;  // 자기한테는 안 보냄
+    const ok = await sendTeamsToUser(email, html, plainPreview);
+    if (ok) sent++;
+  }
+  
+  console.log(`[Teams] 일일업무보고 알림 전송: ${sent}/${TEAMS_REPORT_VIEWERS.length}명`);
+  return sent;
+}
+
+window.notifyCommentToAssignee = notifyCommentToAssignee;
+window.notifyDailyReportToViewers = notifyDailyReportToViewers;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 공휴일/연차 체크 + 보고서 작성 알림
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 한국 공휴일 (2025-2027)
+const KOREAN_HOLIDAYS = {
+  // 2025
+  "2025-01-01": "신정",
+  "2025-01-27": "임시공휴일",
+  "2025-01-28": "설날 전날",
+  "2025-01-29": "설날",
+  "2025-01-30": "설날 다음날",
+  "2025-03-01": "삼일절",
+  "2025-05-05": "어린이날/석가탄신일",
+  "2025-05-06": "어린이날 대체",
+  "2025-06-06": "현충일",
+  "2025-08-15": "광복절",
+  "2025-10-03": "개천절",
+  "2025-10-06": "추석 전날",
+  "2025-10-07": "추석",
+  "2025-10-08": "추석 다음날",
+  "2025-10-09": "한글날",
+  "2025-12-25": "성탄절",
+  // 2026
+  "2026-01-01": "신정",
+  "2026-02-16": "설날 전날",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날 다음날",
+  "2026-03-01": "삼일절",
+  "2026-03-02": "삼일절 대체",
+  "2026-05-05": "어린이날",
+  "2026-05-24": "석가탄신일",
+  "2026-05-25": "석가탄신일 대체",
+  "2026-06-06": "현충일",
+  "2026-08-15": "광복절",
+  "2026-08-17": "광복절 대체",
+  "2026-09-24": "추석 전날",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석 다음날",
+  "2026-10-03": "개천절",
+  "2026-10-05": "개천절 대체",
+  "2026-10-09": "한글날",
+  "2026-12-25": "성탄절",
+  // 2027
+  "2027-01-01": "신정",
+  "2027-02-06": "설날 전날",
+  "2027-02-07": "설날",
+  "2027-02-08": "설날 다음날",
+  "2027-02-09": "설날 대체",
+  "2027-03-01": "삼일절",
+  "2027-05-05": "어린이날",
+  "2027-05-13": "석가탄신일",
+  "2027-06-06": "현충일",
+  "2027-06-07": "현충일 대체",
+  "2027-08-15": "광복절",
+  "2027-08-16": "광복절 대체",
+  "2027-09-14": "추석 전날",
+  "2027-09-15": "추석",
+  "2027-09-16": "추석 다음날",
+  "2027-10-03": "개천절",
+  "2027-10-04": "개천절 대체",
+  "2027-10-09": "한글날",
+  "2027-10-11": "한글날 대체",
+  "2027-12-25": "성탄절",
+};
+
+// 공휴일 체크 (YYYY-MM-DD)
+function checkHoliday(dateStr) {
+  return KOREAN_HOLIDAYS[dateStr] || null;
+}
+
+// 주말 체크
+function isWeekend(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+// 특정 날짜 + 사람의 휴가 여부 체크
+function checkVacation(personName, dateStr) {
+  if (!allApprovals || !Array.isArray(allApprovals)) return null;
+  
+  // 휴가 신청 중 승인된 것 + 해당 사람 + 해당 날짜 포함
+  for (const a of allApprovals) {
+    const isVac = a.formId === "VACATION" || (a.title || "").includes("휴가");
+    if (!isVac) continue;
+    if (a.status !== "approved" && a.status !== "승인") continue;
+    
+    const applicant = (a.applicantName || a.requesterName || "").trim();
+    if (applicant !== personName) continue;
+    
+    const startDate = a.formData?.startDate || a.startDate;
+    const endDate = a.formData?.endDate || a.endDate || startDate;
+    if (!startDate) continue;
+    
+    const s = String(startDate).substring(0, 10);
+    const e = String(endDate).substring(0, 10);
+    
+    if (dateStr >= s && dateStr <= e) {
+      return {
+        type: a.formData?.vacationType || "연차",
+        title: a.title || "휴가"
+      };
+    }
+  }
+  return null;
+}
+
+// 오늘 보고서 작성 여부 체크
+function hasTodayReport(author) {
+  const today = new Date();
+  const yymmdd = String(today.getFullYear()).substring(2, 4) +
+                 String(today.getMonth() + 1).padStart(2, '0') +
+                 String(today.getDate()).padStart(2, '0');
+  const sheetName = makeSheetName(author, yymmdd);
+  return !!(dailyData.sheets[sheetName] && dailyData.sheets[sheetName].length > 0);
+}
+
+// 보고서 작성 상태 체크 (오늘 기준)
+// ⭐ 한국 시간(KST) 기준 오늘 날짜 (YYYY-MM-DD)
+// JS의 toISOString()은 UTC 기준이라 한국시간 자정~오전 9시 사이엔 어제가 됨 → 수동으로 만들어야 함
+function getKSTToday() {
+  const now = new Date();
+  // 로컬 시간(브라우저 timezone) 사용. 한국에서 접속하면 KST.
+  // 만약 외국 timezone에서도 한국 시간이어야 하면 +9 변환 필요.
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getKSTTodayYYMMDD() {
+  return getKSTToday().substring(2).replace(/-/g, "");
+}
+
+function checkTodayReportStatus(author) {
+  const todayStr = getKSTToday();  // ⭐ 한국시간
+  
+  // 1. 주말이면 작성 불필요
+  if (isWeekend(todayStr)) {
+    return { status: "weekend", label: "주말", color: "#6b7280" };
+  }
+  
+  // 2. 공휴일이면 공휴일 표시
+  const holiday = checkHoliday(todayStr);
+  if (holiday) {
+    return { status: "holiday", label: `🎌 ${holiday}`, color: "#dc2626" };
+  }
+  
+  // 3. 연차/휴가 체크
+  const vac = checkVacation(author, todayStr);
+  if (vac) {
+    return { status: "vacation", label: `🌴 ${vac.type}`, color: "#10b981" };
+  }
+  
+  // 4. 오늘 보고서 작성 여부
+  if (hasTodayReport(author)) {
+    return { status: "done", label: "✅ 작성됨", color: "#10b981" };
+  }
+  
+  // 5. 미작성
+  return { status: "missing", label: "⚠️ 미작성", color: "#dc2626" };
+}
+
+// "+ 오늘 보고서 작성" 버튼 깜빡임 처리
+function updateTodayReportButtonStatus() {
+  const btn = document.querySelector('[onclick="createTodayReport()"]');
+  if (!btn) return;
+  
+  // 현재 선택된 작성자 (없으면 송현주)
+  const author = dailyData.currentAuthor || "정진영";
+  const status = checkTodayReportStatus(author);
+  
+  // 기존 깜빡임 클래스/스타일 제거
+  btn.classList.remove("blink-warning");
+  btn.style.animation = "";
+  
+  const today = new Date();
+  const todayLabel = `${today.getMonth() + 1}/${today.getDate()}`;
+  
+  if (status.status === "missing") {
+    // 깜빡임 적용
+    btn.style.animation = "blinkWarning 1.2s ease-in-out infinite";
+    btn.innerHTML = `⚠️ 오늘(${todayLabel}) 보고서 작성`;
+    btn.title = "오늘 보고서가 작성되지 않았습니다";
+  } else if (status.status === "holiday") {
+    btn.innerHTML = `🎌 ${status.label.replace("🎌 ", "")} (보고 불필요)`;
+    btn.title = status.label;
+    btn.style.opacity = "0.7";
+  } else if (status.status === "vacation") {
+    btn.innerHTML = `🌴 ${author} 연차일`;
+    btn.title = status.label;
+    btn.style.opacity = "0.7";
+  } else if (status.status === "weekend") {
+    btn.innerHTML = `📅 주말 (보고 불필요)`;
+    btn.style.opacity = "0.7";
+  } else if (status.status === "done") {
+    btn.innerHTML = `✅ 오늘 작성됨 (수정/추가)`;
+    btn.style.opacity = "1";
+  } else {
+    btn.innerHTML = `+ 오늘 보고서 작성`;
+    btn.style.opacity = "1";
+  }
+}
+
+// 날짜 옵션 라벨에 공휴일/연차 표시
+function renderDailyDateOptionsEnhanced() {
+  const sel = $("dailyDate");
+  if (!sel) return;
+  
+  const dates = getAvailableDates();
+  const author = dailyData.currentAuthor;
+  
+  while (sel.options.length > 1) sel.remove(1);
+  
+  for (const d of dates) {
+    const opt = document.createElement("option");
+    opt.value = d;
+    const dateFull = expandDate(d);
+    const weekday = getWeekday(d);
+    
+    // 공휴일/연차/주말 체크
+    let suffix = "";
+    const holiday = checkHoliday(dateFull);
+    const vac = checkVacation(author, dateFull);
+    const weekend = isWeekend(dateFull);
+    
+    if (holiday) suffix = ` 🎌 ${holiday}`;
+    else if (vac) suffix = ` 🌴 ${vac.type}`;
+    else if (weekend) suffix = ` 📅 주말`;
+    
+    opt.textContent = `${dateFull} (${weekday})${suffix}`;
+    sel.appendChild(opt);
+  }
+  
+  if (dates.length > 0 && !dailyData.currentDate) {
+    sel.value = dates[0];
+    dailyData.currentDate = dates[0];
+  } else if (dailyData.currentDate) {
+    sel.value = dailyData.currentDate;
+  }
+}
+
+// 기존 renderDailyDateOptions를 enhanced로 교체
+window.renderDailyDateOptions = renderDailyDateOptionsEnhanced;
+renderDailyDateOptions = renderDailyDateOptionsEnhanced;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 보고서 작성 리마인드 알림 (수동 호출용)
+// 실제 16:30 자동 스케줄은 Power Automate Flow에서 처리
+// 콘솔에서 sendReportReminders() 호출하면 즉시 발송
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const DAILY_REPORT_AUTHORS = ["정진영", "홍용원"];
+
+async function sendReportReminders() {
+  const todayStr = getKSTToday();  // ⭐ 한국시간
+  const dashboardUrl = "https://bhseong77.github.io/hr-dashboard/#dailyreport";
+  
+  for (const author of DAILY_REPORT_AUTHORS) {
+    // 연차 체크
+    const vac = checkVacation(author, todayStr);
+    if (vac) {
+      console.log(`[일일보고] ${author}은(는) ${vac.type} - 알림 스킵`);
+      continue;
+    }
+    
+    // 이미 작성했으면 스킵
+    if (hasTodayReport(author)) {
+      console.log(`[일일보고] ${author}은(는) 이미 작성함 - 알림 스킵`);
+      continue;
+    }
+    
+    const email = TEAMS_RECIPIENTS[author];
+    if (!email) continue;
+    
+    const html = `
+      <div style="font-family:'맑은 고딕',sans-serif;border-left:4px solid #ea580c;padding:14px 18px;background:#FFF7ED">
+        <div style="font-size:14px;color:#c2410c;font-weight:bold;margin-bottom:8px">
+          ⏰ 일일업무보고 작성 알림
+        </div>
+        <div style="font-size:13px;color:#1f2937;margin-bottom:10px">
+          <b>${escHtml(author)}</b>님, 오늘 일일업무보고 작성 시간입니다 (16:30).
+        </div>
+        <div style="background:#fff;border:1px solid #fed7aa;border-radius:6px;padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">📅 ${todayStr}</div>
+          <div style="font-size:13px;color:#374151">
+            아래 버튼을 클릭하면 보고서 작성 페이지가 바로 열립니다.<br>
+            <b>퇴근 전 오늘 진행한 업무를 정리해주세요.</b>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px">
+          <a href="${dashboardUrl}" target="_blank" 
+             style="display:inline-block;background:#ea580c;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px">
+            📋 일일업무보고 작성하기
+          </a>
+        </div>
+      </div>
+    `;
+    
+    try {
+      await sendTeamsToUser(email, html, `${author}님 보고서 작성 알림`);
+      console.log(`[일일보고] ✅ ${author} 알림 발송 완료`);
+    } catch (e) {
+      console.warn(`[일일보고] ${author} 알림 발송 실패:`, e);
+    }
+  }
+}
+
+// renderDailyReport에서 호출되도록 - 깜빡임 + 옵션 갱신
+function refreshDailyReportStatus() {
+  updateTodayReportButtonStatus();
+  renderDailyDateOptionsEnhanced();
+}
+
+// URL hash로 일일업무보고 직접 진입 (#dailyreport)
+function checkUrlHashForTab() {
+  const hash = window.location.hash.replace("#", "");
+  if (hash === "dailyreport") {
+    setTimeout(() => {
+      const navItem = document.querySelector('[data-tab="dailyreport"]');
+      if (navItem) navItem.click();
+    }, 1000);
+  }
+}
+
+// 초기화 (페이지 로드 시) - 16:30 알림은 Power Automate에서 처리
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    checkUrlHashForTab();
+  }, 3000);
+});
+
+window.checkHoliday = checkHoliday;
+window.isWeekend = isWeekend;
+window.checkVacation = checkVacation;
+window.hasTodayReport = hasTodayReport;
+window.checkTodayReportStatus = checkTodayReportStatus;
+window.updateTodayReportButtonStatus = updateTodayReportButtonStatus;
+window.refreshDailyReportStatus = refreshDailyReportStatus;
+window.sendReportReminders = sendReportReminders;
+
+
+
+
+
+// 셀 업데이트
+function updateDailyTask(idx, field, value) {
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  if (!dailyData.sheets[sheetName] || !dailyData.sheets[sheetName][idx]) return;
+  
+  dailyData.sheets[sheetName][idx][field] = value;
+  dailyData.modified = true;
+  $("dailySaveBtn").style.background = "#ea580c";
+  $("dailySaveBtn").style.color = "#fff";
+  $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+  
+  // 상태 변경 시 카드 색상 갱신
+  if (field === "status" || field === "category" || field === "decision") {
+    renderDailyTasks();
+  }
+}
+
+// 업무 추가
+function addDailyTask() {
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  if (!dailyData.currentDate) {
+    toast("날짜를 먼저 선택하거나 [+ 오늘 보고서 작성]을 클릭하세요", "error");
+    return;
+  }
+  if (!dailyData.sheets[sheetName]) dailyData.sheets[sheetName] = [];
+  
+  const tasks = dailyData.sheets[sheetName];
+  const newTask = {
+    no: tasks.length + 1,
+    category: "총무",
+    requester: "성백훈",
+    assignee: dailyData.currentAuthor,
+    requestDate: new Date().toISOString().substring(0, 10),
+    dueDate: "",
+    urgent: "-",
+    taskDesc: "",
+    todayPlan: "",
+    issue: "",
+    status: "진행중",
+    decision: "",
+    decidedBy: "",
+    decidedAt: "",
+    attachments: [],
+  };
+  tasks.push(newTask);
+  dailyData.modified = true;
+  
+  // 🆕 새로 추가한 업무는 자동 펼침
+  if (!window._dailyExpanded) window._dailyExpanded = new Set();
+  window._dailyExpanded.add(`${dailyData.currentAuthor}_${dailyData.currentDate}_${tasks.length - 1}`);
+  
+  renderDailyTasks();
+  
+  // 새로 추가된 카드로 스크롤
+  setTimeout(() => {
+    const cards = document.querySelectorAll(".daily-task-card");
+    if (cards.length > 0) {
+      cards[cards.length - 1].scrollIntoView({ behavior: "smooth", block: "center" });
+      // 요청업무 입력란 포커스
+      const textareas = cards[cards.length - 1].querySelectorAll("textarea");
+      if (textareas[0]) textareas[0].focus();
+    }
+  }, 100);
+  
+  toast("✅ 업무 추가됨", "success");
+}
+
+// 업무 삭제
+function deleteDailyTask(idx) {
+  if (!confirm("이 업무를 삭제하시겠습니까?")) return;
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  dailyData.sheets[sheetName].splice(idx, 1);
+  // NO 재정렬
+  dailyData.sheets[sheetName].forEach((t, i) => t.no = i + 1);
+  dailyData.modified = true;
+  renderDailyTasks();
+  toast("🗑️ 삭제됨", "success");
+}
+
+// 결정 입력 (모달)
+function addDailyDecision(idx) {
+  if (!canMakeDecision()) {
+    toast("⚠️ 결정 권한은 대표이사/전무만 가능합니다", "error");
+    return;
+  }
+  
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  const task = dailyData.sheets[sheetName][idx];
+  
+  showDailyDecisionModal(task, idx, false);
+}
+
+function editDailyDecision(idx) {
+  if (!canMakeDecision()) {
+    toast("⚠️ 결정 권한은 대표이사/전무만 가능합니다", "error");
+    return;
+  }
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  const task = dailyData.sheets[sheetName][idx];
+  showDailyDecisionModal(task, idx, true);
+}
+
+function showDailyDecisionModal(task, idx, isEdit) {
+  const modal = `
+    <div id="dailyDecisionModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeDailyDecisionModal()">
+      <div style="background:#fff;border-radius:14px;max-width:700px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)">
+        <div style="padding:18px 24px;background:linear-gradient(135deg,#10b981,#059669);color:#fff">
+          <div style="font-size:11px;opacity:0.9;font-weight:600">${isEdit ? '✏️ 결정 사항 수정' : '✅ 결정 사항 입력'}</div>
+          <div style="font-size:17px;font-weight:800;margin-top:2px">#${task.no} · ${escHtml(task.category)}</div>
+        </div>
+        
+        <div style="padding:20px 24px">
+          <!-- 원본 업무 요약 -->
+          <div style="background:#f9fafb;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px">
+            <div style="margin-bottom:6px"><b>📌 업무:</b> ${escHtml(task.taskDesc).substring(0, 200)}</div>
+            ${task.issue ? `<div style="color:#dc2626"><b>⚠️ 이슈:</b> ${escHtml(task.issue).substring(0, 300)}</div>` : ''}
+          </div>
+          
+          <!-- 결정 입력 -->
+          <div style="margin-bottom:16px">
+            <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">결정 사항</label>
+            <textarea id="decisionInput" rows="5" placeholder="결정 내용을 입력하세요" 
+                      style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:10px;font-size:13px;font-family:inherit">${escVal(task.decision)}</textarea>
+          </div>
+          
+          <!-- 결정자 정보 -->
+          <div style="background:#ecfdf5;border:1px solid #10b981;border-radius:8px;padding:10px;margin-bottom:16px;font-size:12px">
+            <div><b>결정자:</b> ${escHtml(userName || userEmail || "")}</div>
+            <div><b>결정 시각:</b> ${new Date().toLocaleString("ko-KR")}</div>
+          </div>
+          
+          <!-- 버튼 -->
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button onclick="closeDailyDecisionModal()" style="background:#fff;border:1px solid #d1d5db;color:#374151;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">취소</button>
+            <button onclick="confirmDailyDecision(${idx})" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">✅ 결정 확정</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  const existing = $("dailyDecisionModal");
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML("beforeend", modal);
+}
+
+function closeDailyDecisionModal() {
+  const m = $("dailyDecisionModal");
+  if (m) m.remove();
+}
+
+function confirmDailyDecision(idx) {
+  const decision = $("decisionInput").value.trim();
+  if (!decision) {
+    toast("결정 내용을 입력하세요", "error");
+    return;
+  }
+  
+  const sheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+  const task = dailyData.sheets[sheetName][idx];
+  task.decision = decision;
+  task.decidedBy = userName || userEmail || "";
+  task.decidedAt = new Date().toLocaleString("ko-KR");
+  
+  // 상태도 자동으로 진행중으로 (BH가 결정했으니까 다시 일해라)
+  if (task.status === "이슈확인") {
+    task.status = "진행중";
+  }
+  
+  dailyData.modified = true;
+  closeDailyDecisionModal();
+  renderDailyTasks();
+  toast("✅ 결정 사항 저장됨. [💾 저장] 버튼을 눌러 SharePoint에 반영하세요", "success");
+}
+
+// 오늘 보고서 작성
+function createTodayReport() {
+  // ⭐ 한국시간(로컬) 기준 오늘 - toISOString()은 UTC라 새벽엔 어제가 됨
+  const yymmdd = getKSTTodayYYMMDD();
+  const sheetName = makeSheetName(dailyData.currentAuthor, yymmdd);
+  
+  if (dailyData.sheets[sheetName]) {
+    // 이미 있음 → 그냥 선택
+    dailyData.currentDate = yymmdd;
+    $("dailyDate").value = yymmdd;
+    renderDailyDateOptions();
+    $("dailyDate").value = yymmdd;
+    syncDatePickerFromYYMMDD(yymmdd);
+    renderDailyTasks();
+    toast("📋 오늘 보고서로 이동", "info");
+    return;
+  }
+  
+  // ⭐ 어제 보고서가 있으면 그걸 복사 (한국시간 기준)
+  const today = new Date();
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  const yYymmdd = String(yesterday.getFullYear()).slice(2) +
+                 String(yesterday.getMonth() + 1).padStart(2, "0") +
+                 String(yesterday.getDate()).padStart(2, "0");
+  const yesterdaySheet = makeSheetName(dailyData.currentAuthor, yYymmdd);
+  
+  let baseTasks = [];
+  if (dailyData.sheets[yesterdaySheet]) {
+    // 어제 완료되지 않은 업무 복사 (이어서 진행)
+    baseTasks = dailyData.sheets[yesterdaySheet]
+      .filter(t => t.status !== "완료")
+      .map(t => ({
+        ...t,
+        todayPlan: "",   // 오늘 진행 계획은 비워둠
+      }));
+    // NO 재정렬
+    baseTasks.forEach((t, i) => t.no = i + 1);
+  }
+  
+  dailyData.sheets[sheetName] = baseTasks;
+  dailyData.currentDate = yymmdd;
+  dailyData.modified = true;
+  
+  renderDailyDateOptions();
+  $("dailyDate").value = yymmdd;
+  renderDailyTasks();
+  
+  if (baseTasks.length > 0) {
+    toast(`✅ 오늘 보고서 생성 (어제 진행중 ${baseTasks.length}건 이어받음)`, "success");
+  } else {
+    toast(`✅ 오늘 보고서 생성됨. [+ 업무 추가]로 시작하세요`, "success");
+  }
+}
+
+// 저장 (SharePoint 엑셀 업데이트)
+async function saveDailyReport() {
+  if (!dailyData.modified) {
+    toast("변경사항 없음", "info");
+    return;
+  }
+  
+  if (!dailyData.fileId) {
+    toast("파일이 로드되지 않음", "error");
+    return;
+  }
+  
+  $("dailySaveBtn").innerHTML = "💾 저장 중...";
+  $("dailySaveBtn").disabled = true;
+  
+  try {
+    const token = await getToken();
+    
+    // 현재 엑셀 다운로드
+    const dlR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${dailyData.fileId}/content`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const buf = await dlR.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellStyles: true });
+    
+    // 변경된 시트만 업데이트
+    for (const sheetName of Object.keys(dailyData.sheets)) {
+      const tasks = dailyData.sheets[sheetName];
+      
+      // 기존 시트가 있으면 그 시트의 헤더 영역 유지하고 데이터만 갱신
+      // 없으면 새 시트 생성 (다른 시트 복사)
+      if (!wb.SheetNames.includes(sheetName)) {
+        // 같은 작성자의 다른 시트 찾기 (템플릿 복사)
+        const author = sheetToAuthor(sheetName);
+        const templateSheet = wb.SheetNames.find(sn => sheetToAuthor(sn) === author);
+        if (templateSheet) {
+          // 시트 복제
+          const sourceWs = wb.Sheets[templateSheet];
+          const newWs = JSON.parse(JSON.stringify(sourceWs));
+          // 데이터 영역 클리어 (R8~R28)
+          for (let r = 8; r <= 28; r++) {
+            for (let c = 2; c <= 30; c++) {
+              const addr = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
+              delete newWs[addr];
+            }
+          }
+          wb.Sheets[sheetName] = newWs;
+          wb.SheetNames.push(sheetName);
+        } else {
+          // 템플릿 없으면 기본 시트 생성
+          wb.Sheets[sheetName] = XLSX.utils.aoa_to_sheet([
+            ["", "구매팀 업무보고"],
+            [], [],
+            ["", "", "작성일", "", "", "전체관리업무", "", "완료업무", "", "진행중업무"],
+            [], [],
+            ["", "NO", "대분류", "요청자", "담당자", "업무요청일자", "", "업무기한일자", "", "긴급사항", "", "요청업무", "", "", "", "", "", "금일진행계획/업무", "", "", "", "", "", "이슈/검토/결정필요사항", "", "", "", "", "", "진행상태"],
+          ]);
+          wb.SheetNames.push(sheetName);
+        }
+      }
+      
+      const ws = wb.Sheets[sheetName];
+      
+      // 데이터 쓰기 (R8부터)
+      for (let i = 0; i < tasks.length; i++) {
+        const t = tasks[i];
+        const rowNum = 8 + i;  // 1-indexed
+        
+        const setCell = (col, value) => {
+          const addr = XLSX.utils.encode_cell({ r: rowNum - 1, c: col - 1 });
+          ws[addr] = { v: value, t: typeof value === "number" ? "n" : "s" };
+        };
+        
+        setCell(2, t.no);
+        setCell(3, t.category);
+        setCell(4, t.requester);
+        setCell(5, t.assignee);
+        setCell(6, t.requestDate);
+        setCell(8, t.dueDate || "-");
+        setCell(10, t.urgent || "-");
+        setCell(12, t.taskDesc);
+        setCell(18, t.todayPlan);
+        setCell(24, t.issue);
+        setCell(30, t.status);
+        // 추가 컬럼 (결정사항)
+        if (t.decision) {
+          setCell(31, t.decision);
+          setCell(32, t.decidedBy);
+          setCell(33, t.decidedAt);
+        }
+        // 🆕 댓글 (AH 컬럼 = 34) - JSON 형태로 저장
+        if (Array.isArray(t.comments) && t.comments.length > 0) {
+          setCell(34, JSON.stringify(t.comments));
+        }
+      }
+      
+      // ref 갱신 (AH 컬럼까지 = 34)
+      ws['!ref'] = XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: Math.max(28, 7 + tasks.length), c: 33 }
+      });
+    }
+    
+    // 엑셀 저장
+    const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    
+    const upR = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${dailyData.fileId}/content`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      },
+      body: out
+    });
+    
+    if (!upR.ok) throw new Error(`업로드 실패 (${upR.status})`);
+    
+    dailyData.modified = false;
+    $("dailySaveBtn").style.background = "";
+    $("dailySaveBtn").style.color = "";
+    $("dailySaveBtn").innerHTML = "💾 저장";
+    $("dailySaveBtn").disabled = false;
+    
+    toast("✅ SharePoint 엑셀에 저장 완료!", "success");
+    console.log("[일일보고] ✅ 저장 완료");
+    
+    // 🆕 현재 작성/수정한 보고서를 BH + 변도영 대표에게 알림
+    const currentSheetName = makeSheetName(dailyData.currentAuthor, dailyData.currentDate);
+    const currentTasks = dailyData.sheets[currentSheetName] || [];
+    if (currentTasks.length > 0 && dailyData.currentDate) {
+      notifyDailyReportToViewers(dailyData.currentAuthor, dailyData.currentDate, currentTasks)
+        .then(sent => {
+          if (sent > 0) {
+            toast(`📱 Teams 알림 ${sent}명 발송 완료`, "info");
+          }
+        })
+        .catch(e => console.warn("[Teams] 보고서 알림 실패:", e));
+    }
+  } catch (e) {
+    console.error("[일일보고] 저장 실패:", e);
+    toast(`❌ 저장 실패: ${e.message}`, "error");
+    $("dailySaveBtn").innerHTML = "💾 저장 (수정됨)";
+    $("dailySaveBtn").disabled = false;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 첨부파일 (날짜 폴더)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function dailyAttachmentFolderPath() {
+  const date = dailyData.currentDate;
+  if (!date) return "";
+  // 260522 → 업무보고사항(20260522) (현재 SharePoint 구조)
+  return `${DAILY_REPORT_FOLDER}/업무보고사항(20${date})`;
+}
+
+async function loadDailyAttachments() {
+  const folder = dailyAttachmentFolderPath();
+  if (!folder) return;
+  
+  try {
+    const token = await getToken();
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(folder)}:/children`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    const list = $("dailyAttachmentsList");
+    if (!r.ok) {
+      list.innerHTML = `<div style="color:#9ca3af;font-size:12px;padding:8px">📂 폴더 없음 (파일 업로드 시 자동 생성됩니다)</div>`;
+      return;
+    }
+    
+    const data = await r.json();
+    const items = (data.value || []).filter(it => it.file);
+    
+    if (items.length === 0) {
+      list.innerHTML = `<div style="color:#9ca3af;font-size:12px;padding:8px">첨부 파일 없음</div>`;
+      return;
+    }
+    
+    let html = `<div style="display:flex;flex-direction:column;gap:6px">`;
+    for (const it of items) {
+      const ext = it.name.split('.').pop().toLowerCase();
+      const icon = ext === "pdf" ? "📕" : ext === "xlsx" || ext === "xls" ? "📊" : ext === "docx" || ext === "doc" ? "📘" : ext === "pptx" || ext === "ppt" ? "📙" : ext.match(/png|jpg|jpeg|gif/) ? "🖼️" : "📄";
+      const size = formatFileSize(it.size);
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb">
+          <span style="font-size:20px">${icon}</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${escHtml(it.name)}</div>
+            <div style="font-size:11px;color:#6b7280">${size} · ${new Date(it.lastModifiedDateTime).toLocaleString("ko-KR")}</div>
+          </div>
+          <a href="${it.webUrl}" target="_blank" style="background:#ea580c;color:#fff;padding:4px 12px;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">열기</a>
+        </div>`;
+    }
+    html += `</div>`;
+    list.innerHTML = html;
+  } catch (e) {
+    console.warn("[일일보고] 첨부 로드 실패:", e);
+  }
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function uploadDailyFiles() {
+  const input = $("dailyFileInput");
+  const files = input.files;
+  if (!files || files.length === 0) return;
+  
+  const folder = dailyAttachmentFolderPath();
+  if (!folder) {
+    toast("날짜를 먼저 선택하세요", "error");
+    return;
+  }
+  
+  toast(`📤 ${files.length}개 파일 업로드 중...`, "info");
+  
+  try {
+    const token = await getToken();
+    
+    // 폴더 생성 (없으면)
+    try {
+      await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(DAILY_REPORT_FOLDER)}:/children`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `업무보고사항(20${dailyData.currentDate})`,
+          folder: {},
+          "@microsoft.graph.conflictBehavior": "replace"
+        })
+      });
+    } catch (e) { /* 이미 있으면 무시 */ }
+    
+    let successCount = 0;
+    for (const file of files) {
+      const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(folder + "/" + file.name)}:/content`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: file
+      });
+      if (r.ok) successCount++;
+    }
+    
+    toast(`✅ ${successCount}/${files.length}개 업로드 완료`, "success");
+    input.value = "";
+    loadDailyAttachments();
+  } catch (e) {
+    console.error("[일일보고] 업로드 실패:", e);
+    toast(`❌ 업로드 실패: ${e.message}`, "error");
+  }
+}
+
+function openDailyFolder() {
+  const folder = dailyAttachmentFolderPath();
+  const url = `https://enjetco.sharepoint.com/sites/06.BackOffice/Shared%20Documents/Forms/AllItems.aspx?id=${encodeURIComponent('/sites/06.BackOffice/Shared Documents/' + folder)}`;
+  window.open(url, '_blank');
+}
+
+// 장기 추적 모드 (같은 분류/요청업무로 시간 흐름 추적)
+function showLongTermView() {
+  // 모든 시트의 업무를 통합
+  const allTasks = [];
+  for (const sheetName of Object.keys(dailyData.sheets)) {
+    const author = sheetToAuthor(sheetName);
+    const date = sheetToDate(sheetName);
+    for (const task of dailyData.sheets[sheetName]) {
+      allTasks.push({
+        ...task,
+        _author: author,
+        _date: date,
+        _sheetName: sheetName
+      });
+    }
+  }
+  
+  // 요청업무 기준 그룹핑 (같은 업무 추적)
+  const grouped = {};
+  for (const t of allTasks) {
+    if (!t.taskDesc) continue;
+    const key = `${t.assignee}|${t.taskDesc.substring(0, 30)}`;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(t);
+  }
+  
+  // 각 그룹 날짜순 정렬, 2회 이상 등장한 업무만
+  const longTermTasks = Object.entries(grouped)
+    .filter(([k, list]) => list.length >= 2)
+    .map(([k, list]) => {
+      list.sort((a, b) => a._date.localeCompare(b._date));
+      return {
+        key: k,
+        first: list[0],
+        last: list[list.length - 1],
+        count: list.length,
+        history: list
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+  
+  let rowsHtml = "";
+  for (const lt of longTermTasks) {
+    const isCompleted = lt.last.status === "완료";
+    const statusBadge = isCompleted 
+      ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">✅ 완료</span>'
+      : `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${lt.last.status}</span>`;
+    
+    rowsHtml += `
+      <tr>
+        <td style="font-size:11px;color:#6b7280">${lt.first._author}</td>
+        <td><span style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">${escHtml(lt.first.category)}</span></td>
+        <td style="font-size:12px;font-weight:600">${escHtml(lt.first.taskDesc.substring(0, 80))}</td>
+        <td style="font-size:11px;color:#6b7280">${expandDate(lt.first._date)}</td>
+        <td style="font-size:11px;color:#6b7280">${expandDate(lt.last._date)}</td>
+        <td style="text-align:center;font-weight:700">${lt.count}회</td>
+        <td>${statusBadge}</td>
+</script>
+
+
       <!-- 견적서 DB 탭 -->
       <!-- 📄 견적서 DB (구매: 거래처로부터 수신) -->
       <div class="page" id="tab-quote-db">
@@ -4512,6 +6720,7 @@
   <div class="mob-more-item" onclick="go('mc-bom',this);closeMobMore()"><span class="mob-icon">🔩</span>MC BOM</div>
   <div class="mob-more-item" onclick="go('vendor-scm',this);closeMobMore()"><span class="mob-icon">🏪</span>거래처 SCM</div>
   <div class="mob-more-item" onclick="go('purchase-todo',this);closeMobMore()"><span class="mob-icon">✅</span>구매Todo</div>
+  <div class="mob-more-item" onclick="go('pdaily',this);closeMobMore()"><span class="mob-icon">📋</span>일일업무보고</div>
   <div class="mob-more-item" onclick="go('project-status',this);closeMobMore()"><span class="mob-icon">📋</span>프로젝트현황</div>
 </div>
 
@@ -20419,6 +22628,8 @@ function getSLCalEventsAll() {
       organizer: e.organizer||"",
       location: e.location||"",
       source: "teams",
+      kind: e.kind || "",   // 🆕 kind 전파 (request/order)
+      originalTitle: e.originalTitle || e.title,
     });
   }
   // 2. slData의 활동들 중 시작일 있고 Teams에 없는 것 추가
@@ -23999,12 +26210,17 @@ async function deleteSLActivity(actId) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function createPRDueDateEvents(items, act, kind) {
   if(!Array.isArray(items) || !items.length) return;
+  // 🆕 단순화: 희망납기(요청)와 실제납기(납기) 두 종류만 사용
+  // - activity/request → "요청" (희망납기)
+  // - order → "납기" (실제납기)
   const labelMap = {
-    "activity":{ label: "구매요청", emoji: "🛒", color: "preset1" },  // 🆕 구매활동 최초 생성
-    "request": { label: "희망납기", emoji: "📥", color: "preset0" },  // 🆕 PR 업로드 = 희망납기
-    "order":   { label: "실제납기", emoji: "📦", color: "preset3" },  // 🆕 발주서 업로드 = 실제납기
+    "activity":{ label: "요청", emoji: "📥", color: "preset0", scheduleKind: "request" },
+    "request": { label: "요청", emoji: "📥", color: "preset0", scheduleKind: "request" },
+    "order":   { label: "납기", emoji: "📦", color: "preset3", scheduleKind: "order" },
   };
   const cfg = labelMap[kind] || labelMap["request"];
+  // 내부 저장 키도 통일 (activity → request)
+  const storageKind = cfg.scheduleKind;
   
   try {
     // 그룹 ID 확보
@@ -24033,11 +26249,11 @@ async function createPRDueDateEvents(items, act, kind) {
     // 🆕 ── 중복 방지: 같은 act + 같은 kind의 기존 일정 정리 ──
     // act 객체에 일정 ID 추적 필드: act._scheduleIds = { request: { "2026-06-30": "evt_id_xxx" }, order: { ... } }
     if(!act._scheduleIds) act._scheduleIds = {};
-    if(!act._scheduleIds[kind]) act._scheduleIds[kind] = {};
+    if(!act._scheduleIds[storageKind]) act._scheduleIds[storageKind] = {};
     
     // 기존 일정 중 새로 만들 날짜와 같은 것 또는 더 이상 사용 안 하는 것 삭제
     const newDates = new Set(byDate.keys());
-    const oldEntries = Object.entries(act._scheduleIds[kind] || {});
+    const oldEntries = Object.entries(act._scheduleIds[storageKind] || {});
     for(const [oldDate, oldEvtId] of oldEntries) {
       // 새로 만들 거나 더 이상 필요 없으면 삭제
       try {
@@ -24049,7 +26265,7 @@ async function createPRDueDateEvents(items, act, kind) {
       } catch(e) {
         // 이미 삭제됐거나 권한 부족 → 무시
       }
-      delete act._scheduleIds[kind][oldDate];
+      delete act._scheduleIds[storageKind][oldDate];
     }
     
     console.log(`📅 ${cfg.emoji} ${cfg.label} 일정 ${byDate.size}건 생성 (${kind})`);
@@ -24064,10 +26280,15 @@ async function createPRDueDateEvents(items, act, kind) {
         const rep = dateItems[0];
         const otherCount = dateItems.length - 1;
         
-        // 🆕 제목 포맷: {프로젝트코드} · {대표품목명} 외 N건 ({요청|납기})
-        // 예: "BM26005 · 전장박스 NIC-333N/SET 외 4건 (납기)"
+        // 🆕 제목 포맷: {프로젝트코드}-{대표품목} {총개수}({요청|납기})
+        // 예: "BM26002-Harness 5(요청)" / "BM26002-Harness 5(납기)"
         const repName = rep.itemName || rep.name || "품목";
-        const title = `${pjcode} · ${repName}${otherCount > 0 ? ` 외 ${otherCount}건` : ""} (${cfg.label})`;
+        const totalQty = dateItems.reduce((sum, it) => sum + Number(it.qty || 0), 0);
+        const itemSummary = dateItems.length === 1 
+          ? repName 
+          : `${repName} 외 ${dateItems.length - 1}건`;
+        const qtyStr = totalQty > 0 ? ` ${totalQty}` : "";
+        const title = `${pjcode}-${itemSummary}${qtyStr}(${cfg.label})`;
         
         // 본문: 모든 품목 리스트
         const itemList = dateItems.map((it, i) => 
@@ -24082,7 +26303,7 @@ async function createPRDueDateEvents(items, act, kind) {
 <p>${itemList}</p>
 <hr>
 <p style="font-size:11px;color:#666">ENJET 구매 대시보드 자동 생성 · 같은 납기일자 품목 ${dateItems.length}건 합쳐서 1개 일정으로 표시<br>
-🔑 구매활동 ID: ${act.id || "-"} · 종류: ${kind}</p>
+🔑 구매활동 ID: ${act.id || "-"} · 종류: ${storageKind}</p>
 </div>`;
         
         const eventBody = {
@@ -24101,9 +26322,9 @@ async function createPRDueDateEvents(items, act, kind) {
         );
         if(r.ok) {
           const created = await r.json();
-          // 🆕 생성된 일정 ID를 act에 저장 (추후 삭제용)
+          // 🆕 생성된 일정 ID를 act에 저장 (추후 삭제용) - storageKind 사용
           if(created.id) {
-            act._scheduleIds[kind][date] = created.id;
+            act._scheduleIds[storageKind][date] = created.id;
           }
           success++;
           console.log(`  ✅ ${date} 일정 생성: ${dateItems.length}품목 (id=${created.id?.substring(0,20)}...)`);
@@ -24273,7 +26494,7 @@ async function rebuildAllSchedules() {
     
     const t = await getToken();
     
-    // ── 1) 기존 구매 일정 모두 삭제 ──
+    // ── 1) 기존 구매 일정 모두 삭제 (요청/납기만 - 구 라벨도 호환 위해 포함) ──
     console.log("🔁 1단계: 기존 구매 일정 모두 삭제");
     const listResp = await fetch(
       `https://graph.microsoft.com/v1.0/groups/${gid}/events?$top=200&$select=id,subject`,
@@ -24282,8 +26503,10 @@ async function rebuildAllSchedules() {
     if(!listResp.ok) { alert("일정 조회 실패: " + listResp.status); return; }
     const listJson = await listResp.json();
     const allEvents = listJson.value || [];
+    // 구 라벨(구매요청/희망납기/실제납기/구매) + 신 라벨(요청/납기) 모두 정리
     const purchaseEvents = allEvents.filter(e => {
       const subj = e.subject || "";
+      // 끝에 (요청) 또는 (납기) 또는 구 라벨
       return /\((구매요청|희망납기|실제납기|요청|납기|구매)\)\s*$/.test(subj);
     });
     
@@ -24306,55 +26529,75 @@ async function rebuildAllSchedules() {
       act._scheduleIds = {};
     });
     
-    // ── 3) 각 구매활동 + PR + 발주서 기준으로 일정 새로 생성 ──
-    console.log("🔁 2단계: 일정 새로 생성");
+    // ── 3) 각 구매활동 기준으로 요청/납기 일정 새로 생성 ──
+    // 🆕 활동 자체 일정(activity) 제거 - 요청과 납기만 만듦
+    console.log("🔁 2단계: 일정 새로 생성 (요청 + 납기)");
     let created = 0;
     
     for(const act of (slData || [])) {
       if(!act.pjcode) continue;
       
-      // (a) 구매활동 자체의 "구매요청" 일정 (act.start 날짜)
-      if(act.start && typeof createPRDueDateEvents === "function") {
-        try {
-          // 대표 품목명: PR 첫 품목 or 기본
-          const myPRs = (_prMaster||[]).filter(p => p.parentSLId === act.id || p.salesCode === act.pjcode);
-          const repName = myPRs[0]?.itemName || act.note?.substring(0,30) || "구매활동";
-          const activityItem = { name: repName, dueDate: act.start, qty: 1, unit: "" };
-          await createPRDueDateEvents([activityItem], act, "activity");
-          created++;
-          console.log(`  🛒 ${act.pjcode} (구매요청): ${act.start}`);
-        } catch(e) { console.warn("activity 일정 실패:", e.message); }
+      // (a) 요청 일정 = ERP 구매품의 erpPqList + PR _prMaster 둘 다 사용
+      const requestItems = [];
+      
+      // ERP에서 자동 등록된 품의 데이터
+      if(Array.isArray(act.erpPqList)) {
+        for(const pq of act.erpPqList) {
+          if(pq.delvDate && pq.delvDate.length >= 8) {
+            requestItems.push({
+              name: pq.itemName,
+              itemName: pq.itemName,
+              partNo: pq.itemNo,
+              dueDate: `${pq.delvDate.substring(0,4)}-${pq.delvDate.substring(4,6)}-${pq.delvDate.substring(6,8)}`,
+              qty: pq.qty,
+              unit: "EA",
+              vendor: pq.cust
+            });
+          }
+        }
       }
       
-      // (b) PR 기준 "희망납기" 일정
+      // 수동 PR (pr-master.json)
       const myPRs = (_prMaster||[]).filter(p => p.parentSLId === act.id || p.salesCode === act.pjcode);
-      const prWithDue = myPRs.filter(p => p.dueDate);
-      if(prWithDue.length > 0 && typeof createPRDueDateEvents === "function") {
+      for(const pr of myPRs) {
+        if(pr.dueDate) {
+          requestItems.push({
+            name: pr.itemName,
+            itemName: pr.itemName,
+            partNo: pr.partNo || pr.itemCode || "",
+            dueDate: pr.dueDate,
+            qty: pr.qty || 1,
+            unit: pr.unit || "EA",
+            vendor: pr.vendor || ""
+          });
+        }
+      }
+      
+      if(requestItems.length > 0 && typeof createPRDueDateEvents === "function") {
         try {
-          await createPRDueDateEvents(prWithDue, act, "request");
-          // dueDate별로 그룹핑되어 1개씩 생성됨
-          const uniqueDates = [...new Set(prWithDue.map(p => p.dueDate.substring(0,10)))];
+          await createPRDueDateEvents(requestItems, act, "request");
+          const uniqueDates = [...new Set(requestItems.map(p => p.dueDate.substring(0,10)))];
           created += uniqueDates.length;
-          console.log(`  📥 ${act.pjcode} (희망납기): ${uniqueDates.length}건 (PR ${prWithDue.length}개)`);
+          console.log(`  📥 ${act.pjcode} (요청): ${uniqueDates.length}개 날짜`);
         } catch(e) { console.warn("request 일정 실패:", e.message); }
       }
       
-      // (c) 발주서 기준 "실제납기" 일정
+      // (b) 납기 일정 = 발주서 deliveryDate
       const myPOs = (_pordData||[]).filter(o => o.parentSLId === act.id || o.salesCode === act.pjcode);
-      const poWithDue = myPOs.filter(o => o.deliveryDate).map(o => ({
+      const orderItems = myPOs.filter(o => o.deliveryDate).map(o => ({
         name: o.items || o.vendor || "발주",
         itemName: o.items,
         dueDate: o.deliveryDate,
         qty: 1,
-        unit: "",
+        unit: "EA",
         vendor: o.vendor,
       }));
-      if(poWithDue.length > 0 && typeof createPRDueDateEvents === "function") {
+      if(orderItems.length > 0 && typeof createPRDueDateEvents === "function") {
         try {
-          await createPRDueDateEvents(poWithDue, act, "order");
-          const uniqueDates = [...new Set(poWithDue.map(p => p.dueDate.substring(0,10)))];
+          await createPRDueDateEvents(orderItems, act, "order");
+          const uniqueDates = [...new Set(orderItems.map(p => p.dueDate.substring(0,10)))];
           created += uniqueDates.length;
-          console.log(`  📦 ${act.pjcode} (실제납기): ${uniqueDates.length}건 (PO ${poWithDue.length}개)`);
+          console.log(`  📦 ${act.pjcode} (납기): ${uniqueDates.length}개 날짜`);
         } catch(e) { console.warn("order 일정 실패:", e.message); }
       }
     }
@@ -29604,7 +31847,7 @@ async function deleteSLActivity(id) {
 // 구매활동 탭 자동로드 → 통합 go 함수에서 처리
 
 // ━━ 탭/유틸 ━━
-const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서","erp-bom-master":"🔩 ERP BOM 마스터"};
+const TITLES={purchase:"📊 구매 현황","project-status":"📋 프로젝트현황",receipt:"✅ 매입완료","vendor-scm":"🏪 거래처 SCM","mc-bom":"🔩 MC BOM","purchase-log":"📋 구매활동","purchase-todo":"✅ 구매Todo",pdaily:"📋 일일업무보고","pr-db":"📝 구매요청서 DB","bom-db":"🧩 품목마스터","quote-db":"📄 견적서 DB","order-db":"📦 발주서 DB","delivery-db":"🚚 거래명세서 DB","tax-db":"🧾 세금계산서 DB","settle-db":"💼 회계전표 DB","erp-purchase-order":"📦 프로젝트구매발주입력","erp-purchase-receipt":"🚚 프로젝트구매납품입력","erp-po-query":"📥 ERP 발주품목조회","erp-dlv-query":"📥 ERP 입고정산조회","erp-recv-query":"📥 ERP 입고품목조회","erp-req-query":"📋 ERP 구매요청서","erp-bom-master":"🔩 ERP BOM 마스터"};
 
 // ━━ 통합 탭 전환 함수 (모든 탭 자동로드 포함) ━━
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -40736,7 +42979,8 @@ async function autoCreateActivitiesFromErp() {
         createdAt: now.toISOString(),
         // ⭐ ERP에서 생성된 품의 자료
         erpPqList: [erpPq],
-        autoCreatedFromErp: true
+        autoCreatedFromErp: true,
+        _scheduleIds: {}
       };
       slData.unshift(activity);
       createdCount++;
@@ -40750,6 +42994,29 @@ async function autoCreateActivitiesFromErp() {
         activity.erpPqList.push(erpPq);
         updatedCount++;
         console.log(`📌 기존 활동에 품의 추가: ${pjcode} ← ${info.approReqNo}`);
+      }
+    }
+    
+    // ⭐ 희망납기(요청) 일정 자동 생성/갱신
+    // 이 활동의 모든 ERP 품의의 납기일을 모아서 caleendar에 등록
+    if(activity.erpPqList && activity.erpPqList.length > 0 && typeof createPRDueDateEvents === "function") {
+      // erpPq[].delvDate (YYYYMMDD) → YYYY-MM-DD 변환 + 일정 데이터 구성
+      const calItems = activity.erpPqList
+        .filter(pq => pq.delvDate && pq.delvDate.length >= 8)
+        .map(pq => ({
+          name: pq.itemName,
+          itemName: pq.itemName,
+          partNo: pq.itemNo,
+          dueDate: `${pq.delvDate.substring(0,4)}-${pq.delvDate.substring(4,6)}-${pq.delvDate.substring(6,8)}`,
+          qty: pq.qty,
+          unit: "EA",
+          vendor: pq.cust
+        }));
+      if(calItems.length > 0) {
+        // 비동기 - 백그라운드 실행 (대기 안 함)
+        createPRDueDateEvents(calItems, activity, "request")
+          .then(() => console.log(`  📅 ${pjcode} 요청 일정 생성/갱신`))
+          .catch(e => console.warn(`일정 생성 실패: ${e.message}`));
       }
     }
     
